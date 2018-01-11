@@ -1,0 +1,211 @@
+#+PROPERTY: header-args :results output :session *julia* :noweb yes
+#+OPTIONS: title:nil author:nil date:nil toc:nil
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS: [12pt]
+#+LATEX_HEADER_EXTRA: \input{\string~/Dropbox/Tex/standard_preamble.tex}
+#+AUTHOR: Graham Smith
+#+EMAIL: grahamas@gmail.com
+#+TITLE: Fitting the Wilson-Cowan Integro-Differential Equations
+#+LATEX_HEADER: \input{\string~/Dropbox/Tex/math_preamble.tex}
+
+
+* Introduction
+
+Here I will simulate the spatially one-dimensional Wilson-Cowan equations as described in
+*************** TODO Cite Wilson, Cowan 1973 paper
+*************** END
+
+*************** TODO Figure out citations in org-mode
+*************** END
+
+using the Julia.
+
+* Equations
+
+First, let's specify the equations we will be simulating:
+
+\[\begin{align}
+\tau_E \partial_t E(x,t) &= -\alpha_E E(x,t) + \beta_E (1 - E(x,t)) \cS_E \left( W_{EE}(X) \conv E(x,t) + W_{EI}(X) \conv I(x,t) + P_E(x,t)\right)\\
+\tau_I \partial_t I(x,t) &= -\alpha_I I(x,t) + \beta_I (1 - I(x,t)) \cS_I \left( W_{IE}(X) \conv E(x,t) +  W_{II}(X) \conv I(x,t) + P_I(x,t)\right)
+\end{align}\]
+*************** TODO Make nonlinearity a mathop
+*************** END
+
+
+though in practice we discretize and turn the convolution into a matrix multiplication (the latter a decision made for the author's understanding rather than for any computational considerations). Suppose we discretize space into $M$ points, so that we can think of $E(\cdot, t)$ as a $M\times 1$ vector. Define $\bA(t)$ as the vertical concatenation of $E(\cdot, t)$ on top of $I(\cdot, t)$ such that $\bA(t)$ is a $2M \times 1$ vector.[fn:1]  Then the equation we actually simulate is
+
+\[\begin{align}
+\btau \odot \Delta \bA(t^+) &= -\balpha \odot \bA(t) + \bbeta \odot (1 - \bA(t)) \cS \left( \bW \bA(t) + \bP(t)\right)
+\end{align}\]
+
+where $\odot$ is the Hademard (element-wise) product of an appropriately expanded[fn:2] parameter vector, e.g. so that in the first instance, each element of $\bA$ corresponding to an element of $E$ is multiplied by $\tau_E$, and similarly for $I$.
+
+* Simulation
+
+The code will proceed as follows
+
+#+BEGIN_SRC julia :noweb no-export :results silent
+<<load-modules>>
+<<read-parameters>>
+<<define-wc-equation>>
+<<solve-wc-equation>>
+<<process-results>>
+#+END_SRC
+
+** Imports
+
+#+BEGIN_SRC julia :noweb-ref load-modules
+using ParameterizedFunctions
+#+END_SRC
+
+** Parameter Reading
+
+See appendix.
+
+** Define Equation
+
+I will relegate the sigmoid and input functions to the appendix. Suffice to say, the sigmoid is rectified and normed, and the input function is a step function centered at $x=0$.
+
+#+BEGIN_SRC julia :noweb no-export :noweb-ref define-wc-equation :results silent
+sigmoid = () -> nothing
+<<define-sigmoid>>
+<<define-input>>
+#+END_SRC
+
+
+#+BEGIN_SRC julia
+  const NumType = Float64
+  const TimeType = NumType
+  const PopulationParam = RowVector{NumType}
+  const InteractionParam = Array{NumType}
+  const SpaceState = Vector{NumType}
+  type WilsonCowan73 <: AbstractParameterizedFunction{true}
+      α::PopulationParam     # Weight on homeostatic term
+      β::PopulationParam     # Weight on nonlinear term
+      τ::PopulationParam     # Time constant
+      a::PopulationParam     # Sigmoid steepness
+      θ::PopulationParam     # Sigmoid translation
+      r::PopulationParam     # Refractory period multiplier
+      W::InteractionParam    # Tensor interaction multiplier
+      inp_frame::SpaceState  # Vector giving the "on" input
+      inp_duration::TimeType # Scalar input duration (time units)
+  end
+
+  function WilsonCowan73(p)
+      xs = make_mesh(p[:space])
+
+      inp_params = p[:input]
+      inp_frame = make_input_frame(xs, inp_params[:width], inp_params[:strength])
+
+      connectivity_params = p[:connectivity]
+      connectivity_tensor = sholl_tensor(p[:space], connectivity_params[:w], connectivity_params[:sigma])
+
+      return WilsonCowan73(p[:alpha], p[:beta], p[:tau], p[:a], p[:thet:sa], p[:r],
+			   connectivity_tensor, inp_frame, inp_params[:duration])
+  end
+
+  (p::WilsonCowan73)(t,A,dA) = begin
+      # Use dA as intermediate variable for tensor op since it is preallocated
+      @tensor dA[x_tgt, pop_tgt] = p.W[x_tgt, x_src, pop_tgt, pop_src] * A[x_src, pop_src]
+      @. dA = (p.α * A + p.β * (1 - A) * @sigmoid(dA + @step_input(t, p.inp_frame, p.inp_duration), a, θ)) / τ
+  end
+#+END_SRC
+
+* Appendix
+
+#+BEGIN_SRC julia :noweb-ref helper-functions :results silent
+  function make_mesh(dim_params)
+      extent = dim_params["extent"]
+      N = dim_params["N"]
+
+      return linspace(-extent, extent, N)
+  end
+
+  function sholl_matrix(amplitude, spread, dist_mx, step_size)
+      conn_mx = @. amplitude * step_size * exp(
+	  -abs(dist_mx / spread)
+      ) / (2 * spread)
+      return conn_mx
+  end
+
+  function distance_matrix(xs)
+      # also aka Hankel, but that method isn't working in SpecialMatrices
+      distance_mx = zeros(eltype(xs), length(xs), length(xs))
+      for i in range(1, length(xs))
+	  distance_mx[:, i] = abs.(xs - xs[i])
+      end
+      return distance_mx'
+  end
+
+  function sholl_tensor(xs, W, Σ)
+      N_x = length(xs)
+      N_pop = size(W)[1]
+      conn_tn = zeros(N_x, N_x, N_pop, N_pop)
+      for tgt_pop in range(1,N_pop)
+	  for src_pop in range(1,N_pop)
+	      conn_tn[:, :, tgt_pop, src_pop] .= sholl_matrix(W[tgt_pop, src_pop],
+			    Σ[tgt_pop, src_pop], distance_matrix(xs), step(xs))
+	  end
+      end
+      return conn_tn
+  end
+
+#+END_SRC
+
+#+BEGIN_SRC julia :noweb-ref define-sigmoid :results silent
+  macro simple_sigmoid(x, a, theta)
+      return :(1 / (1 + exp(-$(esc(a)) * ($(esc(x)) - $(esc(theta))))))
+  end
+
+  macro sigmoid(x, a, theta)
+    return :(max(0, @simple_sigmoid(x, a, theta) - @simple_sigmoid(x, a, 0)))
+  end
+
+  function simple_sigmoid_fn(x, a, theta)
+      return @simple_sigmoid(x, a, theta)
+  end
+
+  function sigmoid_fn(x, a, theta)
+      return @sigmoid(x, a, theta)
+  end
+#+END_SRC
+
+*************** TODO Experiment with constant steep_a, both numerically and syntactically
+*************** END
+
+#+BEGIN_SRC julia :noweb-ref define-input :results silent
+  const steep_a = 10
+  macro step_input(t_sym, on_frame_sym, duration_sym)
+     return :($(esc(on_frame_sym)) * (1-@simple_sigmoid($(esc(t_sym)), $steep_a, $(esc(duration_sym)))))
+  end
+
+  function make_input_frame(xs, width, strength)
+      return @. strength * (simple_sigmoid_fn(xs, 10, -width/2) - simple_sigmoid_fn(xs, , width/2))
+  end
+#+END_SRC
+
+#+BEGIN_SRC julia :noweb-ref visualise-step-input :results graphics
+  let N_x=500, x_extent=3, width=2, strength=3, duration=4, N_t=700, t_extent=7
+      global xs = linspace(-x_extent, x_extent, N_x)
+      global on_frame = input_frame(xs, width, strength)
+      global ts = linspace(0, t_extent, N_t)
+      global val = zeros(Float64, N_x, N_t)
+      for (i,t) in enumerate(ts)
+	  val[:,i] = @step_input(t, on_frame, duration)
+      end
+  end
+  x_grid = repeat(xs, outer=(1, length(ts)));
+  t_grid = repeat(ts', outer=(length(xs),1));
+  Plots.surface(x_grid, t_grid, val)
+#+END_SRC
+
+#+RESULTS:
+:
+:
+:
+
+* Footnotes
+
+[fn:2] Under the tensor notation, this is merely broadcasting.
+
+[fn:1] It will be more natural (and likely extensible) to concatenate along the second dimension, as done in the previous Python implementation. Here I restrict myself to vertical concatenation to avoid muddling things with the introduction of tensor multiplication and Einstein notation.
