@@ -49,8 +49,8 @@ The code will proceed as follows
 <<parameters-loader>>
 <<wc73-definition>>
 <<wc73-solver>>
-<<solve>>
-<<process-results>>
+<<wc73-analysis>>
+<<run-wc73-trial>>
 #+END_SRC
 
 See the appendix for helper functions, including parameter loading.
@@ -155,38 +155,61 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 
 #+BEGIN_SRC julia :noweb-ref wc73-solver
 
-  function solve_WilsonCowan73(json_filename::String)
-      parameters = load_WilsonCowan73_parameters(json_filename)
-      time_params = pop!(parameters, :time)
-      tspan = (0.0, time_params[:extent])
-
-      step_args = Dict()
-      if :dt in keys(time_params)
-	  step_args[:dt] = time_params[:dt]
-	  step_args[:adaptive] = false
-          step_args[:alg] = Euler
-      end
-
-      wc73_fn = WilsonCowan73(parameters)
+  function solve_WilsonCowan73(wc73_fn::WilsonCowan73, solver_params::Dict)
+      # Define problem
       u0 = similar(wc73_fn.stimulus_frame, NumType)
       u0 .= 0
+      tspan = (0.0, pop(solver_params, :T))
       prob = ODEProblem(wc73_fn, u0, tspan)
-      soln = solve(prob; step_args...)
+
+      # Solve problem
+      soln = solve(prob; solver_params...)
+
+      return soln
+  end
+
+#+END_SRC
+
+** Analysis and Runner
+This code currently only plots.
+#+BEGIN_SRC julia :noweb-ref wc73-analysis
+
+  function solution_gif(soln; root="", filename="solution.gif", disable=0, subsample=1, fps=15)
+      if disable
+	  return
+      end
       max_activity = maximum(soln, (1,2,3))[1] # I don't know why this index is here.
       min_activity = minimum(soln, (1,2,3))[1]
       anim = @animate for i in 1:length(soln.t)
 	  plot([soln[:,1,i], soln[:,2,i]], ylim=(min_activity, max_activity), title="t=$(soln.t[i])")
       end
-      gif(anim, "solution.gif", fps=15)
+      save_path = joinpath(root, filename)
+      if !(isfile(save_path))
+	  gif(anim, save_path, fps=fps)
+      else
+	  warn("Tried to write existing gif $(save_path).")
+      end
+  end
+
+  function analyse_WilsonCowan73_solution(soln, analyses)
+      root = analyses[:root]
+      solution_gif(soln; root=root, analyses[:activity_gif]...)
+  end
+
+
+  function run_WilsonCowan73_trial(json_filename::String)
+      params = load_WilsonCowan73_parameters(json_filename)
+      soln = solve_WilsonCowan73(WilsonCowan73(params[:model]), params[:solver])
+      analyse_WilsonCowan73_solution(soln, params[:analysis])
   end
 
 #+END_SRC
 
-** Solve
+** Run Trial
 
 Then the solution is as simple as
-#+BEGIN_SRC julia :noweb-ref solve
-solve_WilsonCowan73("jl_replicate_neuman.json")
+#+BEGIN_SRC julia :noweb-ref run-wc73-trial
+run_WilsonCowan73_trial("jl_replicate_neuman.json")
 #+END_SRC
 
 #+RESULTS:
@@ -194,7 +217,7 @@ solve_WilsonCowan73("jl_replicate_neuman.json")
 : Plots.AnimatedGif("/home/grahams/Dropbox/Research/simulation-73/solution.gif")
 
 * Appendix
-** Parameter reading
+** Parameter file reading
 Because I originally wrote this in Python, the parameter files are JSON.
 #+BEGIN_SRC julia :noweb-ref parameters-loader :results silent
   function convert_py(val)
