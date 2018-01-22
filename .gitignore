@@ -3,3 +3,7 @@
 results
 *.gif
 .juliahistory
+/profiling_macros
+py_exemplars/
+*.pdf
+*.tex
