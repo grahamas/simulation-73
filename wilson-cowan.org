@@ -45,12 +45,12 @@ where $\odot$ is the Hademard (element-wise) product of an appropriately expande
 The code will proceed as follows
 
 #+BEGIN_SRC julia :noweb no-export :results silent :tangle yes
-<<load-modules>>
-<<parameters-loader>>
-<<wc73-definition>>
-<<wc73-solver>>
-<<wc73-analysis>>
-<<run-wc73-trial>>
+ <<load-modules>>
+ <<parameters-loader>>
+ <<wc73-definition>>
+ <<wc73-solver>>
+ <<wc73-analysis>>
+ <<run-wc73-trial>>
 #+END_SRC
 
 See the appendix for helper functions, including parameter loading.
@@ -76,10 +76,10 @@ See the appendix for helper functions, including parameter loading.
 I will relegate the sigmoid and input functions to the appendix. Suffice to say, the sigmoid is rectified and normed, and the input function is a step function centered at $x=0$.
 
 #+BEGIN_SRC julia :noweb no-export :noweb-ref wc73-definition :results silent
+  <<define-wc73-types>>
   <<define-sigmoid>>
   <<define-stimulus>>
   <<define-connectivity>>
-  <<define-wc73-types>>
   <<define-wc73-constructor>>
   <<define-wc73-differential>>
 #+END_SRC
@@ -88,8 +88,9 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
   const NumType = Float64
   const TimeType = NumType
   const PopulationParam = RowVector{NumType}
-  const InteractionParam = Array{NumType}
+  const InteractionParam = Array{NumType,4} # TODO: Change to matmul (dim=2)
   const SpaceState = Array{NumType,2}
+  const SpaceMesh = StepRangeLen{NumType}
   @with_kw struct WilsonCowan73 <: AbstractParameterizedFunction{true}
     # Explict fields in parameter file
     # May also be given as LaTeX command (e.g. alpha for α)
@@ -130,7 +131,6 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 
 	connectivity_params = pop!(p, :connectivity)
 	p[:W] = sholl_tensor(xs, connectivity_params[:amplitudes], connectivity_params[:spreads])
-
 	return WilsonCowan73(; p...)
     end
 
@@ -159,7 +159,7 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
       # Define problem
       u0 = similar(wc73_fn.stimulus_frame, NumType)
       u0 .= 0
-      tspan = (0.0, pop(solver_params, :T))
+      tspan = (0.0, pop!(solver_params, :T))
       prob = ODEProblem(wc73_fn, u0, tspan)
 
       # Solve problem
@@ -175,7 +175,7 @@ This code currently only plots.
 #+BEGIN_SRC julia :noweb-ref wc73-analysis
 
   function solution_gif(soln; root="", filename="solution.gif", disable=0, subsample=1, fps=15)
-      if disable
+      if disable == 0
 	  return
       end
       max_activity = maximum(soln, (1,2,3))[1] # I don't know why this index is here.
@@ -200,7 +200,7 @@ This code currently only plots.
   function run_WilsonCowan73_trial(json_filename::String)
       params = load_WilsonCowan73_parameters(json_filename)
       soln = solve_WilsonCowan73(WilsonCowan73(params[:model]), params[:solver])
-      analyse_WilsonCowan73_solution(soln, params[:analysis])
+      analyse_WilsonCowan73_solution(soln, params[:analyses])
   end
 
 #+END_SRC
@@ -221,14 +221,18 @@ run_WilsonCowan73_trial("jl_replicate_neuman.json")
 Because I originally wrote this in Python, the parameter files are JSON.
 #+BEGIN_SRC julia :noweb-ref parameters-loader :results silent
   function convert_py(val)
-      return float(val)
+      if isa(val, Number)
+	  return float(val)
+      else
+	  return val
+      end
   end
 
   function parse_pyarray(a)
       if isa(a[1], Array)
-	  return convert_py(hcat(a...))'
+	  return convert_py.(hcat(a...))'
       else
-	  return convert_py(vcat(a...))'
+	  return convert_py.(vcat(a...))'
       end
   end
 
@@ -314,16 +318,16 @@ The current definition uses a macro. It is not clear that this is necessary, nor
 We use an exponential connectivity function, inspired both by Sholl's experimental work, and by certain theoretical considerations.
 
 #+BEGIN_SRC julia :noweb-ref define-connectivity :results silent
-  function make_mesh(dim_params)
-      extent = dim_params[:extent]
-      N = dim_params[:N]
+  function make_mesh(dim_params)::SpaceMesh
+      extent::NumType = dim_params[:extent]
+      N::Integer = dim_params[:N]
 
       return linspace(-extent, extent, N)
   end
 
 
-  function distance_matrix(xs)
-      # also aka Hankel, but that method isn't working in SpecialMatrices
+  function distance_matrix(xs::SpaceMesh)
+      # aka Hankel, but that method isn't working in SpecialMatrices
       distance_mx = zeros(eltype(xs), length(xs), length(xs))
       for i in range(1, length(xs))
 	  distance_mx[:, i] = abs.(xs - xs[i])
@@ -331,14 +335,14 @@ We use an exponential connectivity function, inspired both by Sholl's experiment
       return distance_mx'
   end
 
-  function sholl_matrix(amplitude, spread, dist_mx, step_size)
+  function sholl_matrix(amplitude::NumType, spread::NumType, dist_mx::Array{NumType,2}, step_size::NumType)
       conn_mx = @. amplitude * step_size * exp(
 	  -abs(dist_mx / spread)
       ) / (2 * spread)
       return conn_mx
   end
 
-  function sholl_tensor(xs, W, Σ)
+  function sholl_tensor(xs::SpaceMesh, W::Array{NumType,2}, Σ::Array{NumType,2})
       N_x = length(xs)
       N_pop = size(W)[1]
       conn_tn = zeros(N_x, N_x, N_pop, N_pop)
@@ -389,13 +393,6 @@ As mentioned above, the ParameterizedFunction does some automatic differentiatio
   Plots.surface(val)
 #+END_SRC
 
-#+RESULTS:
-:
-:
-:
-:
-:
-: Plots.GRBackend()
 
 * Footnotes
 
