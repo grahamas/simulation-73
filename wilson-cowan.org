@@ -69,6 +69,8 @@ See the appendix for helper functions, including parameter loading.
   using DifferentialEquations
 
   using Plots; gr()
+
+  import Base.Dates
 #+END_SRC
 
 ** Define WilsonCowan73
@@ -155,12 +157,12 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 
 #+BEGIN_SRC julia :noweb-ref wc73-solver
 
-  function solve_WilsonCowan73(wc73_fn::WilsonCowan73, solver_params::Dict)
+  function solve_WilsonCowan73(wc73_fn::WilsonCowan73, solver_params)::DESolution
       # Define problem
       u0 = similar(wc73_fn.stimulus_frame, NumType)
       u0 .= 0
       tspan = (0.0, pop!(solver_params, :T))
-      prob = ODEProblem(wc73_fn, u0, tspan)
+      prob::DEProblem = ODEProblem(wc73_fn, u0, tspan)
 
       # Solve problem
       soln = solve(prob; solver_params...)
@@ -173,35 +175,21 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 ** Analysis and Runner
 This code currently only plots.
 #+BEGIN_SRC julia :noweb-ref wc73-analysis
+  <<file-helpers>>
+  <<plotting-helpers>>
 
-  function solution_gif(soln; root="", filename="solution.gif", disable=0, subsample=1, fps=15)
-      if disable == 0
-	  return
-      end
-      max_activity = maximum(soln, (1,2,3))[1] # I don't know why this index is here.
-      min_activity = minimum(soln, (1,2,3))[1]
-      anim = @animate for i in 1:length(soln.t)
-	  plot([soln[:,1,i], soln[:,2,i]], ylim=(min_activity, max_activity), title="t=$(soln.t[i])")
-      end
-      save_path = joinpath(root, filename)
-      if !(isfile(save_path))
-	  gif(anim, save_path, fps=fps)
-      else
-	  warn("Tried to write existing gif $(save_path).")
-      end
-  end
+    function analyse_WilsonCowan73_solution(soln; analyses=nothing, all_params...)
+	dir_name = output_dir_name(; analyses...)
+	write_params(dir_name; analyses=analyses, all_params...)
+	solution_gif(soln; dir_name=dir_name, analyses[:activity_gif]...)
+    end
 
-  function analyse_WilsonCowan73_solution(soln, analyses)
-      root = analyses[:root]
-      solution_gif(soln; root=root, analyses[:activity_gif]...)
-  end
-
-
-  function run_WilsonCowan73_trial(json_filename::String)
-      params = load_WilsonCowan73_parameters(json_filename)
-      soln = solve_WilsonCowan73(WilsonCowan73(params[:model]), params[:solver])
-      analyse_WilsonCowan73_solution(soln, params[:analyses])
-  end
+    function run_WilsonCowan73_trial(json_filename::String)
+	params::Dict = load_WilsonCowan73_parameters(json_filename)
+	#print(@code_warntype solve_WilsonCowan73(WilsonCowan73(params[:model]::Dict), params[:solver]::Dict))
+	soln = solve_WilsonCowan73(WilsonCowan73(params[:model]::Dict), params[:solver]::Dict)
+	analyse_WilsonCowan73_solution(soln; params...)
+    end
 
 #+END_SRC
 
@@ -305,11 +293,11 @@ The current definition uses a macro. It is not clear that this is necessary, nor
   end
 
   function simple_sigmoid_fn(x, a, theta)
-      return @simple_sigmoid(x, a, theta)
+      return @. 1 / (1 + exp(-a * (x - theta)))
   end
 
   function sigmoid_fn(x, a, theta)
-      return @sigmoid(x, a, theta)
+      return return @. max(0, simple_sigmoid_fn(x, a, theta) - simple_sigmoid_fn(0, a, theta))
   end
 #+END_SRC
 
@@ -369,6 +357,10 @@ As mentioned above, the ParameterizedFunction does some automatic differentiatio
      return :(@. $(esc(on_frame_sym)) * (1-@simple_sigmoid($(esc(t_sym)), $(esc(steepness_sym)), $(esc(duration_sym)))))
   end
 
+  function step_stimulus_fn(t, on_frame, duration, steepness)
+      return @. on_frame * (1 - simple_sigmoid_fn(t, steepness, duration))
+  end
+
   function make_stimulus_frame(xs, n_pops, width, strength, steepness)
       one_pop_frame = @. strength * (simple_sigmoid_fn(xs, steepness, -width/2) - simple_sigmoid_fn(xs, steepness, width/2))
       return repeat(one_pop_frame, outer=(1,n_pops))
@@ -393,7 +385,53 @@ As mentioned above, the ParameterizedFunction does some automatic differentiatio
   Plots.surface(val)
 #+END_SRC
 
+** Plotting
+Plotting helper functions.
+#+BEGIN_SRC julia :noweb-ref plotting-helpers
 
+  function solution_gif(soln; dir_name="", file_name="solution.gif",
+			disable=0, subsample=1, fps=15)
+      if disable != 0
+	  return
+      end
+      max_activity = maximum(soln, (1,2,3))[1] # I don't know why this index is here.
+      min_activity = minimum(soln, (1,2,3))[1]
+      print(size(soln))
+      anim = @animate for i in 1:length(soln.t)
+	  plot([soln[:,1,i], soln[:,2,i]], ylim=(min_activity, max_activity), title="t=$(soln.t[i])")
+      end
+      save_path = joinpath(dir_name, file_name)
+      @safe_write(save_path, gif(anim, save_path, fps=fps))
+  end
+
+#+END_SRC
+** File output
+Helper functions for writing out results.
+#+BEGIN_SRC julia :noweb-ref file-helpers
+
+  macro safe_write(path, writer)
+      quote
+	  if !(isfile($(esc(path))))
+	      $(esc(writer))
+	  else
+	      warn("Tried to write existing file: $(esc(path))")
+	  end
+      end
+  end
+
+  function output_dir_name(; root=nothing, simulation_name=nothing, other...)
+      now = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS.s")
+      dir_name = joinpath(root, simulation_name, now)
+      mkpath(dir_name)
+      return dir_name
+  end
+
+  function write_params(dir_name; params...)
+      save_path = joinpath(dir_name, "parameters.json")
+      @safe_write(save_path, write(save_path, JSON.json(params)))
+  end
+
+#+END_SRC
 * Footnotes
 
 [fn:2] Under the tensor notation, this is merely broadcasting.
