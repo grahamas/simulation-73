@@ -11,26 +11,26 @@
 	"tau": [0.1, 0.18],
 	"alpha": [1.5, 1.0],
 	"stimulus": {
-	    "duration": 4,
+	    "name": "sharp_bump",
+	    "duration": 0.04,
 	    "strength": 1.2,
-	    "width": 4.5,
-	    "steepness": 100
+	    "width": 4.5
 	},
 	"r": [1,1],
 	"a": [1.2, 1.0],
 	"theta": [2.6, 8.0]
     },
     "solver": {
-	"T": 7,
-	"dt":0.01
+	"T": 4,
+	"dt": 0.01
     },
     "analyses": {
 	"root": "./results",
-	"simulation_name": "looking_for_oscillatory_traveling_waves",
+	"simulation_name": "TEST_looking_for_oscillatory_traveling_waves",
 	"activity_gif" : {
 	    "file_name": "activity.gif",
 	    "disable": 0,
-	    "subsample": 10
+	    "subsample": 5
 	}
     }
 

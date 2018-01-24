@@ -1,4 +1,4 @@
-#+PROPERTY: header-args :results output :session *julia* :noweb yes
+#+PROPERTY: header-args :results output silent :session *julia* :noweb yes
 #+OPTIONS: title:nil author:nil date:nil toc:nil
 #+LATEX_CLASS: article
 #+LATEX_CLASS_OPTIONS: [12pt]
@@ -88,6 +88,7 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 
 #+BEGIN_SRC julia :noweb-ref define-wc73-types
   const NumType = Float64
+  const DistType = NumType
   const TimeType = NumType
   const PopulationParam = RowVector{NumType}
   const InteractionParam = Array{NumType,4} # TODO: Change to matmul (dim=2)
@@ -109,49 +110,42 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
     # :connectivity => {:amplitudes, :spreads}
     # Constructed fields
       W::InteractionParam    # Tensor interaction multiplier
-      stimulus_frame::SpaceState  # Vector giving the "on" input
-      stimulus_duration::TimeType # Scalar input duration (time units)
-      stimulus_steepness::NumType
+      stimulus_fn::Function
+      dims::Tuple
   end
 
 #+END_SRC
 
 #+BEGIN_SRC julia :noweb-ref define-wc73-constructor
 
-    function WilsonCowan73(p)
-        p = deepcopy(p) # to prevent mutation
-	n_pops = length(p[:r])
+  function WilsonCowan73(p)
+      p = deepcopy(p) # to prevent mutation
+      n_pops = length(p[:r])
 
-	space_params = pop!(p, :space)
-	xs = make_mesh(space_params)
+      space_params = pop!(p, :space)
+      xs = make_mesh(space_params)
 
-	stimulus_params = pop!(p, :stimulus)
-	p[:stimulus_duration] = stimulus_params[:duration]
-	p[:stimulus_steepness] = stimulus_params[:steepness]
-	p[:stimulus_frame] = make_stimulus_frame(xs, n_pops,
-						 stimulus_params[:width], stimulus_params[:strength],
-						 stimulus_params[:steepness])
+      p[:dims] = (size(xs)..., n_pops)
 
-	connectivity_params = pop!(p, :connectivity)
-	p[:W] = sholl_tensor(xs, connectivity_params[:amplitudes], connectivity_params[:spreads])
-	return WilsonCowan73(; p...)
-    end
+      stimulus_params = pop!(p, :stimulus)
+      stimulus_params[:xs] = xs
+      stimulus_params[:n_pops] = n_pops
+      p[:stimulus_fn] = make_stimulus_fn(; stimulus_params...)
+
+      connectivity_params = pop!(p, :connectivity)
+      p[:W] = sholl_tensor(xs, connectivity_params[:amplitudes], connectivity_params[:spreads])
+      return WilsonCowan73(; p...)
+  end
 
 #+END_SRC
 
 #+BEGIN_SRC julia :noweb-ref define-wc73-differential
 
-    (p::WilsonCowan73)(t,A::SpaceState,dA) = begin
-	# Use dA as intermediate variable for tensor op since it is preallocated
-	@tensor dA[x_tgt, pop_tgt] = p.W[x_tgt, x_src, pop_tgt, pop_src] * A[x_src, pop_src]
-	@. dA = (-p.α * A +
-		 p.β * (1 - A) * @sigmoid(dA + @step_stimulus(t,
-							      p.stimulus_frame,
-							      p.stimulus_duration,
-							      p.stimulus_steepness),
-					  p.a, p.θ)
-		 ) / p.τ
-    end
+  (p::WilsonCowan73)(t,A::SpaceState,dA) = begin
+      # Use dA as intermediate variable for tensor op since it is preallocated
+      @tensor dA[x_tgt, pop_tgt] = p.W[x_tgt, x_src, pop_tgt, pop_src] * A[x_src, pop_src]
+      dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(dA + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
+  end
 #+END_SRC
 
 ** WilsonCowan73 Solver
@@ -161,8 +155,7 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
   function solve_WilsonCowan73(wc73_fn::WilsonCowan73, solver_params)::DESolution
       solver_params = deepcopy(Dict{Any,Any}(solver_params)) # to prevent mutation, may be redundant
 
-      u0 = similar(wc73_fn.stimulus_frame, NumType)
-      u0 .= 0
+      u0 = zeros(NumType, wc73_fn.dims)
       tspan = (0.0, pop!(solver_params, :T))
       prob::DEProblem = ODEProblem(wc73_fn, u0, tspan)
 
@@ -306,11 +299,11 @@ The current definition uses a macro. It is not clear that this is necessary, nor
   end
 
   function simple_sigmoid_fn(x, a, theta)
-      return @. 1 / (1 + exp(-a * (x - theta)))
+      return @. (1 / (1 + exp(-a * (x - theta))))
   end
 
   function sigmoid_fn(x, a, theta)
-      return return @. max(0, simple_sigmoid_fn(x, a, theta) - simple_sigmoid_fn(0, a, theta))
+      return max.(0, simple_sigmoid_fn(x, a, theta) .- simple_sigmoid_fn(0, a, theta))
   end
 #+END_SRC
 
@@ -370,17 +363,49 @@ As mentioned above, the ParameterizedFunction does some automatic differentiatio
      return :(@. $(esc(on_frame_sym)) * (1-@simple_sigmoid($(esc(t_sym)), $(esc(steepness_sym)), $(esc(duration_sym)))))
   end
 
-  function step_stimulus_fn(t, on_frame, duration, steepness)
-      return @. on_frame * (1 - simple_sigmoid_fn(t, steepness, duration))
-  end
-
-  function make_stimulus_frame(xs, n_pops, width, strength, steepness)
+  function make_smooth_bump_frame(xs, n_pops::Integer,
+					   width::DistType, strength::NumType,
+					   steepness::NumType)
       one_pop_frame = @. strength * (simple_sigmoid_fn(xs, steepness, -width/2) - simple_sigmoid_fn(xs, steepness, width/2))
       return repeat(one_pop_frame, outer=(1,n_pops))
+  end
+
+  function smooth_bump_factory(; xs=nothing, n_pops=nothing,
+			       width=nothing, strength=nothing, duration=nothing,
+			       steepness=nothing)
+      # WARNING: Defaults are ugly; Remove when possible.
+      on_frame = make_smooth_bump_frame(xs, n_pops, width, strength, steepness)
+      return (t) -> @. on_frame * (1 - simple_sigmoid_fn(t, steepness, duration))
+  end
+
+
+  function make_sharp_bump_frame(xs, n_pops::Integer,
+					  width::DistType, strength::NumType)
+      frame = zeros(NumType, (size(xs)..., n_pops))
+      hl = floor(Int, size(frame)[1] ÷ 2)      # half length, half width
+      hw, wo = divrem(width,2) .|> (flt) -> floor(Int, flt)      # using truncated division
+      frame[hl-hw:hl+hw+wo,:] = strength
+      return frame
+  end
+  function sharp_bump_factory(; xs=nothing, n_pops=nothing,
+			      width=nothing, strength=nothing, duration=nothing)
+	  # WARNING: Defaults are ugly; Remove when possible.
+      on_frame = make_sharp_bump_frame(xs, n_pops, width, strength)
+      off_frame = zeros(on_frame)
+      return (t::TimeType) -> (t < duration) ? on_frame : off_frame
+  end
+
+  function make_stimulus_fn(; name=nothing, arguments...)
+      stimulus_factories = Dict(
+	  "smooth_bump" => smooth_bump_factory,
+	  "sharp_bump" => sharp_bump_factory
+      )
+      return stimulus_factories[name](; arguments...)
   end
 #+END_SRC
 
 #+BEGIN_SRC julia :noweb-ref visualise-step-stimulus :results graphics
+  function visualize_step_stimulus(; N_x=500, x_extent=3, width=2, strength=3, duration=4, N_t=700,
   let N_x=500, x_extent=3, width=2, strength=3, duration=4, N_t=700, t_extent=7
       global xs = linspace(-x_extent, x_extent, N_x)
       global on_frame = make_input_frame(xs, width, strength)
