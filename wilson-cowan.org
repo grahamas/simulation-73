@@ -140,7 +140,7 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 
 #+BEGIN_SRC julia :noweb-ref define-wc73-differential
 
-    (p::WilsonCowan73)(t::TimeType,A::SpaceState,dA::SpaceState) = begin
+    (p::WilsonCowan73)(t,A::SpaceState,dA) = begin
 	# Use dA as intermediate variable for tensor op since it is preallocated
 	@tensor dA[x_tgt, pop_tgt] = p.W[x_tgt, x_src, pop_tgt, pop_src] * A[x_src, pop_src]
 	@. dA = (-p.α * A +
@@ -164,8 +164,18 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
       tspan = (0.0, pop!(solver_params, :T))
       prob::DEProblem = ODEProblem(wc73_fn, u0, tspan)
 
-      # Solve problem
-      soln = solve(prob; solver_params...)
+      new_solver_params = Dict()
+      if :dt in keys(solver_params)
+	  new_solver_params[:alg] = Euler()
+	  new_solver_params[:adaptive] = false
+	  new_solver_params[:dt] = solver_params[:dt]
+      elseif :stiff in keys(solver_params)
+	  if solver_params[:stiff] > 0
+	      new_solver_params[:alg_hints] = [:stiff]
+	  end
+      end
+
+      soln::DESolution = solve(prob; new_solver_params...)
 
       return soln
   end
