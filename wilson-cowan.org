@@ -119,6 +119,7 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 #+BEGIN_SRC julia :noweb-ref define-wc73-constructor
 
     function WilsonCowan73(p)
+        p = deepcopy(p) # to prevent mutation
 	n_pops = length(p[:r])
 
 	space_params = pop!(p, :space)
@@ -158,24 +159,27 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 #+BEGIN_SRC julia :noweb-ref wc73-solver
 
   function solve_WilsonCowan73(wc73_fn::WilsonCowan73, solver_params)::DESolution
-      # Define problem
+      solver_params = deepcopy(Dict{Any,Any}(solver_params)) # to prevent mutation, may be redundant
+
       u0 = similar(wc73_fn.stimulus_frame, NumType)
       u0 .= 0
       tspan = (0.0, pop!(solver_params, :T))
       prob::DEProblem = ODEProblem(wc73_fn, u0, tspan)
 
-      new_solver_params = Dict()
       if :dt in keys(solver_params)
-	  new_solver_params[:alg] = Euler()
-	  new_solver_params[:adaptive] = false
-	  new_solver_params[:dt] = solver_params[:dt]
+	  solver_params[:alg] = Euler()
+	  solver_params[:adaptive] = false
       elseif :stiff in keys(solver_params)
-	  if solver_params[:stiff] > 0
-	      new_solver_params[:alg_hints] = [:stiff]
+	  if pop!(solver_params, :stiff) > 0
+	      solver_params[:alg_hints] = [:stiff]
 	  end
       end
 
-      soln::DESolution = solve(prob; new_solver_params...)
+      if :stiff in keys(solver_params)
+	  error("Incompatible solver parameters.")
+      end
+
+      soln::DESolution = solve(prob; solver_params...)
 
       return soln
   end
@@ -196,7 +200,6 @@ This code currently only plots.
 
     function run_WilsonCowan73_trial(json_filename::String)
 	params::Dict = load_WilsonCowan73_parameters(json_filename)
-	#print(@code_warntype solve_WilsonCowan73(WilsonCowan73(params[:model]::Dict), params[:solver]::Dict))
 	soln = solve_WilsonCowan73(WilsonCowan73(params[:model]::Dict), params[:solver]::Dict)
 	analyse_WilsonCowan73_solution(soln; params...)
     end
