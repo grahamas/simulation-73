@@ -381,10 +381,12 @@ As mentioned above, the ParameterizedFunction does some automatic differentiatio
 
   function make_sharp_bump_frame(xs, n_pops::Integer,
 					  width::DistType, strength::NumType)
-      frame = zeros(NumType, (size(xs)..., n_pops))
-      hl = floor(Int, size(frame)[1] ÷ 2)      # half length, half width
-      hw, wo = divrem(width,2) .|> (flt) -> floor(Int, flt)      # using truncated division
-      frame[hl-hw:hl+hw+wo,:] = strength
+      frame = zeros(NumType, size(xs)..., n_pops)
+      mid_point = 0     # half length, half width
+      half_width = width / 2      # using truncated division
+      start_dx = find(xs .>= mid_point - half_width)[1]
+      stop_dx = find(xs .<= mid_point + half_width)[end]
+      frame[start_dx:stop_dx,:] = strength
       return frame
   end
   function sharp_bump_factory(; xs=nothing, n_pops=nothing,
@@ -392,7 +394,7 @@ As mentioned above, the ParameterizedFunction does some automatic differentiatio
 	  # WARNING: Defaults are ugly; Remove when possible.
       on_frame = make_sharp_bump_frame(xs, n_pops, width, strength)
       off_frame = zeros(on_frame)
-      return (t::TimeType) -> (t < duration) ? on_frame : off_frame
+      return (t) -> (t <= duration) ? on_frame : off_frame
   end
 
   function make_stimulus_fn(; name=nothing, arguments...)

@@ -14,7 +14,7 @@
 	    "name": "sharp_bump",
 	    "duration": 0.04,
 	    "strength": 1.2,
-	    "width": 4.5
+	    "width": 1
 	},
 	"r": [1,1],
 	"a": [1.2, 1.0],
