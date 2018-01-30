@@ -58,9 +58,6 @@ See the appendix for helper functions, including parameter loading.
 ** Imports
 
 #+BEGIN_SRC julia :noweb-ref load-modules :results silent
-  using ParameterizedFunctions
-  import ParameterizedFunctions: AbstractParameterizedFunction
-
   using Parameters
   import JSON
 
@@ -75,7 +72,9 @@ See the appendix for helper functions, including parameter loading.
 
 ** Define WilsonCowan73
 
-I will relegate the sigmoid and input functions to the appendix. Suffice to say, the sigmoid is rectified and normed, and the input function is a step function centered at $x=0$.
+I will relegate the sigmoid and input functions to the appendix. Suffice to say,
+the sigmoid is rectified and normed, and the input function is a step function
+centered at $x=0$.
 
 #+BEGIN_SRC julia :noweb no-export :noweb-ref wc73-definition :results silent
   <<define-wc73-types>>
@@ -94,7 +93,7 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
   const InteractionParam = Array{NumType,4} # TODO: Change to matmul (dim=2)
   const SpaceState = Array{NumType,2}
   const SpaceMesh = StepRangeLen{NumType}
-  @with_kw struct WilsonCowan73 <: AbstractParameterizedFunction{true}
+  @with_kw struct WilsonCowan73Params
     # Explict fields in parameter file
     # May also be given as LaTeX command (e.g. alpha for α)
       α::PopulationParam     # Weight on homeostatic term
@@ -118,7 +117,7 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 
 #+BEGIN_SRC julia :noweb-ref define-wc73-constructor
 
-  function WilsonCowan73(p)
+  function WilsonCowan73Params(p)
       p = deepcopy(p) # to prevent mutation
       n_pops = length(p[:r])
 
@@ -133,15 +132,16 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
       p[:stimulus_fn] = make_stimulus_fn(; stimulus_params...)
 
       connectivity_params = pop!(p, :connectivity)
-      p[:W] = sholl_tensor(xs, connectivity_params[:amplitudes], connectivity_params[:spreads])
-      return WilsonCowan73(; p...)
+      p[:W] = sholl_tensor(xs, connectivity_params[:amplitudes],
+                           connectivity_params[:spreads])
+      return WilsonCowan73Params(; p...)
   end
 
 #+END_SRC
 
 #+BEGIN_SRC julia :noweb-ref define-wc73-differential
 
-  (p::WilsonCowan73)(t,A::SpaceState,dA) = begin
+  WilsonCowan73!(dA,A::SpaceState,p::WilsonCowan73Params,t) = begin
       # Use dA as intermediate variable for tensor op since it is preallocated
       @tensor dA[x_tgt, pop_tgt] = p.W[x_tgt, x_src, pop_tgt, pop_src] * A[x_src, pop_src]
       dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(dA + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
@@ -152,24 +152,25 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 
 #+BEGIN_SRC julia :noweb-ref wc73-solver
 
-  function solve_WilsonCowan73(wc73_fn::WilsonCowan73, solver_params)::DESolution
-      solver_params = deepcopy(Dict{Any,Any}(solver_params)) # to prevent mutation, may be redundant
+  function solve_WilsonCowan73(; model=nothing, solver=nothing, other...)
+      solver_params = deepcopy(Dict{Any,Any}(solver))
+      model_params = WilsonCowan73Params(model)
 
-      u0 = zeros(NumType, wc73_fn.dims)
+      u0 = zeros(NumType, model_params.dims)
       tspan = (0.0, pop!(solver_params, :T))
-      prob::DEProblem = ODEProblem(wc73_fn, u0, tspan)
+      prob::DEProblem = ODEProblem(WilsonCowan73!, u0, tspan, model_params)
 
       if :dt in keys(solver_params)
-	  solver_params[:alg] = Euler()
-	  solver_params[:adaptive] = false
+          solver_params[:alg] = Euler()
+          solver_params[:adaptive] = false
       elseif :stiff in keys(solver_params)
-	  if pop!(solver_params, :stiff) > 0
-	      solver_params[:alg_hints] = [:stiff]
-	  end
+          if pop!(solver_params, :stiff) > 0
+              solver_params[:alg_hints] = [:stiff]
+          end
       end
 
       if :stiff in keys(solver_params)
-	  error("Incompatible solver parameters.")
+          error("Incompatible solver parameters.")
       end
 
       soln::DESolution = solve(prob; solver_params...)
@@ -180,21 +181,21 @@ I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 #+END_SRC
 
 ** Analysis and Runner
-This code currently only plots.
+   This code currently only plots.
 #+BEGIN_SRC julia :noweb-ref wc73-analysis
   <<file-helpers>>
   <<plotting-helpers>>
 
     function analyse_WilsonCowan73_solution(soln; analyses=nothing, all_params...)
-	dir_name = output_dir_name(; analyses...)
-	write_params(dir_name; analyses=analyses, all_params...)
-	solution_gif(soln; dir_name=dir_name, analyses[:activity_gif]...)
+        dir_name = output_dir_name(; analyses...)
+        write_params(dir_name; analyses=analyses, all_params...)
+        solution_gif(soln; dir_name=dir_name, analyses[:activity_gif]...)
     end
 
     function run_WilsonCowan73_trial(json_filename::String)
-	params::Dict = load_WilsonCowan73_parameters(json_filename)
-	soln = solve_WilsonCowan73(WilsonCowan73(params[:model]::Dict), params[:solver]::Dict)
-	analyse_WilsonCowan73_solution(soln; params...)
+        all_params = load_WilsonCowan73_parameters(json_filename)
+        solution = solve_WilsonCowan73(; all_params...)
+        analyse_WilsonCowan73_solution(solution; all_params...)
     end
 
 #+END_SRC
