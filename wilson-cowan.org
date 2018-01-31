@@ -65,6 +65,7 @@ See the appendix for helper functions, including parameter loading.
 
   using DifferentialEquations
 
+  ENV["GKSwstype"] = "100"
   using Plots; gr()
 
   import Base.Dates
@@ -437,8 +438,8 @@ Plotting helper functions.
       end
       max_activity = maximum(soln, (1,2,3))[1] # I don't know why this index is here.
       min_activity = minimum(soln, (1,2,3))[1]
-      print(size(soln))
-      anim = @animate for i in 1:length(soln.t)
+      subsample = floor(Int, subsample)
+      anim = @animate for i in 1:subsample:length(soln.t)
 	  plot([soln[:,1,i], soln[:,2,i]], ylim=(min_activity, max_activity), title="t=$(soln.t[i])")
       end
       save_path = joinpath(dir_name, file_name)
