@@ -8,3 +8,4 @@ py_exemplars/
 *.pdf
 *.tex
 /wilson-cowan.julia
+/.#*

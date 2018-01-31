@@ -12,16 +12,16 @@
 	"alpha": [1.5, 1.0],
 	"stimulus": {
 	    "name": "sharp_bump",
-	    "duration": 0.04,
+	    "duration": 4,
 	    "strength": 1.2,
-	    "width": 1
+	    "width": 0.5
 	},
 	"r": [1,1],
 	"a": [1.2, 1.0],
 	"theta": [2.6, 8.0]
     },
     "solver": {
-	"T": 4,
+	"T": 1,
 	"dt": 0.01
     },
     "analyses": {
@@ -30,7 +30,7 @@
 	"activity_gif" : {
 	    "file_name": "activity.gif",
 	    "disable": 0,
-	    "subsample": 5
+	    "subsample": 50
 	}
     }
 
