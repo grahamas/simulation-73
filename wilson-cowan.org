@@ -65,7 +65,7 @@ See the appendix for helper functions, including parameter loading.
 
   using DifferentialEquations
 
-  ENV["GKSwstype"] = "100"
+  ENV["GKSwstype"] = "100" # For headless plotting (on server)
   using Plots; gr()
 
   import Base.Dates
@@ -79,8 +79,8 @@ centered at $x=0$.
 
 #+BEGIN_SRC julia :noweb no-export :noweb-ref wc73-definition :results silent
   <<define-wc73-types>>
-  <<define-sigmoid>>
-  <<define-stimulus>>
+  <<sigmoid>>
+  <<stimulus>>
   <<connectivity>>
   <<define-wc73-constructor>>
   <<define-wc73-differential>>
@@ -291,7 +291,7 @@ where $a$ describes the slope's steepness and $\theta$ describes translation of 
 
 The current definition uses a macro. It is not clear that this is necessary, nor even advisable. However, the ParameterizedFunction automatically calculates useful quantities like the Jacobian, including with respect to the parameters themselves, and I thought I'd see if this works better. Initially I was using a provided macro that didn't seem to like function calls, so this macro was necessary. Now I doubt it's necessary and I'll probably run some tests to see if there's any performance difference in the DifferentialEquations solve.
 
-#+BEGIN_SRC julia :noweb-ref define-sigmoid :results silent
+#+BEGIN_SRC julia :noweb-ref sigmoid :results silent
   macro simple_sigmoid(x, a, theta)
       return :(@. 1 / (1 + exp(-$(esc(a)) * ($(esc(x)) - $(esc(theta))))))
   end
@@ -378,19 +378,32 @@ rather than a fundamental one.
   end
 #+END_SRC
 
-
 ** Stimulus
 
-*************** TODO Experiment with constant steep_a, both numerically and syntactically
-*************** END
+The stimulus returned is a function of time.
 
-As mentioned above, the ParameterizedFunction does some automatic differentiation. In deference to this (though without testing in the first place...) I've replaced the usual heaviside step function with the sigmoid approximation. A value of 10 was chosen arbitrarily as a relatively steep slope.
-
-#+BEGIN_SRC julia :noweb-ref define-stimulus :results silent
-  macro step_stimulus(t_sym, on_frame_sym, duration_sym, steepness_sym)
-     return :(@. $(esc(on_frame_sym)) * (1-@simple_sigmoid($(esc(t_sym)), $(esc(steepness_sym)), $(esc(duration_sym)))))
+#+BEGIN_SRC julia :noweb-ref stimulus :results silent
+  function make_stimulus_fn(; name=nothing, arguments...)
+      stimulus_factories = Dict(
+	  "smooth_bump" => smooth_bump_factory,
+	  "sharp_bump" => sharp_bump_factory
+      )
+      return stimulus_factories[name](; arguments...)
   end
+#+END_SRC
 
+*** Smooth bump (like Gaussian)
+The smooth bump is a smooth approximation of the sharp impulse defined
+elsewhere. It is smooth in both time and space. It is constructed essentially
+from three sigmoids: Two coplanar in space, and one orthogonal to those in
+time. The two in space describe a bump: up one sigmoid, then down a negative
+sigmoid. The one in time describes the decay of that bump.
+
+This stimulus has the advantages of being 1) differentiable, and 2) more
+realistic. The differentiabiilty may be useful for the automatic solvers that
+Julia has, which can try to automatically differentiate the mutation function
+in order to improve the solving.
+#+BEGIN_SRC julia :noweb-ref stimulus :results silent
   function make_smooth_bump_frame(xs, n_pops::Integer,
 					   width::DistType, strength::NumType,
 					   steepness::NumType)
@@ -405,8 +418,12 @@ As mentioned above, the ParameterizedFunction does some automatic differentiatio
       on_frame = make_smooth_bump_frame(xs, n_pops, width, strength, steepness)
       return (t) -> @. on_frame * (1 - simple_sigmoid_fn(t, steepness, duration))
   end
+#+END_SRC
 
-
+*** Sharp bump (Heaviside)
+The "sharp bump" is the usual theoretical impulse: Binary in both time and
+space. On, then off.
+#+BEGIN_SRC julia :noweb-ref stimulus :results silent
   function make_sharp_bump_frame(xs, n_pops::Integer,
 					  width::DistType, strength::NumType)
       frame = zeros(NumType, size(xs)..., n_pops)
@@ -424,16 +441,11 @@ As mentioned above, the ParameterizedFunction does some automatic differentiatio
       off_frame = zeros(on_frame)
       return (t) -> (t <= duration) ? on_frame : off_frame
   end
-
-  function make_stimulus_fn(; name=nothing, arguments...)
-      stimulus_factories = Dict(
-	  "smooth_bump" => smooth_bump_factory,
-	  "sharp_bump" => sharp_bump_factory
-      )
-      return stimulus_factories[name](; arguments...)
-  end
 #+END_SRC
+*** Visualisation function
+Old code, not currently in use.
 
+Plots the step stimulus in time and space.
 #+BEGIN_SRC julia :noweb-ref visualise-step-stimulus :results graphics
   function visualize_step_stimulus(; N_x=500, x_extent=3, width=2, strength=3, duration=4, N_t=700,
   let N_x=500, x_extent=3, width=2, strength=3, duration=4, N_t=700, t_extent=7
