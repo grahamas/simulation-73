@@ -144,7 +144,7 @@ centered at $x=0$.
 
   WilsonCowan73!(dA,A::SpaceState,p::WilsonCowan73Params,t) = begin
       # Use dA as intermediate variable for tensor op since it is preallocated
-      @tensor dA[x_tgt, pop_tgt] = p.W[x_tgt, x_src, pop_tgt, pop_src] * A[x_src, pop_src]
+      @tensor dA[x_tgt, pop_tgt] = p.W[x_tgt, pop_tgt, x_src, pop_src] * A[x_src, pop_src]
       dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(dA + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
   end
 #+END_SRC
@@ -341,10 +341,10 @@ We use an exponential connectivity function, inspired both by Sholl's experiment
   function sholl_tensor(xs::SpaceMesh, W::Array{NumType,2}, Σ::Array{NumType,2})
       N_x = length(xs)
       N_pop = size(W)[1]
-      conn_tn = zeros(N_x, N_x, N_pop, N_pop)
+      conn_tn = zeros(N_x, N_pop, N_x, N_pop)
       for tgt_pop in range(1,N_pop)
 	  for src_pop in range(1,N_pop)
-	      conn_tn[:, :, tgt_pop, src_pop] .= sholl_matrix(W[tgt_pop, src_pop],
+	      conn_tn[:, tgt_pop, :, src_pop] .= sholl_matrix(W[tgt_pop, src_pop],
 			    Σ[tgt_pop, src_pop], distance_matrix(xs), step(xs))
 	  end
       end
