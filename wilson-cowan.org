@@ -81,7 +81,7 @@ centered at $x=0$.
   <<define-wc73-types>>
   <<define-sigmoid>>
   <<define-stimulus>>
-  <<define-connectivity>>
+  <<connectivity>>
   <<define-wc73-constructor>>
   <<define-wc73-differential>>
 #+END_SRC
@@ -310,18 +310,47 @@ The current definition uses a macro. It is not clear that this is necessary, nor
 #+END_SRC
 
 ** Connectivity
+#+BEGIN_SRC julia :noweb-ref connectivity :results silent
+<<connectivity-make-mesh>>
+<<connectivity-distance-matrix>>
+<<connectivity-sholl-matrix>>
+<<connectivity-sholl-tensor>>
+#+END_SRC
+*** Sholl's exponential decay
+We use an exponential connectivity function, inspired both by Sholl's
+experimental work, and by certain theoretical considerations.
+#+BEGIN_SRC julia :noweb-ref connectivity-sholl-matrix :results silent
+  function sholl_matrix(amplitude::NumType, spread::NumType,
+                        dist_mx::Array{NumType,2}, step_size::NumType)
+      conn_mx = @. amplitude * step_size * exp(
+          -abs(dist_mx / spread)
+      ) / (2 * spread)
+      return conn_mx
+  end
+#+END_SRC
+The interaction between two populations is entirely characterized by this
+function and its two parameters: the amplitude (weight) and the spread
+(σ). The spatial step size is also a factor, but as a computational concern
+rather than a fundamental one.
+**** Test
+#BEGIN_SRC julia :noweb-ref test-connectivity-sholl-matrix
 
-We use an exponential connectivity function, inspired both by Sholl's experimental work, and by certain theoretical considerations.
+#END_SRC
 
-#+BEGIN_SRC julia :noweb-ref define-connectivity :results silent
+*** Make mesh of space
+
+#+BEGIN_SRC julia :noweb-ref connectivity-make-mesh :results silent
   function make_mesh(dim_params)::SpaceMesh
       extent::NumType = dim_params[:extent]
       N::Integer = dim_params[:N]
 
       return linspace(-extent, extent, N)
   end
+#+END_SRC
 
+*** Make matrix of all inter-point distances
 
+#+BEGIN_SRC julia :noweb-ref connectivity-distance-matrix :results silent
   function distance_matrix(xs::SpaceMesh)
       # aka Hankel, but that method isn't working in SpecialMatrices
       distance_mx = zeros(eltype(xs), length(xs), length(xs))
@@ -330,14 +359,11 @@ We use an exponential connectivity function, inspired both by Sholl's experiment
       end
       return distance_mx'
   end
+#+END_SRC
 
-  function sholl_matrix(amplitude::NumType, spread::NumType, dist_mx::Array{NumType,2}, step_size::NumType)
-      conn_mx = @. amplitude * step_size * exp(
-	  -abs(dist_mx / spread)
-      ) / (2 * spread)
-      return conn_mx
-  end
+*** Join Sholl matrices into complete interaction tensor
 
+#+BEGIN_SRC julia :noweb-ref connectivity-sholl-tensor :results silent
   function sholl_tensor(xs::SpaceMesh, W::Array{NumType,2}, Σ::Array{NumType,2})
       N_x = length(xs)
       N_pop = size(W)[1]
@@ -350,8 +376,8 @@ We use an exponential connectivity function, inspired both by Sholl's experiment
       end
       return conn_tn
   end
-
 #+END_SRC
+
 
 ** Stimulus
 
