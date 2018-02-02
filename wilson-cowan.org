@@ -72,21 +72,23 @@ See the appendix for helper functions, including parameter loading.
 #+END_SRC
 
 ** Define WilsonCowan73
-
+*** Overview
 I will relegate the sigmoid and input functions to the appendix. Suffice to say,
 the sigmoid is rectified and normed, and the input function is a step function
 centered at $x=0$.
 
 #+BEGIN_SRC julia :noweb no-export :noweb-ref wc73-definition :results silent
-  <<define-wc73-types>>
+  <<wc73-types>>
   <<sigmoid>>
   <<stimulus>>
   <<connectivity>>
-  <<define-wc73-constructor>>
-  <<define-wc73-differential>>
+  <<wc73-constructor>>
+  <<wc73-differential>>
 #+END_SRC
 
-#+BEGIN_SRC julia :noweb-ref define-wc73-types
+*** Type aliases (and definition)
+
+#+BEGIN_SRC julia :noweb-ref wc73-types
   const NumType = Float64
   const DistType = NumType
   const TimeType = NumType
@@ -116,7 +118,9 @@ centered at $x=0$.
 
 #+END_SRC
 
-#+BEGIN_SRC julia :noweb-ref define-wc73-constructor
+*** Constructor for WC73 parameter object
+
+#+BEGIN_SRC julia :noweb-ref wc73-constructor
 
   function WilsonCowan73Params(p)
       p = deepcopy(p) # to prevent mutation
@@ -140,7 +144,9 @@ centered at $x=0$.
 
 #+END_SRC
 
-#+BEGIN_SRC julia :noweb-ref define-wc73-differential
+*** Differential equation definition
+
+#+BEGIN_SRC julia :noweb-ref wc73-differential
 
   WilsonCowan73!(dA,A::SpaceState,p::WilsonCowan73Params,t) = begin
       # Use dA as intermediate variable for tensor op since it is preallocated
