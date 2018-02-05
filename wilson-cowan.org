@@ -44,13 +44,17 @@ where $\odot$ is the Hademard (element-wise) product of an appropriately expande
 ** Overview
 The code will proceed as follows
 
-#+BEGIN_SRC julia :noweb no-export :results silent :tangle yes
- <<load-modules>>
- <<parameters-loader>>
- <<wc73-definition>>
- <<wc73-solver>>
- <<wc73-analysis>>
- <<run-wc73-trial>>
+#+BEGIN_SRC julia :noweb no-export :results silent :tangle wilson-cowan.jl
+  module WC73
+  <<load-modules>>
+  <<parameters-loader>>
+  <<wc73-definition>>
+  <<wc73-solver>>
+  <<wc73-analysis>>
+  export run_WilsonCowan73_trial
+  end
+  #<<run-wc73-trial>>
+
 #+END_SRC
 
 See the appendix for helper functions, including parameter loading.
