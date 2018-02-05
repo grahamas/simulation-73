@@ -1,6 +1,6 @@
 {
     "model" : {
-	"space": {"extent": 100.5, "N": 501},
+	"space": [{"extent": 100.5, "N": 501}],
 	"connectivity": {
 	    "amplitudes": [[16.0, -18.2],
 			   [27.0, -4.0]],

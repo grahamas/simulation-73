@@ -1,4 +1,4 @@
-#+PROPERTY: header-args :results output silent :session *julia* :noweb yes
+#+PROPERTY: header-args :results output :results silent :session *julia* :noweb yes
 #+OPTIONS: title:nil author:nil date:nil toc:nil
 #+LATEX_CLASS: article
 #+LATEX_CLASS_OPTIONS: [12pt]
@@ -93,10 +93,11 @@ centered at $x=0$.
   const DistType = NumType
   const TimeType = NumType
   const PopulationParam = RowVector{NumType}
-  const InteractionParam = Array{NumType,4} # TODO: Change to matmul (dim=2)
+  const InteractionTensor = Array{NumType,4}
+  const Interaction1DFlat = Array{NumType,2}
   const SpaceState = Array{NumType,2}
-  const SpaceMesh = StepRangeLen{NumType}
-  @with_kw struct WilsonCowan73Params
+  const SpaceDim = StepRangeLen{NumType}
+  @with_kw struct WilsonCowan73Params{InteractionType}
     # Explict fields in parameter file
     # May also be given as LaTeX command (e.g. alpha for α)
       α::PopulationParam     # Weight on homeostatic term
@@ -111,11 +112,10 @@ centered at $x=0$.
     # :stimulus => {:weight, :duration, :strength}
     # :connectivity => {:amplitudes, :spreads}
     # Constructed fields
-      W::InteractionParam    # Tensor interaction multiplier
+      W::InteractionType    # Tensor interaction multiplier
       stimulus_fn::Function
       dims::Tuple
   end
-
 #+END_SRC
 
 *** Constructor for WC73 parameter object
@@ -127,11 +127,13 @@ centered at $x=0$.
       n_pops = length(p[:r])
 
       space_params = pop!(p, :space)
-      xs = make_mesh(space_params)
+      mesh = Mesh(space_params)
 
-      p[:dims] = (size(xs)..., n_pops)
+      p[:dims] = (size(mesh)..., n_pops)
 
       stimulus_params = pop!(p, :stimulus)
+      @assert ndims(mesh) == 1      # Currently only supports 1D
+      xs = mesh.dims[1]
       stimulus_params[:xs] = xs
       stimulus_params[:n_pops] = n_pops
       p[:stimulus_fn] = make_stimulus_fn(; stimulus_params...)
@@ -139,6 +141,9 @@ centered at $x=0$.
       connectivity_params = pop!(p, :connectivity)
       p[:W] = sholl_tensor(xs, connectivity_params[:amplitudes],
                            connectivity_params[:spreads])
+      if ndims(mesh) == 1
+          p[:W] = flatten_sholl_tensor(p[:W])
+      end
       return WilsonCowan73Params(; p...)
   end
 
@@ -148,10 +153,15 @@ centered at $x=0$.
 
 #+BEGIN_SRC julia :noweb-ref wc73-differential
 
-  WilsonCowan73!(dA,A::SpaceState,p::WilsonCowan73Params,t) = begin
+  WilsonCowan73!(dA,A::SpaceState,p::WilsonCowan73Params{InteractionTensor},t) = begin
       # Use dA as intermediate variable for tensor op since it is preallocated
       @tensor dA[x_tgt, pop_tgt] = p.W[x_tgt, pop_tgt, x_src, pop_src] * A[x_src, pop_src]
       dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(dA + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
+  end
+
+  WilsonCowan73_flat!(dA,A::SpaceState,p::WilsonCowan73Params{Interaction1DFlat},t) = begin
+      # Use dA as intermediate variable for tensor op since it is preallocated
+      dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(p.W*A + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
   end
 #+END_SRC
 
@@ -163,9 +173,15 @@ centered at $x=0$.
       solver_params = deepcopy(Dict{Any,Any}(solver))
       model_params = WilsonCowan73Params(model)
 
+      if model_params isa WilsonCowan73Params{Interaction1DFlat}
+          differential_fn = WilsonCowan73_flat!
+      else
+          differential_fn = WilsonCowan73!
+      end
+
       u0 = zeros(NumType, model_params.dims)
       tspan = (0.0, pop!(solver_params, :T))
-      prob::DEProblem = ODEProblem(WilsonCowan73!, u0, tspan, model_params)
+      prob::DEProblem = ODEProblem(differential_fn, u0, tspan, model_params)
 
       if :dt in keys(solver_params)
           solver_params[:alg] = Euler()
@@ -222,51 +238,41 @@ run_WilsonCowan73_trial("jl_replicate_neuman.json")
 ** Parameter file reading
 Because I originally wrote this in Python, the parameter files are JSON.
 #+BEGIN_SRC julia :noweb-ref parameters-loader :results silent
-  function convert_py(val)
-      if isa(val, Number)
-	  return float(val)
+  function convert_py(val::Number)
+      float(val)
+  end
+
+  function convert_py(a::T) where T <: Array
+      if a[1] isa Array # eltype gives Any, for some reason
+          return convert_py.(hcat(a...))'
+      elseif a[1] isa Dict
+          return convert_py.(a)
+      elseif a[1] isa Number
+          return convert_py.(vcat(a...))'
       else
-	  return val
+          error("Unsupported parse input array of eltype $(typeof(a[1]))")
       end
   end
 
-  function parse_pyarray(a)
-      if isa(a[1], Array)
-	  return convert_py.(hcat(a...))'
-      else
-	  return convert_py.(vcat(a...))'
+  function convert_py(d::T) where T <: Dict
+      # TODO: Find package that does this...
+      unicode_dct = Dict(:alpha=>:α, :beta=>:β, :tau=>:τ, :theta=>:θ)
+      function convert_pykey(k::Symbol)
+          if k_sym in keys(unicode_dct)
+              return unicode_dct[k_sym]
+          else
+              return k_sym
+          end
       end
-  end
+      convert_pykey(k::String) = (convert_pykey ∘ Symbol)(k)
 
-  function parse_pydict(d)
-      function parse_pykey(k)
-	  unicode_dct = Dict(:alpha=>:α, :beta=>:β, :tau=>:τ, :theta=>:θ)
-	  k_sym = Symbol(k)
-	  if k_sym in keys(unicode_dct)
-	      return unicode_dct[k_sym]
-	  else
-	      return k_sym
-	  end
-      end
-
-      function parse_pyvalue(v)
-	  if isa(v, Dict)
-	      return parse_pydict(v)
-	  elseif isa(v, Array)
-	      # Assumes arrays only contain numbers
-	      return parse_pyarray(v)
-	  else
-	      return convert_py(v)
-	  end
-      end
-
-      return Dict(parse_pykey(k) => parse_pyvalue(v) for (k,v) in d)
+      return Dict(convert_pykey(k) => convert_py(v) for (k,v) in d)
   end
 
 
   function load_WilsonCowan73_parameters(json_filename::String)
       # Parse JSON with keys as symbols.
-      param_dct = (parse_pydict ∘ JSON.parsefile)(json_filename)
+      param_dct = (convert_py ∘ JSON.parsefile)(json_filename)
       return param_dct
   end
 
@@ -317,10 +323,14 @@ The current definition uses a macro. It is not clear that this is necessary, nor
 
 ** Connectivity
 #+BEGIN_SRC julia :noweb-ref connectivity :results silent
-<<connectivity-make-mesh>>
+<<connectivity-mesh>>
 <<connectivity-distance-matrix>>
 <<connectivity-sholl-matrix>>
 <<connectivity-sholl-tensor>>
+#+END_SRC
+
+#+BEGIN_SRC julia :noweb-ref connectivity-tests
+
 #+END_SRC
 *** Sholl's exponential decay
 We use an exponential connectivity function, inspired both by Sholl's
@@ -345,23 +355,37 @@ rather than a fundamental one.
 
 *** Make mesh of space
 
-#+BEGIN_SRC julia :noweb-ref connectivity-make-mesh :results silent
-  function make_mesh(dim_params)::SpaceMesh
-      extent::NumType = dim_params[:extent]
-      N::Integer = dim_params[:N]
+#+BEGIN_SRC julia :noweb-ref connectivity-mesh :results silent
+  struct Mesh
+      dims::Array{SpaceDim}
+  end
+  function Mesh(dim_dcts::Array{T}) where T <: Dict
+      dims = Array{StepRangeLen}(length(dim_dcts))
+      for (i, dim) in enumerate(dim_dcts)
+          extent::NumType = dim[:extent]
+          N::Integer = dim[:N]
+          mesh[i] = linspace(-(extent/2), (extent/2), N)
+      end
+      Mesh(dims)
+  end
 
-      return linspace(-extent, extent, N)
+  import Base: size, ndims
+  function size(mesh::Mesh)
+      return length.(mesh.dims)
+  end
+  function ndims(mesh::Mesh)
+      return length(mesh.dims)
   end
 #+END_SRC
 
 *** Make matrix of all inter-point distances
 
 #+BEGIN_SRC julia :noweb-ref connectivity-distance-matrix :results silent
-  function distance_matrix(xs::SpaceMesh)
+  function distance_matrix(xs::SpaceDim)
       # aka Hankel, but that method isn't working in SpecialMatrices
       distance_mx = zeros(eltype(xs), length(xs), length(xs))
       for i in range(1, length(xs))
-	  distance_mx[:, i] = abs.(xs - xs[i])
+          distance_mx[:, i] = abs.(xs - xs[i])
       end
       return distance_mx'
   end
@@ -370,7 +394,7 @@ rather than a fundamental one.
 *** Join Sholl matrices into complete interaction tensor
 
 #+BEGIN_SRC julia :noweb-ref connectivity-sholl-tensor :results silent
-  function sholl_tensor(xs::SpaceMesh, W::Array{NumType,2}, Σ::Array{NumType,2})
+  function sholl_tensor(xs::SpaceDim, W::Array{NumType,2}, Σ::Array{NumType,2})::InteractionTensor
       N_x = length(xs)
       N_pop = size(W)[1]
       conn_tn = zeros(N_x, N_pop, N_x, N_pop)
@@ -381,6 +405,25 @@ rather than a fundamental one.
 	  end
       end
       return conn_tn
+  end
+  <<connectivity-flatten-sholl>>
+#+END_SRC
+
+**** Flatten 1-space-D Sholl tensor
+In the two population case, flattening the tensor and using matrix
+multiplication is 3x faster.
+#+BEGIN_SRC julia :noweb-ref connectivity-flatten-sholl
+  function flatten_sholl(tensor)::Interaction1DFlat
+      N_x, N_p = size(tensor)[1:2]
+      @assert N_p < N_x
+      @assert size(tensor) == (N_x, N_p, N_x, N_p)
+      flat = zeros(eltype(tensor), N_x*N_p, N_x*N_p)
+      for i in 1:N_p
+          for j in 1:N_p
+              flat[(1:N_x)+(i*N_x), (1:N_x)+(j*N_x)] = tensor[:,i,:,j]
+          end
+      end
+      return flat
   end
 #+END_SRC
 
