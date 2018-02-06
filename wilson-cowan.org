@@ -258,10 +258,12 @@ Because I originally wrote this in Python, the parameter files are JSON.
       end
   end
 
+  convert_py(val::String) = val
+
   function convert_py(d::T) where T <: Dict
       # TODO: Find package that does this...
       unicode_dct = Dict(:alpha=>:α, :beta=>:β, :tau=>:τ, :theta=>:θ)
-      function convert_pykey(k::Symbol)
+      function convert_pykey(k_sym::Symbol)
           if k_sym in keys(unicode_dct)
               return unicode_dct[k_sym]
           else
@@ -333,8 +335,11 @@ The current definition uses a macro. It is not clear that this is necessary, nor
 <<connectivity-sholl-tensor>>
 #+END_SRC
 
-#+BEGIN_SRC julia :noweb-ref connectivity-tests
-
+#+BEGIN_SRC julia :noweb-ref connectivity-test
+<<connectivity-mesh-test>>
+<<connectivity-distance-matrix-test>>
+<<connectivity-sholl-matrix-test>>
+<<connectivity-sholl-tensor-test>>
 #+END_SRC
 *** Sholl's exponential decay
 We use an exponential connectivity function, inspired both by Sholl's
@@ -353,9 +358,9 @@ function and its two parameters: the amplitude (weight) and the spread
 (σ). The spatial step size is also a factor, but as a computational concern
 rather than a fundamental one.
 **** Test
-#BEGIN_SRC julia :noweb-ref test-connectivity-sholl-matrix
+#+BEGIN_SRC julia :noweb-ref test-connectivity-sholl-matrix
 
-#END_SRC
+#+END_SRC
 
 *** Make mesh of space
 
