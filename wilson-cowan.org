@@ -104,7 +104,7 @@ centered at $x=0$.
   const SpaceState1D = Array{NumType, 2}
   const SpaceState1DFlat = Array{NumType,1}
   const SpaceDim = StepRangeLen{NumType}
-  abstract type AbstractMesh end
+  <<mesh-types>>
   @with_kw struct WilsonCowan73Params{InteractionType, ParamType}
     # Explict fields in parameter file
     # May also be given as LaTeX command (e.g. alpha for α)
@@ -140,7 +140,7 @@ centered at $x=0$.
         if ndims(mesh) == 2
             mesh = flatten(mesh)
         end
-        #@assert mesh isa FlatMesh
+        @assert mesh isa FlatMesh
 
         stimulus_params = expand_params(mesh, pop!(p, :stimulus))
         connectivity_params = expand_params(mesh, pop!(p, :connectivity))
@@ -251,6 +251,74 @@ run_WilsonCowan73_trial("jl_replicate_neuman.json")
 : Plots.AnimatedGif("/home/grahams/Dropbox/Research/simulation-73/solution.gif")
 
 * Appendix
+** Mesh
+
+#+BEGIN_SRC julia :noweb-ref mesh-types :results silent
+  abstract type AbstractMesh end
+  struct SpaceMesh <: AbstractMesh
+      dims::Array{SpaceDim}
+  end
+  struct PopMesh <: AbstractMesh
+      space::SpaceMesh
+      n_pops::Integer
+  end
+  struct FlatMesh <: AbstractMesh
+      pop_mesh::PopMesh
+      FlatMesh(mesh) = ndims(mesh) != 2 ? error("cannot flatten >1D mesh.") : new(mesh)
+  end
+  flatten(mesh::PopMesh) = FlatMesh(mesh)
+  unflatten(mesh::FlatMesh) = mesh.pop_mesh
+
+  function SpaceMesh(dim_dcts::Array{T}) where T <: Dict
+      dims = Array{StepRangeLen}(length(dim_dcts))
+      for (i, dim) in enumerate(dim_dcts)
+          extent::NumType = dim[:extent]
+          N::Integer = dim[:N]
+          dims[i] = linspace(-(extent/2), (extent/2), N)
+      end
+      SpaceMesh(dims)
+  end
+  function PopMesh(dim_dcts::Array{T}, n_pops::Integer) where T <: Dict
+      PopMesh(SpaceMesh(dim_dcts),n_pops)
+  end
+
+  import Base: size, ndims, zeros
+  function size(mesh::SpaceMesh)
+      return length.(mesh.dims)
+  end
+  function size(mesh::PopMesh)
+      return (size(mesh.space)..., mesh.n_pops)
+  end
+  function size(mesh::FlatMesh)
+      return size(mesh.pop_mesh)[1] * mesh.n_pops
+  end
+  function ndims(mesh::AbstractMesh)
+      return length(size(mesh))
+  end
+
+  function coords(mesh::SpaceMesh)
+      @assert ndims(mesh) == 1
+      return mesh.dims[1]
+  end
+  function coords(mesh::PopMesh)
+      @assert ndims(mesh) == 2
+      return repeat(coords(mesh.space), outer=(1, mesh.n_pops))
+  end
+  function coords(mesh::FlatMesh)
+      return repeat(coords(mesh.pop_mesh.space), outer=mesh.pop_mesh.n_pops)
+  end
+  function zeros(mesh::AbstractMesh)
+      zeros(coords(mesh))
+  end
+  function expand_param(mesh::PopMesh, param::RowVector)::ExpandedParam
+      space_dims = size(mesh)[1:end-1]
+      return repeat(param, inner=(space_dims..., 1))
+  end
+  function expand_param(mesh::FlatMesh, param::RowVector)::ExpandedParamFlat
+      return expand_param(mesh.pop_mesh, param)[:]
+  end
+#+END_SRC
+
 ** Parameter file reading
 Because I originally wrote this in Python, the parameter files are JSON.
 #+BEGIN_SRC julia :noweb-ref parameters-loader :results silent
@@ -333,14 +401,12 @@ The current definition uses a macro. It is not clear that this is necessary, nor
 
 ** Connectivity
 #+BEGIN_SRC julia :noweb-ref connectivity :results silent
-<<connectivity-mesh>>
 <<connectivity-distance-matrix>>
 <<connectivity-sholl-matrix>>
 <<connectivity-sholl>>
 #+END_SRC
 
 #+BEGIN_SRC julia :noweb-ref connectivity-test
-<<connectivity-mesh-test>>
 <<connectivity-distance-matrix-test>>
 <<connectivity-sholl-matrix-test>>
 <<connectivity-sholl-tensor-test>>
@@ -363,76 +429,6 @@ function and its two parameters: the amplitude (weight) and the spread
 rather than a fundamental one.
 **** Test
 #+BEGIN_SRC julia :noweb-ref test-connectivity-sholl-matrix
-
-#+END_SRC
-
-*** Make mesh of space
-
-#+BEGIN_SRC julia :noweb-ref connectivity-mesh :results silent
-
-  struct SpaceMesh <: AbstractMesh
-      dims::Array{SpaceDim}
-  end
-  struct PopMesh <: AbstractMesh
-      space::SpaceMesh
-      n_pops::Integer
-  end
-  struct FlatMesh <: AbstractMesh
-      pop_mesh::PopMesh
-      FlatMesh(mesh) = ndims(mesh) != 2 ? error("cannot flatten >1D mesh.") : new(mesh)
-  end
-  flatten(mesh::PopMesh) = FlatMesh(mesh)
-  unflatten(mesh::FlatMesh) = mesh.pop_mesh
-
-  function SpaceMesh(dim_dcts::Array{T}) where T <: Dict
-      dims = Array{StepRangeLen}(length(dim_dcts))
-      for (i, dim) in enumerate(dim_dcts)
-          extent::NumType = dim[:extent]
-          N::Integer = dim[:N]
-          dims[i] = linspace(-(extent/2), (extent/2), N)
-      end
-      SpaceMesh(dims)
-  end
-  function PopMesh(dim_dcts::Array{T}, n_pops::Integer) where T <: Dict
-      PopMesh(SpaceMesh(dim_dcts),n_pops)
-  end
-
-  import Base: size, ndims, zeros
-  function size(mesh::SpaceMesh)
-      return length.(mesh.dims)
-  end
-  function size(mesh::PopMesh)
-      return (size(mesh.space)..., mesh.n_pops)
-  end
-  function size(mesh::FlatMesh)
-      return size(mesh.pop_mesh)[1] * mesh.n_pops
-  end
-  function ndims(mesh::AbstractMesh)
-      return length(size(mesh))
-  end
-
-  function coords(mesh::SpaceMesh)
-      @assert ndims(mesh) == 1
-      return mesh.dims[1]
-  end
-  function coords(mesh::PopMesh)
-      @assert ndims(mesh) == 2
-      return repeat(coords(mesh.space), outer=(1, mesh.n_pops))
-  end
-  function coords(mesh::FlatMesh)
-      return repeat(coords(mesh.pop_mesh.space), outer=mesh.pop_mesh.n_pops)
-  end
-  function zeros(mesh::AbstractMesh)
-      zeros(coords(mesh))
-  end
-  function expand_param(mesh::PopMesh, param::RowVector)::ExpandedParam
-      space_dims = size(mesh)[1:end-1]
-      return repeat(param, inner=(space_dims..., 1))
-  end
-  function expand_param(mesh::FlatMesh, param::RowVector)::ExpandedParamFlat
-      return expand_param(mesh.pop_mesh, param)[:]
-  end
-
 
 #+END_SRC
 
@@ -494,12 +490,12 @@ multiplication is 3x faster.
 The stimulus returned is a function of time.
 
 #+BEGIN_SRC julia :noweb-ref stimulus :results silent
-  function make_stimulus_fn( mesh; name=nothing, arguments...)
+  function make_stimulus_fn(mesh; name=nothing, args...)
       stimulus_factories = Dict(
           "smooth_bump" => smooth_bump_factory,
           "sharp_bump" => sharp_bump_factory
       )
-      return stimulus_factories[name](; coords=coords(mesh), arguments...)
+      return stimulus_factories[name](mesh; args...)
   end
 #+END_SRC
 
@@ -515,15 +511,15 @@ realistic. The differentiabiilty may be useful for the automatic solvers that
 Julia has, which can try to automatically differentiate the mutation function
 in order to improve the solving.
 #+BEGIN_SRC julia :noweb-ref stimulus :results silent
-  function make_smooth_bump_frame(coords::Array{DistType}, width::DistType, strength::NumType, steepness::NumType)
-      @. strength * (simple_sigmoid_fn(coords, steepness, -width/2) - simple_sigmoid_fn(coords, steepness, width/2))
+  function make_smooth_bump_frame(mesh_coords::Array{DistType}, width::DistType, strength::NumType, steepness::NumType)
+      @. strength * (simple_sigmoid_fn(mesh_coords, steepness, -width/2) - simple_sigmoid_fn(mesh_coords, steepness, width/2))
   end
 
-  function smooth_bump_factory(; coords=nothing,
+  function smooth_bump_factory(mesh::AbstractMesh;
                                width=nothing, strength=nothing, duration=nothing,
                                steepness=nothing)
       # WARNING: Defaults are ugly; Remove when possible.
-      on_frame = make_smooth_bump_frame(coords, width, strength, steepness)
+      on_frame = make_smooth_bump_frame(coords(mesh), width, strength, steepness)
       return (t) -> @. on_frame * (1 - simple_sigmoid_fn(t, steepness, duration))
   end
 #+END_SRC
@@ -532,19 +528,25 @@ in order to improve the solving.
 The "sharp bump" is the usual theoretical impulse: Binary in both time and
 space. On, then off.
 #+BEGIN_SRC julia :noweb-ref stimulus :results silent
-  function make_sharp_bump_frame(coords::Array{DistType,2}, width::DistType, strength::NumType)
-      frame = zeros(coords)
+  function make_sharp_bump_frame(mesh::PopMesh, width::DistType, strength::NumType)
+      mesh_coords = coords(mesh)
+      frame = zeros(mesh_coords)
       mid_point = 0     # half length, half width
       half_width = width / 2      # using truncated division
-      xs = coords[:,1]   # Assumes all pops have same coords
+      xs = mesh_coords[:,1]   # Assumes all pops have same mesh_coords
       start_dx = find(xs .>= mid_point - half_width)[1]
       stop_dx = find(xs .<= mid_point + half_width)[end]
       frame[start_dx:stop_dx,:] = strength
       return frame
   end
-  function sharp_bump_factory(; coords=nothing, width=nothing, strength=nothing, duration=nothing)
+  function make_sharp_bump_frame(mesh::FlatMesh, args...)
+      structured_frame = make_sharp_bump_frame(mesh.pop_mesh, args...)
+      flat_frame = structured_frame[:] # Works because FlatMesh must have 1D PopMesh
+      return flat_frame
+  end
+  function sharp_bump_factory(mesh; width=nothing, strength=nothing, duration=nothing)
           # WARNING: Defaults are ugly; Remove when possible.
-      on_frame = make_sharp_bump_frame(coords, width, strength)
+      on_frame = make_sharp_bump_frame(mesh, width, strength)
       off_frame = zeros(on_frame)
       return (t) -> (t <= duration) ? on_frame : off_frame
   end
