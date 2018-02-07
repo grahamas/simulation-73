@@ -25,12 +25,12 @@
 	"dt": 0.01
     },
     "analyses": {
-	"root": "./results",
+	"root": "/home/grahams/Dropbox/Research/simulation-73/results/",
 	"simulation_name": "TEST_looking_for_oscillatory_traveling_waves",
 	"activity_gif" : {
 	    "file_name": "activity.gif",
 	    "disable": 0,
-	    "subsample": 50
+	    "subsample": 2
 	}
     }
 

@@ -97,19 +97,23 @@ centered at $x=0$.
   const DistType = NumType
   const TimeType = NumType
   const PopulationParam = RowVector{NumType}
+  const ExpandedParam = Array{NumType, 2}
+  const ExpandedParamFlat = Array{NumType,1}
   const InteractionTensor = Array{NumType,4}
   const Interaction1DFlat = Array{NumType,2}
-  const SpaceState = Array{NumType,2}
+  const SpaceState1D = Array{NumType, 2}
+  const SpaceState1DFlat = Array{NumType,1}
   const SpaceDim = StepRangeLen{NumType}
-  @with_kw struct WilsonCowan73Params{InteractionType}
+  abstract type AbstractMesh end
+  @with_kw struct WilsonCowan73Params{InteractionType, ParamType}
     # Explict fields in parameter file
     # May also be given as LaTeX command (e.g. alpha for α)
-      α::PopulationParam     # Weight on homeostatic term
-      β::PopulationParam     # Weight on nonlinear term
-      τ::PopulationParam     # Time constant
-      a::PopulationParam     # Sigmoid steepness
-      θ::PopulationParam     # Sigmoid translation
-      r::PopulationParam     # Refractory period multiplier
+      α::ParamType     # Weight on homeostatic term
+      β::ParamType     # Weight on nonlinear term
+      τ::ParamType     # Time constant
+      a::ParamType     # Sigmoid steepness
+      θ::ParamType     # Sigmoid translation
+      r::ParamType     # Refractory period multiplier
     # Other fields in parameter file include
     # :time => {[:N], :extent}
     # :space => {:N, :extent}
@@ -118,7 +122,7 @@ centered at $x=0$.
     # Constructed fields
       W::InteractionType    # Tensor interaction multiplier
       stimulus_fn::Function
-      dims::Tuple
+      mesh::AbstractMesh
   end
 #+END_SRC
 
@@ -126,29 +130,37 @@ centered at $x=0$.
 
 #+BEGIN_SRC julia :noweb-ref wc73-constructor
 
-  function WilsonCowan73Params(p)
-      p = deepcopy(p) # to prevent mutation
-      n_pops = length(p[:r])
+    function WilsonCowan73Params(p)
+        p = deepcopy(p) # to prevent mutation
+        npops = length(p[:r])
 
-      space_params = pop!(p, :space)
-      mesh = Mesh(space_params)
+        space_dims = pop!(p, :space)
+        @assert length(space_dims) == 1      # Currently only supports 1D
+        mesh = PopMesh(space_dims, npops)
+        if ndims(mesh) == 2
+            mesh = flatten(mesh)
+        end
+        #@assert mesh isa FlatMesh
 
-      p[:dims] = (size(mesh)..., n_pops)
+        stimulus_params = expand_params(mesh, pop!(p, :stimulus))
+        connectivity_params = expand_params(mesh, pop!(p, :connectivity))
+        p = expand_params(mesh, p)
 
-      stimulus_params = pop!(p, :stimulus)
-      @assert ndims(mesh) == 1      # Currently only supports 1D
-      xs = mesh.dims[1]
-      stimulus_params[:xs] = xs
-      stimulus_params[:n_pops] = n_pops
-      p[:stimulus_fn] = make_stimulus_fn(; stimulus_params...)
+        p[:mesh] = mesh
+        p[:stimulus_fn] = make_stimulus_fn(mesh; stimulus_params...)
+        p[:W] = sholl_connectivity(mesh, connectivity_params[:amplitudes],
+                                   connectivity_params[:spreads])
 
-      connectivity_params = pop!(p, :connectivity)
-      p[:W] = sholl_tensor(xs, connectivity_params[:amplitudes],
-                           connectivity_params[:spreads])
-      if ndims(mesh) == 1
-          p[:W] = flatten_sholl_tensor(p[:W])
+        return WilsonCowan73Params(; p...)
+    end
+
+  function expand_params(mesh::AbstractMesh, dct::T) where T <: Dict
+      for (k,v) in dct
+          if v isa PopulationParam
+              dct[k] = expand_param(mesh, v)
+          end
       end
-      return WilsonCowan73Params(; p...)
+      return dct
   end
 
 #+END_SRC
@@ -157,13 +169,13 @@ centered at $x=0$.
 
 #+BEGIN_SRC julia :noweb-ref wc73-differential
 
-  WilsonCowan73!(dA,A::SpaceState,p::WilsonCowan73Params{InteractionTensor},t) = begin
+  WilsonCowan73!(dA,A::SpaceState1D,p::WilsonCowan73Params{InteractionTensor},t) = begin
       # Use dA as intermediate variable for tensor op since it is preallocated
       @tensor dA[x_tgt, pop_tgt] = p.W[x_tgt, pop_tgt, x_src, pop_src] * A[x_src, pop_src]
       dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(dA + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
   end
 
-  WilsonCowan73_flat!(dA,A::SpaceState,p::WilsonCowan73Params{Interaction1DFlat},t) = begin
+  WilsonCowan73_flat!(dA,A::SpaceState1DFlat,p::WilsonCowan73Params{Interaction1DFlat},t) = begin
       # Use dA as intermediate variable for tensor op since it is preallocated
       dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(p.W*A + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
   end
@@ -183,7 +195,7 @@ centered at $x=0$.
           differential_fn = WilsonCowan73!
       end
 
-      u0 = zeros(NumType, model_params.dims)
+      u0 = zeros(model_params.mesh)
       tspan = (0.0, pop!(solver_params, :T))
       prob::DEProblem = ODEProblem(differential_fn, u0, tspan, model_params)
 
@@ -310,14 +322,6 @@ where $a$ describes the slope's steepness and $\theta$ describes translation of 
 The current definition uses a macro. It is not clear that this is necessary, nor even advisable. However, the ParameterizedFunction automatically calculates useful quantities like the Jacobian, including with respect to the parameters themselves, and I thought I'd see if this works better. Initially I was using a provided macro that didn't seem to like function calls, so this macro was necessary. Now I doubt it's necessary and I'll probably run some tests to see if there's any performance difference in the DifferentialEquations solve.
 
 #+BEGIN_SRC julia :noweb-ref sigmoid :results silent
-  macro simple_sigmoid(x, a, theta)
-      return :(@. 1 / (1 + exp(-$(esc(a)) * ($(esc(x)) - $(esc(theta))))))
-  end
-
-  macro sigmoid(x, a, theta)
-       return :(@. max(0, @simple_sigmoid($(esc(x)), $(esc(a)), $(esc(theta))) - @simple_sigmoid(0, $(esc(a)), $(esc(theta)))))
-  end
-
   function simple_sigmoid_fn(x, a, theta)
       return @. (1 / (1 + exp(-a * (x - theta))))
   end
@@ -332,7 +336,7 @@ The current definition uses a macro. It is not clear that this is necessary, nor
 <<connectivity-mesh>>
 <<connectivity-distance-matrix>>
 <<connectivity-sholl-matrix>>
-<<connectivity-sholl-tensor>>
+<<connectivity-sholl>>
 #+END_SRC
 
 #+BEGIN_SRC julia :noweb-ref connectivity-test
@@ -365,26 +369,71 @@ rather than a fundamental one.
 *** Make mesh of space
 
 #+BEGIN_SRC julia :noweb-ref connectivity-mesh :results silent
-  struct Mesh
+
+  struct SpaceMesh <: AbstractMesh
       dims::Array{SpaceDim}
   end
-  function Mesh(dim_dcts::Array{T}) where T <: Dict
+  struct PopMesh <: AbstractMesh
+      space::SpaceMesh
+      n_pops::Integer
+  end
+  struct FlatMesh <: AbstractMesh
+      pop_mesh::PopMesh
+      FlatMesh(mesh) = ndims(mesh) != 2 ? error("cannot flatten >1D mesh.") : new(mesh)
+  end
+  flatten(mesh::PopMesh) = FlatMesh(mesh)
+  unflatten(mesh::FlatMesh) = mesh.pop_mesh
+
+  function SpaceMesh(dim_dcts::Array{T}) where T <: Dict
       dims = Array{StepRangeLen}(length(dim_dcts))
       for (i, dim) in enumerate(dim_dcts)
           extent::NumType = dim[:extent]
           N::Integer = dim[:N]
-          mesh[i] = linspace(-(extent/2), (extent/2), N)
+          dims[i] = linspace(-(extent/2), (extent/2), N)
       end
-      Mesh(dims)
+      SpaceMesh(dims)
+  end
+  function PopMesh(dim_dcts::Array{T}, n_pops::Integer) where T <: Dict
+      PopMesh(SpaceMesh(dim_dcts),n_pops)
   end
 
-  import Base: size, ndims
-  function size(mesh::Mesh)
+  import Base: size, ndims, zeros
+  function size(mesh::SpaceMesh)
       return length.(mesh.dims)
   end
-  function ndims(mesh::Mesh)
-      return length(mesh.dims)
+  function size(mesh::PopMesh)
+      return (size(mesh.space)..., mesh.n_pops)
   end
+  function size(mesh::FlatMesh)
+      return size(mesh.pop_mesh)[1] * mesh.n_pops
+  end
+  function ndims(mesh::AbstractMesh)
+      return length(size(mesh))
+  end
+
+  function coords(mesh::SpaceMesh)
+      @assert ndims(mesh) == 1
+      return mesh.dims[1]
+  end
+  function coords(mesh::PopMesh)
+      @assert ndims(mesh) == 2
+      return repeat(coords(mesh.space), outer=(1, mesh.n_pops))
+  end
+  function coords(mesh::FlatMesh)
+      return repeat(coords(mesh.pop_mesh.space), outer=mesh.pop_mesh.n_pops)
+  end
+  function zeros(mesh::AbstractMesh)
+      zeros(coords(mesh))
+  end
+  function expand_param(mesh::PopMesh, param::RowVector)::ExpandedParam
+      space_dims = size(mesh)[1:end-1]
+      return repeat(param, inner=(space_dims..., 1))
+  end
+  function expand_param(mesh::FlatMesh, param::RowVector)::ExpandedParamFlat
+      return expand_param(mesh.pop_mesh, param)[:]
+  end
+
+
 #+END_SRC
 
 *** Make matrix of all inter-point distances
@@ -402,26 +451,30 @@ rather than a fundamental one.
 
 *** Join Sholl matrices into complete interaction tensor
 
-#+BEGIN_SRC julia :noweb-ref connectivity-sholl-tensor :results silent
-  function sholl_tensor(xs::SpaceDim, W::Array{NumType,2}, Σ::Array{NumType,2})::InteractionTensor
-      N_x = length(xs)
-      N_pop = size(W)[1]
-      conn_tn = zeros(N_x, N_pop, N_x, N_pop)
-      for tgt_pop in range(1,N_pop)
-	  for src_pop in range(1,N_pop)
-	      conn_tn[:, tgt_pop, :, src_pop] .= sholl_matrix(W[tgt_pop, src_pop],
-			    Σ[tgt_pop, src_pop], distance_matrix(xs), step(xs))
-	  end
-      end
-      return conn_tn
-  end
-  <<connectivity-flatten-sholl>>
+#+BEGIN_SRC julia :noweb-ref connectivity-sholl :results silent
+    function sholl_connectivity(mesh::PopMesh, W::Array{NumType,2}, Σ::Array{NumType,2})::InteractionTensor
+        xs = mesh.space.dims[1]
+        N_x = length(xs)
+        N_pop = size(W)[1]
+        conn_tn = zeros(N_x, N_pop, N_x, N_pop)
+        for tgt_pop in range(1,N_pop)
+            for src_pop in range(1,N_pop)
+                conn_tn[:, tgt_pop, :, src_pop] .= sholl_matrix(W[tgt_pop, src_pop],
+                              Σ[tgt_pop, src_pop], distance_matrix(xs), step(xs))
+            end
+        end
+        return conn_tn
+    end
+    <<connectivity-flatten-sholl>>
 #+END_SRC
 
 **** Flatten 1-space-D Sholl tensor
 In the two population case, flattening the tensor and using matrix
 multiplication is 3x faster.
 #+BEGIN_SRC julia :noweb-ref connectivity-flatten-sholl
+  function sholl_connectivity(mesh::FlatMesh, args...)
+      sholl_connectivity(unflatten(mesh), args...) |> flatten_sholl
+  end
   function flatten_sholl(tensor)::Interaction1DFlat
       N_x, N_p = size(tensor)[1:2]
       @assert N_p < N_x
@@ -429,7 +482,7 @@ multiplication is 3x faster.
       flat = zeros(eltype(tensor), N_x*N_p, N_x*N_p)
       for i in 1:N_p
           for j in 1:N_p
-              flat[(1:N_x)+(i*N_x), (1:N_x)+(j*N_x)] = tensor[:,i,:,j]
+              flat[(1:N_x)+((i-1)*N_x), (1:N_x)+((j-1)*N_x)] = tensor[:,i,:,j]
           end
       end
       return flat
@@ -441,12 +494,12 @@ multiplication is 3x faster.
 The stimulus returned is a function of time.
 
 #+BEGIN_SRC julia :noweb-ref stimulus :results silent
-  function make_stimulus_fn(; name=nothing, arguments...)
+  function make_stimulus_fn( mesh; name=nothing, arguments...)
       stimulus_factories = Dict(
-	  "smooth_bump" => smooth_bump_factory,
-	  "sharp_bump" => sharp_bump_factory
+          "smooth_bump" => smooth_bump_factory,
+          "sharp_bump" => sharp_bump_factory
       )
-      return stimulus_factories[name](; arguments...)
+      return stimulus_factories[name](; coords=coords(mesh), arguments...)
   end
 #+END_SRC
 
@@ -462,18 +515,15 @@ realistic. The differentiabiilty may be useful for the automatic solvers that
 Julia has, which can try to automatically differentiate the mutation function
 in order to improve the solving.
 #+BEGIN_SRC julia :noweb-ref stimulus :results silent
-  function make_smooth_bump_frame(xs, n_pops::Integer,
-					   width::DistType, strength::NumType,
-					   steepness::NumType)
-      one_pop_frame = @. strength * (simple_sigmoid_fn(xs, steepness, -width/2) - simple_sigmoid_fn(xs, steepness, width/2))
-      return repeat(one_pop_frame, outer=(1,n_pops))
+  function make_smooth_bump_frame(coords::Array{DistType}, width::DistType, strength::NumType, steepness::NumType)
+      @. strength * (simple_sigmoid_fn(coords, steepness, -width/2) - simple_sigmoid_fn(coords, steepness, width/2))
   end
 
-  function smooth_bump_factory(; xs=nothing, n_pops=nothing,
-			       width=nothing, strength=nothing, duration=nothing,
-			       steepness=nothing)
+  function smooth_bump_factory(; coords=nothing,
+                               width=nothing, strength=nothing, duration=nothing,
+                               steepness=nothing)
       # WARNING: Defaults are ugly; Remove when possible.
-      on_frame = make_smooth_bump_frame(xs, n_pops, width, strength, steepness)
+      on_frame = make_smooth_bump_frame(coords, width, strength, steepness)
       return (t) -> @. on_frame * (1 - simple_sigmoid_fn(t, steepness, duration))
   end
 #+END_SRC
@@ -482,20 +532,19 @@ in order to improve the solving.
 The "sharp bump" is the usual theoretical impulse: Binary in both time and
 space. On, then off.
 #+BEGIN_SRC julia :noweb-ref stimulus :results silent
-  function make_sharp_bump_frame(xs, n_pops::Integer,
-					  width::DistType, strength::NumType)
-      frame = zeros(NumType, size(xs)..., n_pops)
+  function make_sharp_bump_frame(coords::Array{DistType,2}, width::DistType, strength::NumType)
+      frame = zeros(coords)
       mid_point = 0     # half length, half width
       half_width = width / 2      # using truncated division
+      xs = coords[:,1]   # Assumes all pops have same coords
       start_dx = find(xs .>= mid_point - half_width)[1]
       stop_dx = find(xs .<= mid_point + half_width)[end]
       frame[start_dx:stop_dx,:] = strength
       return frame
   end
-  function sharp_bump_factory(; xs=nothing, n_pops=nothing,
-			      width=nothing, strength=nothing, duration=nothing)
-	  # WARNING: Defaults are ugly; Remove when possible.
-      on_frame = make_sharp_bump_frame(xs, n_pops, width, strength)
+  function sharp_bump_factory(; coords=nothing, width=nothing, strength=nothing, duration=nothing)
+          # WARNING: Defaults are ugly; Remove when possible.
+      on_frame = make_sharp_bump_frame(coords, width, strength)
       off_frame = zeros(on_frame)
       return (t) -> (t <= duration) ? on_frame : off_frame
   end
