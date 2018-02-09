@@ -248,8 +248,27 @@ run_WilsonCowan73_trial("jl_replicate_neuman.json")
 
 * Appendix
 ** Mesh
-
+Define a mesh type that standardizes interaction with the discretization of
+space (and populations, though those are inherently discrete, as we currently
+conceptualize them).
 #+BEGIN_SRC julia :noweb-ref mesh-types :results silent
+  <<mesh-types>>
+  <<mesh-constructors>>
+  <<mesh-flatten>>
+  <<mesh-functions>>
+#+END_SRC
+All meshes are subtyped from AbstractMesh. SpaceMesh contains only discretized
+spatial dimensions. PopMesh contains a SpaceMesh, but also an integer indicating
+the number of colocalized populations (i.e. each spatial point contains members
+of each population). FlatMesh is merely a flattened representation of a PopMesh
+containing only one spatial dimension. Rather than concatenating populations
+along a "population dimension," the populations are concatenated along the
+single spatial dimension. This is useful so that the convolution can be
+implemented as a matrix multiplication, however I don't see how to extend
+it. I would not have implemented it, except that's how the preceding Python
+implementation worked, and I needed to have a direct comparison in order to
+debug.
+#+BEGIN_SRC julia :noweb-ref mesh-types
   abstract type AbstractMesh end
   struct SpaceMesh <: AbstractMesh
       dims::Array{SpaceDim}
@@ -262,9 +281,17 @@ run_WilsonCowan73_trial("jl_replicate_neuman.json")
       pop_mesh::PopMesh
       FlatMesh(mesh) = ndims(mesh) != 2 ? error("cannot flatten >1D mesh.") : new(mesh)
   end
+#+END_SRC
+
+Flatten and unflatten take a PopMesh to a FlatMesh and vice versa (only if the
+PopMesh has only 1D space).
+#+BEGIN_SRC julia :noweb-ref mesh-flatten
   flatten(mesh::PopMesh) = FlatMesh(mesh)
   unflatten(mesh::FlatMesh) = mesh.pop_mesh
+#+END_SRC
 
+FlatMesh has no outer constructor, as it uses the more descriptive "flatten."
+#+BEGIN_SRC julia :noweb-ref mesh-constructors
   function SpaceMesh(dim_dcts::Array{T}) where T <: Dict
       dims = Array{StepRangeLen}(length(dim_dcts))
       for (i, dim) in enumerate(dim_dcts)
@@ -277,7 +304,11 @@ run_WilsonCowan73_trial("jl_replicate_neuman.json")
   function PopMesh(dim_dcts::Array{T}, n_pops::Integer) where T <: Dict
       PopMesh(SpaceMesh(dim_dcts),n_pops)
   end
+#+END_SRC
 
+Numerous functions operating on meshes, including size, ndims, true_ndims,
+coords, zeros, and expand_param.
+#+BEGIN_SRC julia :noweb-ref mesh-functions
   import Base: size, ndims, zeros
   function size(mesh::SpaceMesh)
       return length.(mesh.dims)
@@ -294,10 +325,10 @@ run_WilsonCowan73_trial("jl_replicate_neuman.json")
   function true_ndims(mesh::AbstractMesh)
       return ndims(mesh)
   end
+  # true_ndims returns the "real" structure of the mesh, i.e. unflattened.
   function true_ndims(mesh::FlatMesh)
       return ndims(mesh.pop_mesh)
   end
-
   function coords(mesh::SpaceMesh)
       @assert ndims(mesh) == 1
       return mesh.dims[1]
