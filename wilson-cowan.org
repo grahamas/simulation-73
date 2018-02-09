@@ -53,8 +53,13 @@ The code will proceed as follows
   <<wc73-analysis>>
   export run_WilsonCowan73_trial
   end
-  #<<run-wc73-trial>>
 
+#+END_SRC
+
+#+BEGIN_SRC julia :noweb no-export :tangle test_wilson-cowan.jl
+using Base.Test
+include("./wilson-cowan.jl")
+<<wc73-definition-test>>
 #+END_SRC
 
 See the appendix for helper functions, including parameter loading.
@@ -88,6 +93,12 @@ centered at $x=0$.
   <<connectivity>>
   <<wc73-constructor>>
   <<wc73-differential>>
+#+END_SRC
+
+#+BEGIN_SRC julia :noweb-ref wc73-definition-test
+<<sigmoid-test>>
+<<stimulus-test>>
+<<connectivity-test>>
 #+END_SRC
 
 *** Type aliases (and definition)
@@ -435,13 +446,14 @@ The current definition uses a macro. It is not clear that this is necessary, nor
 *** Test
 
 #+BEGIN_SRC julia :noweb-ref sigmoid-test
+  import WC73: simple_sigmoid_fn, sigmoid_fn
   @testset "Sigmoids" begin
-      @test simple_sigmoid(0,1,0) == 0.5
-      @test simple_sigmoid(0,1,0.5) ≈ 0.37754066879814
-      @test simple_sigmoid(1,1,1) == 0.5
-      @test sigmoid(0,1,0) == 0.0
-      @test sigmoid(0,1,0.5) == 0.0
-      @test sigmoid(1,1,1) ≈ 0.231058578630049
+      @test simple_sigmoid_fn(0,1,0) == 0.5
+      @test simple_sigmoid_fn(0,1,0.5) ≈ 0.37754066879814
+      @test simple_sigmoid_fn(1,1,1) == 0.5
+      @test sigmoid_fn(0,1,0) == 0.0
+      @test sigmoid_fn(0,1,0.5) == 0.0
+      @test sigmoid_fn(1,1,1) ≈ 0.231058578630049
   end
 #+END_SRC
 
@@ -453,9 +465,11 @@ The current definition uses a macro. It is not clear that this is necessary, nor
 #+END_SRC
 
 #+BEGIN_SRC julia :noweb-ref connectivity-test
-<<connectivity-distance-matrix-test>>
-<<connectivity-sholl-matrix-test>>
-<<connectivity-sholl-test>>
+  @testset "Connectivity" begin
+      <<connectivity-distance-matrix-test>>
+      <<connectivity-sholl-matrix-test>>
+      <<connectivity-sholl-test>>
+  end
 #+END_SRC
 *** Sholl's exponential decay
 We use an exponential connectivity function, inspired both by Sholl's
@@ -474,12 +488,13 @@ function and its two parameters: the amplitude (weight) and the spread
 (σ). The spatial step size is also a factor, but as a computational concern
 rather than a fundamental one.
 **** Test
-#+BEGIN_SRC julia :noweb-ref test-connectivity-sholl-matrix
+#+BEGIN_SRC julia :noweb-ref connectivity-sholl-matrix-test
+  import WC73: sholl_matrix, distance_matrix
   @testset "Sholl Matrix" begin
-      xs = linspace(-1,1,3)
-      @test all(sholl_matrix(1, 1, xs, step(xs)) .≈ [0.5         0.18393972  0.06766764;
+      xs = linspace(-1.0,1.0,3)
+      @test all(.≈(sholl_matrix(1.0, 1.0, distance_matrix(xs), step(xs)), [0.5         0.18393972  0.06766764;
                                                  0.18393972  0.5         0.18393972;
-                                                 0.06766764  0.18393972  0.5       ])
+                                                 0.06766764  0.18393972  0.5       ], atol=1e-6))
   end
 #+END_SRC
 
@@ -498,7 +513,9 @@ rather than a fundamental one.
 
 **** Test
 #+BEGIN_SRC julia :noweb-ref connectivity-distance-matrix-test
-
+  @testset "Distance Matrix" begin
+      @test_skip true
+  end
 #+END_SRC
 
 *** Join Sholl matrices into complete interaction tensor
@@ -522,16 +539,21 @@ rather than a fundamental one.
 
 **** Test
 #+BEGIN_SRC julia :noweb-ref connectivity-sholl-test
-@testset "Sholl tensor" begin
-      weights = [1.0 2.0; 3.0 4.0]
-      spreads = [0.1 0.2; 0.3 0.4]
-      mesh = PopMesh([Dict(:N => 3, :extent => 2)], 2)
-      @test all(sholl_connectivity(mesh, weights, spreads) .≈
-                      [5.00000000e+00   2.26999649e-04   5.00000000e+00   3.36897350e-02;
-                       2.26999649e-04   5.00000000e+00   3.36897350e-02   5.00000000e+00;
-                       5.00000000e+00   1.78369967e-01   5.00000000e+00   4.10424993e-01;
-                       1.78369967e-01   5.00000000e+00   4.10424993e-01   5.00000000e+00])
-end
+   import WC73: sholl_connectivity, PopMesh, flatten
+   @testset "Sholl tensor" begin
+         weights = [1.0 2.0; 3.0 4.0]
+         spreads = [0.1 0.2; 0.3 0.4]
+         mesh = PopMesh([Dict(:N => 3, :extent => 2)], 2)
+         observed = sholl_connectivity(flatten(mesh), weights, spreads)
+         expected =      [  5.00000000e+00   2.26999649e-04   1.03057681e-08   5.00000000e+00   3.36897350e-02   2.26999649e-04 ;
+   2.26999649e-04   5.00000000e+00   2.26999649e-04   3.36897350e-02   5.00000000e+00   3.36897350e-02 ;
+   1.03057681e-08   2.26999649e-04   5.00000000e+00   2.26999649e-04   3.36897350e-02   5.00000000e+00 ;
+  5.          0.17836997  0.00636317  5.          0.41042499  0.03368973 ;
+  0.17836997  5.          0.17836997  0.41042499  5.          0.41042499 ;
+  0.00636317  0.17836997  5.          0.03368973  0.41042499  5.         ]
+         println(observed)
+         @test all(.≈(observed, expected, atol=1e-6))
+   end
 #+END_SRC
 *** Flatten 1-space-D Sholl tensor
 In the two population case, flattening the tensor and using matrix
@@ -565,6 +587,12 @@ The stimulus returned is a function of time.
           "sharp_bump" => sharp_bump_factory
       )
       return stimulus_factories[name](mesh; args...)
+  end
+#+END_SRC
+
+#+BEGIN_SRC julia :noweb-ref stimulus-test
+  @testset "Stimulus" begin
+      @test_skip true
   end
 #+END_SRC
 
