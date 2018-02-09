@@ -238,8 +238,8 @@ centered at $x=0$.
         solution_gif(soln.t, timeseries; dir_name=dir_name, analyses[:activity_gif]...)
     end
 
-    function run_WilsonCowan73_trial(json_filename::String)
-        all_params = load_WilsonCowan73_parameters(json_filename)
+    function run_WilsonCowan73_trial(json_filename::String, modifications=nothing::Union{Dict, Void})
+        all_params = load_WilsonCowan73_parameters(json_filename, modifications)
         solution = solve_WilsonCowan73(; all_params...)
         analyse_WilsonCowan73_solution(solution; all_params...)
     end
@@ -263,7 +263,7 @@ Define a mesh type that standardizes interaction with the discretization of
 space (and populations, though those are inherently discrete, as we currently
 conceptualize them).
 #+BEGIN_SRC julia :noweb-ref mesh-types :results silent
-  <<mesh-types>>
+  <<mesh-type-defs>>
   <<mesh-constructors>>
   <<mesh-flatten>>
   <<mesh-functions>>
@@ -279,7 +279,7 @@ implemented as a matrix multiplication, however I don't see how to extend
 it. I would not have implemented it, except that's how the preceding Python
 implementation worked, and I needed to have a direct comparison in order to
 debug.
-#+BEGIN_SRC julia :noweb-ref mesh-types
+#+BEGIN_SRC julia :noweb-ref mesh-type-defs
   abstract type AbstractMesh end
   struct SpaceMesh <: AbstractMesh
       dims::Array{SpaceDim}
@@ -399,11 +399,27 @@ Because I originally wrote this in Python, the parameter files are JSON.
       return Dict(convert_pykey(k) => convert_py(v) for (k,v) in d)
   end
 
-
-  function load_WilsonCowan73_parameters(json_filename::String)
+  function deep_merge(dct1, dct2::D) where D <: Dict
+      new_dct = deepcopy(dct1)
+      for k in keys(dct2)
+          if k in keys(dct1)
+              new_dct[k] = deep_merge(dct1[k], dct2[k])
+          else
+              new_dct[k] = dct2[k]
+          end
+      end
+      return new_dct
+  end
+  function deep_merge(el1, el2)
+      return el2
+  end
+  function deep_merge(el1, void::Void)
+      return el1
+  end
+  function load_WilsonCowan73_parameters(json_filename::String, modifications::Union{Dict,Void})
       # Parse JSON with keys as symbols.
       param_dct = (convert_py ∘ JSON.parsefile)(json_filename)
-      return param_dct
+      return deep_merge(param_dct, modifications)
   end
 
 #+END_SRC
