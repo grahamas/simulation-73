@@ -1,6 +1,6 @@
 {
     "model" : {
-	"space": [{"extent": 100.5, "N": 501}],
+	"space": [{"extent": 100.5, "N": 201}],
 	"connectivity": {
 	    "amplitudes": [[16.0, -18.2],
 			   [27.0, -4.0]],
@@ -21,8 +21,8 @@
 	"theta": [2.6, 8.0]
     },
     "solver": {
-	"T": 1,
-	"dt": 0.01
+	"T": 2.5,
+	"dt": 0.001
     },
     "analyses": {
 	"root": "/home/grahams/Dropbox/Research/simulation-73/results/",
