@@ -176,7 +176,7 @@ centered at $x=0$.
       dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(dA + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
   end
 
-  WilsonCowan73_flat!(dA,A::SpaceState1DFlat,p::WilsonCowan73Params{Interaction1DFlat},t) = begin
+  WilsonCowan73!(dA,A::SpaceState1DFlat,p::WilsonCowan73Params{Interaction1DFlat},t) = begin
       # Use dA as intermediate variable for tensor op since it is preallocated
       dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(p.W*A + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
   end
@@ -190,15 +190,9 @@ centered at $x=0$.
       solver_params = deepcopy(Dict{Any,Any}(solver))
       model_params = WilsonCowan73Params(model)
 
-      if model_params isa WilsonCowan73Params{Interaction1DFlat}
-          differential_fn = WilsonCowan73_flat!
-      else
-          differential_fn = WilsonCowan73!
-      end
-
       u0 = zeros(model_params.mesh)
       tspan = (0.0, pop!(solver_params, :T))
-      prob::DEProblem = ODEProblem(differential_fn, u0, tspan, model_params)
+      prob::DEProblem = ODEProblem(WilsonCowan73!, u0, tspan, model_params)
 
       if :dt in keys(solver_params)
           solver_params[:alg] = Euler()
