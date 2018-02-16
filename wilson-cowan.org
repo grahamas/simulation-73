@@ -5,7 +5,7 @@
 #+LATEX_HEADER_EXTRA: \input{\string~/Dropbox/Tex/standard_preamble.tex}
 #+AUTHOR: Graham Smith
 #+EMAIL: grahamas@gmail.com
-#+TITLE: Fitting the Wilson-Cowan Integro-Differential Equations
+#+TITLE: Numerically Solving the Wilson-Cowan Integro-Differential Equation
 #+LATEX_HEADER: \input{\string~/Dropbox/Tex/math_preamble.tex}
 
 
@@ -20,7 +20,7 @@ Here I will simulate the spatially one-dimensional Wilson-Cowan equations as des
 
 using the Julia.
 
-* Equations
+** Equations
 
 First, let's specify the equations we will be simulating:
 
@@ -44,16 +44,15 @@ where $\odot$ is the Hademard (element-wise) product of an appropriately expande
 ** Overview
 The code will proceed as follows
 
-#+BEGIN_SRC julia :noweb no-export :results silent :tangle wilson-cowan.jl
+#+BEGIN_SRC julia :noweb no-export :results silent :tangle WC73.jl
   module WC73
   <<load-modules>>
   <<parameters-loader>>
   <<wc73-definition>>
   <<wc73-solver>>
   <<wc73-analysis>>
-  export run_WilsonCowan73_trial
+  export load_WilsonCowan73_parameters, solve_WilsonCowan73
   end
-
 #+END_SRC
 
 #+BEGIN_SRC julia :noweb no-export :tangle test_wilson-cowan.jl
@@ -74,10 +73,11 @@ See the appendix for helper functions, including parameter loading.
 
   using DifferentialEquations
 
-  ENV["GKSwstype"] = "100" # For headless plotting (on server)
-  using Plots; gr()
-
   import Base.Dates
+
+  push!(LOAD_PATH, joinpath(ENV["HOME"], "gits", "simulation-73"))
+  using SimulationTypes
+
 #+END_SRC
 
 ** Define WilsonCowan73
@@ -104,19 +104,6 @@ centered at $x=0$.
 *** Type aliases (and definition)
 
 #+BEGIN_SRC julia :noweb-ref wc73-types
-  const NumType = Float64
-  const DistType = NumType
-  const TimeType = NumType
-  const PopulationParam = RowVector{NumType}
-  const InteractionParam = Array{NumType, 2}
-  const ExpandedParam = Array{NumType, 2}
-  const ExpandedParamFlat = Array{NumType,1}
-  const InteractionTensor = Array{NumType,4}
-  const Interaction1DFlat = Array{NumType,2}
-  const SpaceState1D = Array{NumType, 2}
-  const SpaceState1DFlat = Array{NumType,1}
-  const SpaceDim = StepRangeLen{NumType}
-  <<mesh-types>>
   @with_kw struct WilsonCowan73Params{InteractionType, ParamType}
     # Explict fields in parameter file
     # May also be given as LaTeX command (e.g. alpha for α)
@@ -225,27 +212,6 @@ centered at $x=0$.
 
 #+END_SRC
 
-** Analysis and Runner
-   This code currently only plots.
-#+BEGIN_SRC julia :noweb-ref wc73-analysis
-  <<file-helpers>>
-  <<plotting-helpers>>
-
-    function analyse_WilsonCowan73_solution(soln; analyses=nothing, all_params...)
-        dir_name = output_dir_name(; analyses...)
-        write_params(dir_name; analyses=analyses, all_params...)
-        timeseries = standardize_timeseries(soln.u, soln.prob.p.mesh)
-        solution_gif(soln.t, timeseries; dir_name=dir_name, analyses[:activity_gif]...)
-    end
-
-    function run_WilsonCowan73_trial(json_filename::String, modifications=nothing::Union{Dict, Void})
-        all_params = load_WilsonCowan73_parameters(json_filename, modifications)
-        solution = solve_WilsonCowan73(; all_params...)
-        analyse_WilsonCowan73_solution(solution; all_params...)
-    end
-
-#+END_SRC
-
 ** Run Trial
 
 Then the solution is as simple as
@@ -258,111 +224,6 @@ run_WilsonCowan73_trial("jl_replicate_neuman.json")
 : Plots.AnimatedGif("/home/grahams/Dropbox/Research/simulation-73/solution.gif")
 
 * Appendix
-** Mesh
-Define a mesh type that standardizes interaction with the discretization of
-space (and populations, though those are inherently discrete, as we currently
-conceptualize them).
-#+BEGIN_SRC julia :noweb-ref mesh-types :results silent
-  <<mesh-type-defs>>
-  <<mesh-constructors>>
-  <<mesh-flatten>>
-  <<mesh-functions>>
-#+END_SRC
-All meshes are subtyped from AbstractMesh. SpaceMesh contains only discretized
-spatial dimensions. PopMesh contains a SpaceMesh, but also an integer indicating
-the number of colocalized populations (i.e. each spatial point contains members
-of each population). FlatMesh is merely a flattened representation of a PopMesh
-containing only one spatial dimension. Rather than concatenating populations
-along a "population dimension," the populations are concatenated along the
-single spatial dimension. This is useful so that the convolution can be
-implemented as a matrix multiplication, however I don't see how to extend
-it. I would not have implemented it, except that's how the preceding Python
-implementation worked, and I needed to have a direct comparison in order to
-debug.
-#+BEGIN_SRC julia :noweb-ref mesh-type-defs
-  abstract type AbstractMesh end
-  struct SpaceMesh <: AbstractMesh
-      dims::Array{SpaceDim}
-  end
-  struct PopMesh <: AbstractMesh
-      space::SpaceMesh
-      n_pops::Integer
-  end
-  struct FlatMesh <: AbstractMesh
-      pop_mesh::PopMesh
-      FlatMesh(mesh) = ndims(mesh) != 2 ? error("cannot flatten >1D mesh.") : new(mesh)
-  end
-#+END_SRC
-
-Flatten and unflatten take a PopMesh to a FlatMesh and vice versa (only if the
-PopMesh has only 1D space).
-#+BEGIN_SRC julia :noweb-ref mesh-flatten
-  flatten(mesh::PopMesh) = FlatMesh(mesh)
-  unflatten(mesh::FlatMesh) = mesh.pop_mesh
-#+END_SRC
-
-FlatMesh has no outer constructor, as it uses the more descriptive "flatten."
-#+BEGIN_SRC julia :noweb-ref mesh-constructors
-  function SpaceMesh(dim_dcts::Array{T}) where T <: Dict
-      dims = Array{StepRangeLen}(length(dim_dcts))
-      for (i, dim) in enumerate(dim_dcts)
-          extent::NumType = dim[:extent]
-          N::Integer = dim[:N]
-          dims[i] = linspace(-(extent/2), (extent/2), N)
-      end
-      SpaceMesh(dims)
-  end
-  function PopMesh(dim_dcts::Array{T}, n_pops::Integer) where T <: Dict
-      PopMesh(SpaceMesh(dim_dcts),n_pops)
-  end
-#+END_SRC
-
-Numerous functions operating on meshes, including size, ndims, true_ndims,
-coords, zeros, and expand_param.
-#+BEGIN_SRC julia :noweb-ref mesh-functions
-  import Base: size, ndims, zeros
-  function size(mesh::SpaceMesh)
-      return length.(mesh.dims)
-  end
-  function size(mesh::PopMesh)
-      return (size(mesh.space)..., mesh.n_pops)
-  end
-  function size(mesh::FlatMesh)
-      return size(mesh.pop_mesh)[1] * mesh.pop_mesh.n_pops
-  end
-  function ndims(mesh::AbstractMesh)
-      return length(size(mesh))
-  end
-  function true_ndims(mesh::AbstractMesh)
-      return ndims(mesh)
-  end
-  # true_ndims returns the "real" structure of the mesh, i.e. unflattened.
-  function true_ndims(mesh::FlatMesh)
-      return ndims(mesh.pop_mesh)
-  end
-  function coords(mesh::SpaceMesh)
-      @assert ndims(mesh) == 1
-      return mesh.dims[1]
-  end
-  function coords(mesh::PopMesh)
-      @assert ndims(mesh) == 2
-      return repeat(coords(mesh.space), outer=(1, mesh.n_pops))
-  end
-  function coords(mesh::FlatMesh)
-      return repeat(coords(mesh.pop_mesh.space), outer=mesh.pop_mesh.n_pops)
-  end
-  function zeros(mesh::AbstractMesh)
-      zeros(coords(mesh))
-  end
-  function expand_param(mesh::PopMesh, param::RowVector)::ExpandedParam
-      space_dims = size(mesh)[1:end-1]
-      return repeat(param, inner=(space_dims..., 1))
-  end
-  function expand_param(mesh::FlatMesh, param::RowVector)::ExpandedParamFlat
-      return expand_param(mesh.pop_mesh, param)[:]
-  end
-#+END_SRC
-
 ** Parameter file reading
 Because I originally wrote this in Python, the parameter files are JSON.
 #+BEGIN_SRC julia :noweb-ref parameters-loader :results silent
@@ -416,7 +277,7 @@ Because I originally wrote this in Python, the parameter files are JSON.
   function deep_merge(el1, void::Void)
       return el1
   end
-  function load_WilsonCowan73_parameters(json_filename::String, modifications::Union{Dict,Void})
+  function load_WilsonCowan73_parameters(json_filename::String, modifications=nothing)
       # Parse JSON with keys as symbols.
       param_dct = (convert_py ∘ JSON.parsefile)(json_filename)
       return deep_merge(param_dct, modifications)
@@ -687,65 +548,6 @@ Plots the step stimulus in time and space.
   Plots.surface(val)
 #+END_SRC
 
-** Plotting
-Plotting helper functions.
-#+BEGIN_SRC julia :noweb-ref plotting-helpers
-
-  function standardize_timeseries(timeseries, mesh::AbstractMesh)
-      # Join array of arrays into matrix Other Dims x Time
-      cat(true_ndims(mesh)+1, [standardize_frame(frame, mesh) for frame in timeseries]...)
-  end
-  function standardize_frame(frame, mesh::FlatMesh)
-      reshape(frame, size(mesh.pop_mesh))
-  end
-  function standardize_frame(frame, mesh::PopMesh)
-      frame # The PopMesh shape is the standard.
-  end
-
-
-    function solution_gif(t, timeseries::Array{NumType,3}; dir_name="", file_name="solution.gif",
-                          disable=0, subsample=1, fps=15)
-        if disable != 0
-            return
-        end
-        max_activity = maximum(timeseries, (1,2,3))[1] # I don't know why this index is here.
-        min_activity = minimum(timeseries, (1,2,3))[1]
-        subsample = floor(Int, subsample)
-        anim = @animate for i in 1:subsample:length(t)
-            plot([timeseries[:,1,i], timeseries[:,2,i]], ylim=(min_activity, max_activity), title="t=$(t[i])")
-        end
-        save_path = joinpath(dir_name, file_name)
-        @safe_write(save_path, gif(anim, save_path, fps=fps))
-    end
-
-#+END_SRC
-** File output
-Helper functions for writing out results.
-#+BEGIN_SRC julia :noweb-ref file-helpers
-
-  macro safe_write(path, writer)
-      quote
-	  if !(isfile($(esc(path))))
-	      $(esc(writer))
-	  else
-	      warn("Tried to write existing file: $(esc(path))")
-	  end
-      end
-  end
-
-  function output_dir_name(; root=nothing, simulation_name=nothing, other...)
-      now = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS.s")
-      dir_name = joinpath(root, simulation_name, now)
-      mkpath(dir_name)
-      return dir_name
-  end
-
-  function write_params(dir_name; params...)
-      save_path = joinpath(dir_name, "parameters.json")
-      @safe_write(save_path, write(save_path, JSON.json(params)))
-  end
-
-#+END_SRC
 * Footnotes
 
 [fn:2] Under the tensor notation, this is merely broadcasting.

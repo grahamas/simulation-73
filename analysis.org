@@ -1,0 +1,302 @@
+#+PROPERTY: header-args :results output :results silent :session *julia* :noweb yes
+#+OPTIONS: title:nil author:nil date:nil toc:nil
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS: [12pt]
+#+LATEX_HEADER_EXTRA: \input{\string~/Dropbox/Tex/standard_preamble.tex}
+#+AUTHOR: Graham Smith
+#+EMAIL: grahamas@gmail.com
+#+TITLE: Analysing Numerical Solutions to the Wilson-Cowan Equation
+#+LATEX_HEADER: \input{\string~/Dropbox/Tex/math_preamble.tex}
+
+* Introduction
+This file contains functions for the analysis of numerical solutions to the
+Wilson-Cowan equations. The focus is on traveling waves and their oscillations,
+so the first goal is to create measures of the degree of travelingness and the
+degree to which that traveling wave oscillates. The latter has clear measure:
+amplitude of the oscillation (assuming the measurement time is long enough to
+capture any reasonable frequency). The former is a bit trickier. The relevant
+distinction would seem to be against dispersion (see Maunsell's paper) but it's
+not obvious that that is a dichotomy, i.e. it is not obvious that there is not
+some other way that a wave could appear to be traveling but be neither traveling
+nor dispersing.
+
+In an ideal world, these measures should be performed globally on the whole
+solution tensor (i.e. across all time and space). I'm not sure how to do that.
+
+Potential approach: Look at maximum, ignoring middle maximum (where the stimulus
+is happening).
+
+#+BEGIN_SRC julia :noweb no-export :tangle WC73Analysis.jl
+  module WC73Analysis
+  push!(LOAD_PATH, joinpath(ENV["HOME"], "gits", "simulation-73"))
+  using SimulationTypes
+  <<imports>>
+  <<analysis-types>>
+  <<symmetric>>
+  <<maxima>>
+  <<file-helpers>>
+  <<plotting-helpers>>
+  <<analysis-interface>>
+  end
+#+END_SRC
+
+* Interface
+#+BEGIN_SRC julia :noweb-ref analysis-interface
+   function analyse_WilsonCowan73_solution(soln; analyses=nothing, other_params...)
+       dir_name = output_dir_name(; analyses...)
+       write_params(dir_name; analyses=analyses, other_params...)
+       timeseries = standardize_timeseries(soln.u, soln.prob.p.mesh)
+       #maxima_indices = non_stimulus_maxima(timeseries)
+       solution_gif(soln.t, timeseries; dir_name=dir_name,
+		    analyses[:activity_gif]...)
+   end
+   export analyse_WilsonCowan73_solution
+
+
+#+END_SRC
+
+* Types
+
+#+BEGIN_SRC julia :noweb-ref analysis-types
+  const PopTimeseries1D = Array{NumType, 3} # 1 spatial dimension
+  const Timeseries1D = Array{NumType,2}
+  struct MovingPeak{NumType}
+      values::Array{NumType}
+      indices::Array{Int}
+      scions::Array{MovingPeak}# = MovingPeak[]
+      sources::Array{MovingPeak}# = MovingPeak[] #Can be more than one if collision
+  end
+
+MovingPeak(values, indices) = MovingPeak(values, indices, MovingPeak[], MovingPeak[])
+#+END_SRC
+
+* Oscillating measure
+#+BEGIN_SRC julia :noweb-ref oscillation_measure
+  function max_freq_and_power(signal::Array{T,2}) where T
+      grams = mapslices(periodogram, signal, 2) # Assumes time is second dimension
+      hcat((map(grams) do gram
+	  max_dx = findmax(gram.power)
+	  [gram.freq[max_dx] gram.power[max_dx]]
+      end)...)
+  end
+
+
+#+END_SRC
+* Moving peaks
+#+BEGIN_SRC julia :noweb-ref moving_peaks
+<<find-local-maxima>>
+<<find-moving-peaks>>
+<<continue-moving-peaks>>
+#+END_SRC
+
+#+BEGIN_SRC julia :noweb-ref find-moving-peaks
+  function find_moving_peaks(signal::Timeseries1D)::Array{MovingPeak}
+      peaks = MovingPeak[]
+      n_time = size(signal,2)
+      for i_time = 1:n_time
+	  space_frame = signal[:,i_time]
+	  new_maxima = find_local_maxima(space_frame)
+	  new_peaks = [MovingPeak(NumType[space_frame[idx]], Int[idx]) for idx in new_maxima]
+	  continue_moving_peaks!(peaks, new_peaks)
+      end
+      return peaks
+  end
+#+END_SRC
+
+Next we need to maintain the peaks' identity we've found. For each peak in the
+next time step, there are three possibilities: 1) it is not associated with any
+previous peak (a novel peak), 2) it is associated with one previous peak (a
+simple continuation), or 3) it is associated with more than one previous peak (a
+convergence of peaks). The first two are rather simple if we can manage to
+classify them (I think some level of smoothness up to the second derivative
+would be in order). The third is algorithmically complex, because properly there
+isn't just one peak; rather there are multiple peaks that happen to be
+co-located. This could have a couple of outcomes: 1) the peaks pass through each
+other, and we have a simple continuation with a shared peak, 2) the peaks bounce
+-- This could be indistinguishable from the continuation!, 3) one or more of the
+peaks die, 4) there is a discontinuity in the peaks' behavior that is suggestive
+of new peaks' formation.
+
+Due to the complexity of the possible outcomes, I think it prudent to collapse
+all into fourth case: upon collision, create new peaks. Later when investigating
+soliton collisions this can be reimplemented. So for extensibility, I'll
+abstract it all into a function called something like "resolve_collision".
+
+#+BEGIN_SRC julia :noweb-ref continue-moving-peaks
+  function continue_moving_peaks!(peaks::Array{MovingPeak},
+				  next_peaks::Array{MovingPeak}, rtol)
+      # figure out if the "next_peaks" are new peaks or continuations of existing peaks
+      potential_continuations, potential_sources = find_potential_continuations!(next_peaks, peaks, rtol)
+      accept_all_potential_connections!(peaks, next_peaks, potential_continuations, potential_sources)
+  end
+
+  function accept_all_potential_connections!(peaks::Array{MovingPeak},
+					     next_peaks::Array{MovingPeak},
+					     continuations::Array{Array{Int}},
+					     sources::Array{Array{Int}})
+      eaten_next_peaks = Set()
+      for (i_pre, pre_peak) in enumerate(peaks)
+	  if length(continuations[i_pre]) == 1
+	      continuation_dx = continuations[i_pre][1]
+	      if length(sources[continuation_dx]) == 1
+		  continue_peak!(pre_peak, next_peaks[continuation_dx])
+		  push!(eaten_next_peaks, continuation_dx)
+		  continue
+	      end
+	  end
+	  # No one-to-one mapping
+	  scions = next_peaks[continuations[i_pre]]
+	  add_scions!(pre_peak, next_peaks[all_continuations])
+	  for scion in scions
+	      add_source!(scion, pre_peak)
+	  end
+      end
+      deleteat!(next_peaks, eaten_next_peaks)
+      append!(peaks, next_peaks)
+  end
+
+  function continue_peak!(peak::MovingPeak, next_peak::MovingPeak)
+      @assert next_peak.indices[1] > peak.indices[end]
+      @assert length(next_peak.sources) == 0
+      append!(peak.indices, next_peak.indices)
+      append!(peak.values, next_peak.values)
+  end
+
+  function find_potential_continuations(peaks::Array{MovingPeak},
+					next_peaks::Array{MovingPeak}, rtol)
+      # Array of array of indices pointing to potential continuations in
+      # next_peaks. Probably needs to be initialized.
+      potential_continuations = Array{Array{Int}}(length(peaks))
+      # Same, but sources in peaks.
+      potential_sources = Array{Array{Int}}(length(next_peaks))
+      for i_peak, peak in enumerate(peaks)
+	  for i_next_peak, next_peak in enumerate(next_peaks)
+	      if is_continuation(peak, next_peak, rtol)
+		  push!(potential_continuations[i_peak], i_next_peak)
+		  push!(potential_sources[i_next_peak], i_peak)
+	      end
+	  end
+      end
+      return (potential_continuations, potential_sources)
+  end
+
+  function is_continuation(peak::MovingPeak, next_peak::MovingPeak,
+			   rtol=0.1) #permissive arbitrary??
+      # should depend on dt
+      cur_pos, cur_vel, cur_acc = pos_vel_acc(peak)
+      proj_vel = cur_vel + cur_acc
+      proj_pos = cur_pos + proj_vel
+      new_pos, new_vel, new_acc = pos_vel_acc(peak, next_peak)
+      return ≈((proj_pos - new_pos), proj_vel, rtol=tol)
+  end
+
+
+
+
+#+END_SRC
+
+#+BEGIN_SRC julia :noweb-ref find-local-maxima
+  # from: https://discourse.julialang.org/t/how-to-identify-local-maxima-peaks-in-a-time-signal/6000/2
+  function find_local_maxima(signal::Vector)
+      inds = Int[]
+      if length(signal)>1
+	  if signal[1]>signal[2]
+	      push!(inds,1)
+	  end
+	  for i=2:length(signal)-1
+	      if signal[i-1]<signal[i]>signal[i+1]
+		  push!(inds,i)
+	      end
+	  end
+	  if signal[end]>signal[end-1]
+	      push!(inds,length(signal))
+	  end
+      end
+      inds
+  end
+#+END_SRC
+
+* Plotting
+Plotting helper functions.
+#+BEGIN_SRC julia :noweb-ref plotting-helpers
+
+  function standardize_timeseries(timeseries, mesh::M)::PopTimeseries1D where M <: AbstractMesh
+      # Join array of arrays into matrix Other Dims x Time
+      cat(true_ndims(mesh)+1, [standardize_frame(frame, mesh) for frame in timeseries]...)
+  end
+  function standardize_frame(frame, mesh::FlatMesh)
+      reshape(frame, size(mesh.pop_mesh))
+  end
+  function standardize_frame(frame, mesh::PopMesh)
+      frame # The PopMesh shape is the standard.
+  end
+
+
+  function solution_gif(t, timeseries::PopTimeseries1D; dir_name="", file_name="solution.gif",
+			disable=0, subsample=1, fps=15, maxima_indices=nothing,
+			spatial_subsample_to=0)
+      @assert size(timeseries, 2) == 2
+      if disable != 0
+	  return
+      end
+      if maxima_indices != nothing
+	  indices = maxima_indices[2]
+	  maxima = maxima_indices[1]
+      end
+      if spatial_subsample_to > 0
+	  spatial_stride = round(Int, size(timeseries,1) / spatial_subsample_to)
+      else
+	  spatial_stride = 1
+      end
+      max_activity = maximum(timeseries, (1,2,3))[1] # I don't know why this index is here.
+      min_activity = minimum(timeseries, (1,2,3))[1]
+      subsample = floor(Int, subsample)
+      anim = @animate for i in 1:subsample:length(t)
+	  plot([timeseries[1:spatial_stride:end,1,i], timeseries[1:spatial_stride:end,2,i]],
+	       ylim=(min_activity, max_activity), title="t=$(t[i])")
+	  if maxima_indices != nothing
+	      scatter!(x=indices[:,i], y=maxima[:,i], marker=:auto)
+	  end
+      end
+      save_path = joinpath(dir_name, file_name)
+      @safe_write(save_path, gif(anim, save_path, fps=floor(Int,fps)))
+  end
+
+#+END_SRC
+
+* File output
+Helper functions for writing out results.
+#+BEGIN_SRC julia :noweb-ref file-helpers
+
+  macro safe_write(path, writer)
+      quote
+	  if !(isfile($(esc(path))))
+	      $(esc(writer))
+	  else
+	      warn("Tried to write existing file: $(esc(path))")
+	  end
+      end
+  end
+
+  function output_dir_name(; root=nothing, simulation_name=nothing, other...)
+      now = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS.s")
+      dir_name = joinpath(root, simulation_name, now)
+      mkpath(dir_name)
+      return dir_name
+  end
+
+  function write_params(dir_name; params...)
+      save_path = joinpath(dir_name, "parameters.json")
+      @safe_write(save_path, write(save_path, JSON.json(params)))
+  end
+
+#+END_SRC
+
+* Imports
+#+BEGIN_SRC julia :noweb-ref imports
+
+  import JSON
+
+  ENV["GKSwstype"] = "100" # For headless plotting (on server)
+  using Plots; gr()
+#+END_SRC
