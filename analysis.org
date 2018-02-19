@@ -4,7 +4,7 @@
 #+LATEX_CLASS_OPTIONS: [12pt]
 #+LATEX_HEADER_EXTRA: \input{\string~/Dropbox/Tex/standard_preamble.tex}
 #+AUTHOR: Graham Smith
-#+EMAIL: grahamas@gmail.com
+#+EMAIL: grahams@uchicago.edu
 #+TITLE: Analysing Numerical Solutions to the Wilson-Cowan Equation
 #+LATEX_HEADER: \input{\string~/Dropbox/Tex/math_preamble.tex}
 
