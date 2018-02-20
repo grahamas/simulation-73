@@ -42,7 +42,7 @@ where $\odot$ is the Hademard (element-wise) product of an appropriately expande
 
 * Simulation
 ** Overview
-The code will proceed as follows
+The code is outlined as follows
 
 #+BEGIN_SRC julia :noweb no-export :results silent :tangle WC73.jl
   module WC73
@@ -55,6 +55,8 @@ The code will proceed as follows
   end
 #+END_SRC
 
+The test cases (written here alongside the functions they test) are tangled into
+a separate file.
 #+BEGIN_SRC julia :noweb no-export :tangle test_wilson-cowan.jl
 using Base.Test
 include("./wilson-cowan.jl")
@@ -101,8 +103,14 @@ centered at $x=0$.
 <<connectivity-test>>
 #+END_SRC
 
-*** Type aliases (and definition)
-
+*** Model parameter struct definition
+The input parameters are defined in another file, for ease of modification and
+testing. Here we define the actual model parameters that are held by the
+solver. The the "explicit fields" that form the first section of
+the below parameter struct are explicitly included in the input parameters. The
+later parameters are not explicitly included, but are calculated from input
+parameters. The comments describe other input parameters that are not relevant
+to this parameter struct.
 #+BEGIN_SRC julia :noweb-ref wc73-types
   @with_kw struct WilsonCowan73Params{InteractionType, ParamType}
     # Explict fields in parameter file
@@ -127,6 +135,15 @@ centered at $x=0$.
 
 *** Constructor for WC73 parameter object
 
+To construct the above model parameter struct, the explicit params are expanded
+to be of the same length as the model value (1x2 -> nx2). I'm not sure this is a
+good idea for speed, but it makes the code more robust so that broadcasting
+never expands the parameter in the wrong direction.
+
+In addition to expanding the explicit parameters, the calculated "parameters" are
+calculated. Notice that one is a struct and another is a function, which
+hopefully does not break the automatic differentiation of
+DifferentialEquations for the other parameters. I haven't checked.
 #+BEGIN_SRC julia :noweb-ref wc73-constructor
 
     function WilsonCowan73Params(p)
@@ -165,7 +182,11 @@ centered at $x=0$.
 #+END_SRC
 
 *** Differential equation definition
-
+Two versions of the differential equation function, both implementing the same
+equation described in the Equations section. One is general, putatively
+operating on any number of populations (though must still be 1D!). It is much
+less efficient in the 2-pop case than the latter, which takes a matrix instead
+of a tensor as the interaction term.
 #+BEGIN_SRC julia :noweb-ref wc73-differential
 
   WilsonCowan73!(dA,A::SpaceState1D,p::WilsonCowan73Params{InteractionTensor},t) = begin
@@ -212,20 +233,10 @@ centered at $x=0$.
 
 #+END_SRC
 
-** Run Trial
-
-Then the solution is as simple as
-#+BEGIN_SRC julia :noweb-ref run-wc73-trial
-run_WilsonCowan73_trial("jl_replicate_neuman.json")
-#+END_SRC
-
-#+RESULTS:
-: INFO: Saved animation to /home/grahams/Dropbox/Research/simulation-73/solution.gif
-: Plots.AnimatedGif("/home/grahams/Dropbox/Research/simulation-73/solution.gif")
-
 * Appendix
 ** Parameter file reading
-Because I originally wrote this in Python, the parameter files are JSON.
+Because I originally wrote this in Python, the parameter files are JSON. (In the
+process of moving to fully Julia parameters).
 #+BEGIN_SRC julia :noweb-ref parameters-loader :results silent
   function convert_py(val::Number)
       float(val)
@@ -376,7 +387,8 @@ rather than a fundamental one.
 #+END_SRC
 
 *** Make matrix of all inter-point distances
-
+This matrix contains values such that the $j^{th}$ column of the $i^{th}$ row
+contains the distance between locations $i$ and $j$ in the 1D space dimension provided.
 #+BEGIN_SRC julia :noweb-ref connectivity-distance-matrix :results silent
   function distance_matrix(xs::SpaceDim)
       # aka Hankel, but that method isn't working in SpecialMatrices
@@ -396,22 +408,28 @@ rather than a fundamental one.
 #+END_SRC
 
 *** Join Sholl matrices into complete interaction tensor
-
+This calculates a matrix of Sholl's exponential decay for each pair of
+populations, thus describing all pairwise interactions. The result is a tensor
+describing the effect of the source population at one location on the target
+population in another location (indexed: [tgt_loc, tgt_pop, src_loc,
+src_pop]). This works for arbitrarily many populations (untested) but only for
+1D space.
 #+BEGIN_SRC julia :noweb-ref connectivity-sholl :results silent
-    function sholl_connectivity(mesh::PopMesh, W::Array{NumType,2}, Σ::Array{NumType,2})::InteractionTensor
-        xs = mesh.space.dims[1]
-        N_x = length(xs)
-        N_pop = size(W)[1]
-        conn_tn = zeros(N_x, N_pop, N_x, N_pop)
-        for tgt_pop in range(1,N_pop)
-            for src_pop in range(1,N_pop)
-                conn_tn[:, tgt_pop, :, src_pop] .= sholl_matrix(W[tgt_pop, src_pop],
-                              Σ[tgt_pop, src_pop], distance_matrix(xs), step(xs))
-            end
-        end
-        return conn_tn
-    end
-    <<connectivity-flatten-sholl>>
+      function sholl_connectivity(mesh::PopMesh, W::Array{NumType,2},
+				  Σ::Array{NumType,2})::InteractionTensor
+	  xs = mesh.space.dims[1]
+	  N_x = length(xs)
+	  N_pop = size(W)[1]
+	  conn_tn = zeros(N_x, N_pop, N_x, N_pop)
+	  for tgt_pop in range(1,N_pop)
+	      for src_pop in range(1,N_pop)
+		  conn_tn[:, tgt_pop, :, src_pop] .= sholl_matrix(W[tgt_pop, src_pop],
+				Σ[tgt_pop, src_pop], distance_matrix(xs), step(xs))
+	      end
+	  end
+	  return conn_tn
+      end
+      <<connectivity-flatten-sholl>>
 #+END_SRC
 
 **** Test
@@ -434,7 +452,7 @@ rather than a fundamental one.
 #+END_SRC
 *** Flatten 1-space-D Sholl tensor
 In the two population case, flattening the tensor and using matrix
-multiplication is 3x faster.
+multiplication is 3x faster. The below provides exactly that.
 #+BEGIN_SRC julia :noweb-ref connectivity-flatten-sholl
   function sholl_connectivity(mesh::FlatMesh, args...)
       sholl_connectivity(unflatten(mesh), args...) |> flatten_sholl
@@ -455,8 +473,9 @@ multiplication is 3x faster.
 
 ** Stimulus
 
-The stimulus returned is a function of time.
-
+This is a factory which takes the name of a stimulus and returns the function
+defined to be associated with that name. The stimulus returned is a function of
+time only.
 #+BEGIN_SRC julia :noweb-ref stimulus :results silent
   function make_stimulus_fn(mesh; name=nothing, args...)
       stimulus_factories = Dict(
@@ -525,29 +544,6 @@ space. On, then off.
       return (t) -> (t <= duration) ? on_frame : off_frame
   end
 #+END_SRC
-*** Visualisation function
-Old code, not currently in use.
-
-Plots the step stimulus in time and space.
-#+BEGIN_SRC julia :noweb-ref visualise-step-stimulus :results graphics
-  function visualize_step_stimulus(; N_x=500, x_extent=3, width=2, strength=3, duration=4, N_t=700,
-  let N_x=500, x_extent=3, width=2, strength=3, duration=4, N_t=700, t_extent=7
-      global xs = linspace(-x_extent, x_extent, N_x)
-      global on_frame = make_input_frame(xs, width, strength)
-      global ts = linspace(0, t_extent, N_t)
-      global val = zeros(Float64, N_x, N_t)
-      for (i,t) in enumerate(ts)
-	  val[:,i] = @step_input(t, on_frame, duration)
-      end
-  end
-  x_grid = repeat(xs, outer=(1, length(ts)));
-  t_grid = repeat(ts', outer=(length(xs),1));
-  #pyplot()
-  #Plots.surface(x_grid, t_grid, val)
-  gr()
-  Plots.surface(val)
-#+END_SRC
-
 * Footnotes
 
 [fn:2] Under the tensor notation, this is merely broadcasting.

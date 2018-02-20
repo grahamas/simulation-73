@@ -88,6 +88,9 @@ is happening).
 #+END_SRC
 
 ** Find moving peaks
+Our goal in this section is to find moving peaks in a simulation timeseries. The
+function find_moving_peaks takes a timeseries and returns a list of MovingPeak
+objects.
 #+BEGIN_SRC julia :noweb-ref find-moving-peaks
   function find_moving_peaks(signal::Timeseries1D,rtol)::Array{MovingPeak}
       peaks = MovingPeak[]
@@ -100,6 +103,10 @@ is happening).
 	  continue_moving_peaks!(peaks, new_peaks, rtol)
       end
       return peaks
+  end
+
+  function find_moving_peaks(signal::PopTimeseries1D, rtol)
+      [find_moving_peaks(timeseries[:,j,:], rtol) for j in 1:size(timeseries,2)]
   end
 #+END_SRC
 
@@ -251,7 +258,22 @@ The first step relies on finding all potential continuations.
 
 #+END_SRC
 
+** Peaks to timeseries
+The function calc_pop_peak_timeseries takes a multi-population
+timeseries, gets the MovingPeak objects, and then reads the timeseries of each
+peak into a complete population timeseries. Since there may be more than one
+peak at any given timepoint, each timepoint's value must be an array. In fact,
+at each timepoint we need three facts: The location of the peaks, the heights of
+the peaks, and the peak's identity (which so far we just skip this and give it a
+color). So the timeseries is an array of tuples of arrays.
 #+BEGIN_SRC julia :noweb-ref moving-peak-timeseries
+  function calc_pop_peak_timeseries(timeseries::PopTimeseries1D, rtol)
+      pop_peaks =  find_moving_peaks(timeseries)
+      n_colors = maximum(length.(pop_peaks))
+      end_t_dx = size(timeseries,3)
+      return [peaks_to_timeseries(pop_peaks[j], end_t_dx, n_colors) for j in 1:size(timeseries,2)]
+  end
+
   function to_timeseries(peaks::Array{MovingPeak}, end_time_dx::Int, n_colors::Int=0)
       if n_colors > 0
 	  colors = distinguishable_colors(n_colors)
@@ -269,9 +291,11 @@ The first step relies on finding all potential continuations.
       end
       return timeseries
   end
-
 #+END_SRC
 
+** Find local maxima
+A function to find local maxima by the simple algorithm of checking if a given
+point is greater than all its neighbors.
 #+BEGIN_SRC julia :noweb-ref find-local-maxima
   # from: https://discourse.julialang.org/t/how-to-identify-local-maxima-peaks-in-a-time-signal/6000/2
   function find_local_maxima(signal::Vector, threshold=1e-3)
