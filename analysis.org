@@ -45,12 +45,11 @@ is happening).
        dir_name = output_dir_name(; analyses...)
        write_params(dir_name; analyses=analyses, other_params...)
        timeseries = standardize_timeseries(soln.u, soln.prob.p.mesh)
-       solution_gif(soln.t, timeseries; dir_name=dir_name, plot_peaks=true,
+       pop_peak_timeseries = calc_pop_peak_timeseries(timeseries, 0)
+       solution_gif(soln.t, timeseries; dir_name=dir_name, pop_peak_timeseries=pop_peak_timeseries,
 		    analyses[:activity_gif]...)
    end
    export analyse_WilsonCowan73_solution
-
-
 #+END_SRC
 
 * Types
@@ -92,11 +91,11 @@ Our goal in this section is to find moving peaks in a simulation timeseries. The
 function find_moving_peaks takes a timeseries and returns a list of MovingPeak
 objects.
 #+BEGIN_SRC julia :noweb-ref find-moving-peaks
-  function find_moving_peaks(signal::Timeseries1D,rtol)::Array{MovingPeak}
+  function find_moving_peaks(timeseries::Timeseries1D,rtol)::Array{MovingPeak}
       peaks = MovingPeak[]
-      n_time = size(signal,2)
+      n_time = size(timeseries,2)
       for i_time = 1:n_time
-	  space_frame = signal[:,i_time]
+	  space_frame = timeseries[:,i_time]
 	  new_maxima = find_local_maxima(space_frame)
 	  new_peaks = [MovingPeak(NumType[space_frame[idx]], Int[idx], Int[i_time])
 		       for idx in new_maxima]
@@ -105,7 +104,7 @@ objects.
       return peaks
   end
 
-  function find_moving_peaks(signal::PopTimeseries1D, rtol)
+  function find_moving_peaks(timeseries::PopTimeseries1D, rtol)
       [find_moving_peaks(timeseries[:,j,:], rtol) for j in 1:size(timeseries,2)]
   end
 #+END_SRC
@@ -207,7 +206,7 @@ The first step relies on finding all potential continuations.
   end
 
   function is_continuation(peak::MovingPeak, next_peak::MovingPeak,
-			   rtol=0.1, atol=2) #permissive arbitrary??
+			   rtol=0, atol=1) #permissive arbitrary??
       # should depend on dt
       if cur_time(peak) != cur_time(next_peak) - 1
 	  return false
@@ -268,13 +267,13 @@ the peaks, and the peak's identity (which so far we just skip this and give it a
 color). So the timeseries is an array of tuples of arrays.
 #+BEGIN_SRC julia :noweb-ref moving-peak-timeseries
   function calc_pop_peak_timeseries(timeseries::PopTimeseries1D, rtol)
-      pop_peaks =  find_moving_peaks(timeseries)
+      pop_peaks =  find_moving_peaks(timeseries, rtol)
       n_colors = maximum(length.(pop_peaks))
       end_t_dx = size(timeseries,3)
       return [peaks_to_timeseries(pop_peaks[j], end_t_dx, n_colors) for j in 1:size(timeseries,2)]
   end
 
-  function to_timeseries(peaks::Array{MovingPeak}, end_time_dx::Int, n_colors::Int=0)
+  function peaks_to_timeseries(peaks::Array{MovingPeak}, end_time_dx::Int, n_colors::Int=0)
       if n_colors > 0
 	  colors = distinguishable_colors(n_colors)
 	  timeseries = Tuple{Array{Int}, Array{NumType}, Array{RGBA}}[(Int[], NumType[], RGBA[])
@@ -346,16 +345,11 @@ Plotting helper functions.
 
 
   function solution_gif(t, timeseries::PopTimeseries1D; dir_name="", file_name="solution.gif",
-			disable=0, subsample=1, fps=15, plot_peaks=false, rtol=0.1,
+			disable=0, subsample=1, fps=15, pop_peak_timeseries=[],
 			spatial_subsample_to=0)
       @assert size(timeseries, 2) == 2
       if disable != 0
 	  return
-      end
-      if plot_peaks
-	  pop_peaks =  [find_moving_peaks(timeseries[:,j,:], rtol) for j in 1:size(timeseries,2)]
-          n_colors = maximum(length.(pop_peaks))
-	  pop_peak_timeseries = [to_timeseries(pop_peaks[j], length(t), n_colors) for j in 1:size(timeseries,2)]
       end
 
       if spatial_subsample_to > 0
