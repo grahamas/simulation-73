@@ -8,6 +8,7 @@
 #+TITLE: Numerically Solving the Wilson-Cowan Integro-Differential Equation
 #+LATEX_HEADER: \input{\string~/Dropbox/Tex/math_preamble.tex}
 
+# broke-pane: wc73:4.0
 
 * Introduction
 
@@ -57,10 +58,25 @@ The code is outlined as follows
 
 The test cases (written here alongside the functions they test) are tangled into
 a separate file.
-#+BEGIN_SRC julia :noweb no-export :tangle test_wilson-cowan.jl
+#+BEGIN_SRC julia :noweb no-export :tangle test_WC73.jl
 using Base.Test
-include("./wilson-cowan.jl")
+push!(LOAD_PATH, ".")
+using WC73
 <<wc73-definition-test>>
+#+END_SRC
+
+Then to run the simulation and analyses:
+#+BEGIN_SRC julia :noweb no-export :tangle run_WC73.jl
+push!(LOAD_PATH, ".")
+
+using WC73: load_WilsonCowan73_parameters, solve_WilsonCowan73
+using SolutionAnalysis: analyse_WilsonCowan73_solution
+
+function run_WilsonCowan73_trial(json_filename::String, modifications=nothing::Union{Dict, Void})
+    all_params = load_WilsonCowan73_parameters(json_filename, modifications)
+    solution = solve_WilsonCowan73(; all_params...)
+    analyse_WilsonCowan73_solution(solution; all_params...)
+end
 #+END_SRC
 
 See the appendix for helper functions, including parameter loading.
@@ -169,6 +185,7 @@ DifferentialEquations for the other parameters. I haven't checked.
 
         return WilsonCowan73Params(; p...)
     end
+
 
   function expand_params(mesh::AbstractMesh, dct::T) where T <: Dict
       for (k,v) in dct

@@ -1,5 +1,8 @@
 *.swp
-*.jl
+WC73.jl
+run_WC73.jl
+test_WC73.jl
+WC73Analysis.jl
 results
 *.gif
 .juliahistory
