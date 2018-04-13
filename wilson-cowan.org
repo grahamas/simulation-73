@@ -67,16 +67,16 @@ using WC73
 
 Then to run the simulation and analyses:
 #+BEGIN_SRC julia :noweb no-export :tangle run_WC73.jl
-push!(LOAD_PATH, ".")
+  push!(LOAD_PATH, ".")
 
-using WC73: load_WilsonCowan73_parameters, solve_WilsonCowan73
-using SolutionAnalysis: analyse_WilsonCowan73_solution
+  using WC73: load_WilsonCowan73_parameters, solve_WilsonCowan73
+  using WC73Analysis: analyse_WilsonCowan73_solution
 
-function run_WilsonCowan73_trial(json_filename::String, modifications=nothing::Union{Dict, Void})
-    all_params = load_WilsonCowan73_parameters(json_filename, modifications)
-    solution = solve_WilsonCowan73(; all_params...)
-    analyse_WilsonCowan73_solution(solution; all_params...)
-end
+  function run_WilsonCowan73_trial(json_filename::String, modifications=nothing::Union{Dict, Void})
+      all_params = load_WilsonCowan73_parameters(json_filename, modifications)
+      solution = solve_WilsonCowan73(; all_params...)
+      analyse_WilsonCowan73_solution(solution; all_params...)
+  end
 #+END_SRC
 
 See the appendix for helper functions, including parameter loading.
