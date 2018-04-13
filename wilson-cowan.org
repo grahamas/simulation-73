@@ -45,25 +45,32 @@ where $\odot$ is the Hademard (element-wise) product of an appropriately expande
 ** Overview
 The code is outlined as follows
 
-#+BEGIN_SRC julia :noweb no-export :results silent :tangle WC73.jl
+#+BEGIN_SRC julia :noweb no-export :results silent :tangle WC73_from_org.jl
+  # * Premodule
   module WC73
+  # * Load Modules
   <<load-modules>>
+  # * Load Parameters
   <<parameters-loader>>
+  # * Simulation function definitions
   <<wc73-definition>>
+  # * Solver function definitions
   <<wc73-solver>>
+  # * Analysis function definitions
   <<wc73-analysis>>
+  # * Export and END
   export load_WilsonCowan73_parameters, solve_WilsonCowan73
   end
 #+END_SRC
 
 The test cases (written here alongside the functions they test) are tangled into
 a separate file.
-#+BEGIN_SRC julia :noweb no-export :tangle test_WC73.jl
-using Base.Test
-push!(LOAD_PATH, ".")
-using WC73
-<<wc73-definition-test>>
-#+END_SRC
+# #+BEGIN_SRC julia :noweb no-export :tangle test_WC73.jl
+# using Base.Test
+# push!(LOAD_PATH, ".")
+# using WC73
+# <<wc73-definition-test>>
+# #+END_SRC
 
 Then to run the simulation and analyses:
 #+BEGIN_SRC julia :noweb no-export :tangle run_WC73.jl
@@ -107,17 +114,20 @@ centered at $x=0$.
 #+BEGIN_SRC julia :noweb no-export :noweb-ref wc73-definition :results silent
   <<wc73-types>>
   <<sigmoid>>
+  <<simoid-test>>
   <<stimulus>>
+  <<stimulus-test>>
   <<connectivity>>
+  <<connectivity-test>>
   <<wc73-constructor>>
   <<wc73-differential>>
 #+END_SRC
 
-#+BEGIN_SRC julia :noweb-ref wc73-definition-test
-<<sigmoid-test>>
-<<stimulus-test>>
-<<connectivity-test>>
-#+END_SRC
+# #+BEGIN_SRC julia :noweb-ref wc73-definition-test
+# <<sigmoid-test>>
+# <<stimulus-test>>
+# <<connectivity-test>>
+# #+END_SRC
 
 *** Model parameter struct definition
 The input parameters are defined in another file, for ease of modification and
@@ -346,6 +356,7 @@ The current definition uses a macro. It is not clear that this is necessary, nor
   function sigmoid_fn(x, a, theta)
       return max.(0, simple_sigmoid_fn(x, a, theta) .- simple_sigmoid_fn(0, a, theta))
   end
+
 #+END_SRC
 
 *** Test
