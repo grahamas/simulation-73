@@ -1,9 +1,4 @@
-module WC73Analysis
 # * Load Modules
-push!(LOAD_PATH, joinpath(ENV["HOME"], "gits", "simulation-73"))
-using SimulationTypes
-
-import JSON
 
 ENV["GKSwstype"] = "100" # For headless plotting (on server)
 ENV["MPLBACKEND"]="Agg"
@@ -224,11 +219,6 @@ function output_dir_name(; root=nothing, simulation_name=nothing, other...)
     return dir_name
 end
 
-function write_params(dir_name; params...)
-    save_path = joinpath(dir_name, "parameters.json")
-    @safe_write(save_path, write(save_path, JSON.json(params)))
-end
-
 # * Unflatten timeseries
 function standardize_timeseries(timeseries, mesh::M)::PopTimeseries1D where M <: AbstractMesh
     # Join array of arrays into matrix Other Dims x Time
@@ -280,6 +270,5 @@ function analyse_WilsonCowan73_solution(soln; analyses=nothing, other_params...)
 		 analyses[:activity_gif]...)
 end
 
-# * Export and END
+# * Export
 export analyse_WilsonCowan73_solution
-end

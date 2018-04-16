@@ -1,10 +1,6 @@
-# * SimulationTypes
-
-
-
-module SimulationTypes
-
 using Parameters
+
+# * SimulationTypes
 
 const NumType = Float64
 const DistType = NumType
@@ -170,10 +166,4 @@ function expand_param(mesh::PopMesh, param::RowVector)::ExpandedParam
 end
 function expand_param(mesh::FlatMesh, param::RowVector)::ExpandedParamFlat
     return expand_param(mesh.pop_mesh, param)[:]
-end
-
-export AbstractMesh, SpaceMesh, PopMesh, FlatMesh
-export flatten, unflatten
-export size, ndims, true_ndims, coords, zeros, expand_param
-
 end

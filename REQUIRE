@@ -1,0 +1,8 @@
+julia 0.6 0.7-
+
+DifferentialEquations 4.4
+JSON 0.17
+Parameters 0.8
+TensorOperations 0.6
+PyPlot 2.5
+Plots 0.17
