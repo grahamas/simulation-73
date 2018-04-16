@@ -1,4 +1,5 @@
 module WC73Analysis
+# * Load Modules
 push!(LOAD_PATH, joinpath(ENV["HOME"], "gits", "simulation-73"))
 using SimulationTypes
 
@@ -10,8 +11,13 @@ using Plots; pyplot(reuse=true)
 
 using Colors
 using PerceptualColourMaps
+
+# * Timeseries
 const PopTimeseries1D = Array{NumType, 3} # 1 spatial dimension
 const Timeseries1D = Array{NumType,2}
+
+# * Moving peaks
+# ** Definition
 struct MovingPeak
     heights::Array{NumType}
     position_indices::Array{Int}
@@ -20,8 +26,11 @@ struct MovingPeak
     sources::Array{MovingPeak}# = MovingPeak[] #Can be more than one if collision
 end
 
+# ** Constructor
 MovingPeak(heights, locations, times) = MovingPeak(heights, locations, times,
-						     MovingPeak[], MovingPeak[])
+						   MovingPeak[], MovingPeak[])
+
+# ** Methods
 cur_time(peak::MovingPeak) = peak.time_indices[end]
 add_scions!(peak::MovingPeak, new_scions) = append!(peak.scions, new_scions)
 function add_source!(peak::MovingPeak, new_source)
@@ -55,6 +64,7 @@ acc(peak::MovingPeak) = vel(peak) - vel(peak,-1)
       return (put_pos, put_vel, put_acc)
   end
 
+# * Find moving peaks
 function find_moving_peaks(timeseries::Timeseries1D,rtol)::Array{MovingPeak}
     peaks = MovingPeak[]
     n_time = size(timeseries,2)
@@ -169,6 +179,8 @@ function continue_peak!(peak::MovingPeak, next_peak::MovingPeak)
     append!(peak.position_indices, next_peak.position_indices)
     append!(peak.heights, next_peak.heights)
 end
+
+# * Convert peaks to timeseries
 function calc_pop_peak_timeseries(timeseries::PopTimeseries1D, rtol)
     pop_peaks =  find_moving_peaks(timeseries, rtol)
     n_colors = maximum(length.(pop_peaks))
@@ -194,6 +206,7 @@ function peaks_to_timeseries(peaks::Array{MovingPeak}, end_time_dx::Int, n_color
     return timeseries
 end
 
+# * File ops
 macro safe_write(path, writer)
     quote
 	if !(isfile($(esc(path))))
@@ -216,7 +229,7 @@ function write_params(dir_name; params...)
     @safe_write(save_path, write(save_path, JSON.json(params)))
 end
 
-
+# * Unflatten timeseries
 function standardize_timeseries(timeseries, mesh::M)::PopTimeseries1D where M <: AbstractMesh
     # Join array of arrays into matrix Other Dims x Time
     cat(true_ndims(mesh)+1, [standardize_frame(frame, mesh) for frame in timeseries]...)
@@ -228,7 +241,7 @@ function standardize_frame(frame, mesh::PopMesh)
     frame # The PopMesh shape is the standard.
 end
 
-
+# * Plot gif of solution
 function solution_gif(t, timeseries::PopTimeseries1D; dir_name="", file_name="solution.gif",
 		      disable=0, subsample=1, fps=15, pop_peak_timeseries=[],
 		      spatial_subsample_to=0)
@@ -257,6 +270,7 @@ function solution_gif(t, timeseries::PopTimeseries1D; dir_name="", file_name="so
     @safe_write(save_path, gif(anim, save_path, fps=floor(Int,fps)))
 end
 
+# * Run analyses
 function analyse_WilsonCowan73_solution(soln; analyses=nothing, other_params...)
     dir_name = output_dir_name(; analyses...)
     write_params(dir_name; analyses=analyses, other_params...)
@@ -265,5 +279,7 @@ function analyse_WilsonCowan73_solution(soln; analyses=nothing, other_params...)
     solution_gif(soln.t, timeseries; dir_name=dir_name, pop_peak_timeseries=pop_peak_timeseries,
 		 analyses[:activity_gif]...)
 end
+
+# * Export and END
 export analyse_WilsonCowan73_solution
 end

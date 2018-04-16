@@ -8,3 +8,5 @@ function run_WilsonCowan73_trial(json_filename::String, modifications=nothing::U
     solution = solve_WilsonCowan73(; all_params...)
     analyse_WilsonCowan73_solution(solution; all_params...)
 end
+
+run_WilsonCowan73_trial("../jl_replicate_neuman.json")
