@@ -123,6 +123,7 @@ function PopMesh(dim_dcts::Array{T}, n_pops::Integer) where T <: Dict
     PopMesh(SpaceMesh(dim_dcts),n_pops)
 end
 
+# * Simple methods
 # Numerous functions operating on meshes, including size, ndims, true_ndims,
 # coords, zeros, and expand_param.
 
@@ -166,4 +167,9 @@ function expand_param(mesh::PopMesh, param::RowVector)::ExpandedParam
 end
 function expand_param(mesh::FlatMesh, param::RowVector)::ExpandedParamFlat
     return expand_param(mesh.pop_mesh, param)[:]
+end
+
+# * Interface for applying functions
+function apply(fn, mesh::SpaceMesh)
+    return hcat([fn.(dim) for dim in mesh.dims]...)
 end

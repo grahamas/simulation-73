@@ -64,6 +64,7 @@ end
 # * Solver function definition
 
 function solve_WilsonCowan73(; model=nothing, solver=nothing, other...)
+    # The solver parameters are modified, but are used elsewhere so need to be copied
     solver_params = deepcopy(Dict{Any,Any}(solver))
     model_params = WilsonCowan73Params(model)
 
