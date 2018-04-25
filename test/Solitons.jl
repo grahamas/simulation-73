@@ -16,7 +16,7 @@ end
 
 exponential_decay(t,A,σ) = A * exp(t / σ)
 function make_exponential_decay(A, σ)
-    return (t) -> A * exp(t / σ)
+    return (t) -> A * exp(-t / σ)
 end
 
 function time_dependent_soliton(x,t,A,C,s_A,s_C,b,x_0)
