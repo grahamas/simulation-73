@@ -284,4 +284,8 @@ function analyse_WilsonCowan73_solution(soln; analyses=nothing, other_params...)
 end
 
 # * Export
-export analyse_WilsonCowan73_solution
+export analyse_WilsonCowan73_solution,
+
+    find_local_maxima,
+
+    plot_solution_surface
