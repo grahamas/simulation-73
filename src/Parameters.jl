@@ -142,7 +142,7 @@ end
 
 # ** Smooth bump
 "Implementation of smooth_bump_frame used in smooth_bump_factory."
-function make_smooth_bump_frame(mesh_coords::Array{DistType}, width::DistType, strength::NumType, steepness::NumType)
+function make_smooth_bump_frame(mesh_coords::Array{DistT}, width::DistT, strength::ValueT, steepness::ValueT) where {ValueT <: Real, DistT <: Real}
     @. strength * (simple_sigmoid_fn(mesh_coords, steepness, -width/2) - simple_sigmoid_fn(mesh_coords, steepness, width/2))
 end
 
@@ -169,7 +169,7 @@ end
 # ** Sharp bump
 # TODO Understand these functions again.....
 "Implementation of sharp_bump_frame used in sharp_bump_factory"
-function make_sharp_bump_frame(mesh::PopMesh, width::DistType, strength::NumType)
+function make_sharp_bump_frame(mesh::PopMesh{ValueT}, width::DistT, strength::ValueT) where {ValueT <: Real, DistT <: Real}
     mesh_coords = coords(mesh)
     frame = zeros(mesh_coords)
     mid_point = 0     # half length, half width
@@ -219,8 +219,8 @@ function and its two parameters: the amplitude (weight) and the spread
 (σ). The spatial step size is also a factor, but as a computational concern
 rather than a fundamental one.
 """
-function sholl_matrix(amplitude::NumType, spread::NumType,
-                      dist_mx::Array{NumType,2}, step_size::NumType)
+function sholl_matrix(amplitude::ValueT, spread::ValueT,
+                      dist_mx::Interaction1DFlat{ValueT}, step_size::ValueT) where {ValueT <: Real}
     conn_mx = @. amplitude * step_size * exp(
         -abs(dist_mx / spread)
     ) / (2 * spread)
@@ -234,8 +234,8 @@ population in another location (indexed: `[tgt_loc, tgt_pop, src_loc,
 src_pop]`). This works for arbitrarily many populations (untested) but only for
 1D space.
 """
-function sholl_connectivity(mesh::PopMesh, W::Array{NumType,2},
-			    Σ::Array{NumType,2})::InteractionTensor
+function sholl_connectivity(mesh::PopMesh{ValueT}, W::Interaction1DFlat{ValueT},
+			    Σ::Interaction1DFlat{ValueT})::InteractionTensor{ValueT} where {ValueT <: Real}
     xs = mesh.space.dims[1]
     N_x = length(xs)
     N_pop = size(W)[1]

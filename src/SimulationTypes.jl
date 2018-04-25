@@ -1,24 +1,21 @@
 using Parameters
 
-# * SimulationTypes
+# * Aliases
+const PopulationParam{T} = RowVector{T, Array{T,1}} where T <: Real
+const InteractionParam{T} = Array{T, 2} where T <: Real
+const ExpandedParam{T} = Array{T, 2} where T <: Real
+const ExpandedParamFlat{T} = Array{T, 1} where T <: Real
+const InteractionTensor{T} = Array{T, 4} where T <: Real
+const Interaction1DFlat{T} = Array{T, 2} where T <: Real
+const SpaceState1D{T} = Array{T, 2} where T <: Real
+const SpaceState1DFlat{T} = Array{T, 1} where T <: Real
+const SpaceDim{DistT} = StepRangeLen{DistT} where T <: Real
 
-const NumType = Float64
-const DistType = NumType
-const TimeType = NumType
-const PopulationParam = RowVector{NumType, Array{NumType,1}}
-const InteractionParam = Array{NumType, 2}
-const ExpandedParam = Array{NumType, 2}
-const ExpandedParamFlat = Array{NumType,1}
-const InteractionTensor = Array{NumType,4}
-const Interaction1DFlat = Array{NumType,2}
-const SpaceState1D = Array{NumType, 2}
-const SpaceState1DFlat = Array{NumType,1}
-const SpaceDim = StepRangeLen{NumType}
-
-export NumType, DistType, TimeType, PopulationParam, InteractionParam, ExpandedParam
+export PopulationParam, InteractionParam, ExpandedParam
 export ExpandedParamFlat, InteractionTensor, Interaction1DFlat
 export SpaceState1D, SpaceState1DFlat, SpaceDim
 
+# * Structs
 # The structure used to input parameters.
 # This maybe should be in a different module...?
 
@@ -31,33 +28,33 @@ end
     dimensions::Array{SpaceDimParameters}
 end
 
-@with_kw struct ConnectivityParameters
-    amplitudes::InteractionParam
-    spreads::InteractionParam
+@with_kw struct ConnectivityParameters{T}
+    amplitudes::InteractionParam{T}
+    spreads::InteractionParam{T}
 end
 
-@with_kw struct StimulusParameters
+@with_kw struct StimulusParameters{ValueT<:Real, TimeT<:Real, DistT<:Real}
     name::String
-    duration::TimeType
-    strength::NumType
-    width::DistType
+    strength::ValueT
+    duration::TimeT
+    width::DistT
 end
 
-@with_kw struct WC73ModelParameters
+@with_kw struct WC73ModelParameters{ValueT<:Real, TimeT<:Real, DistT<:Real}
     space::SpaceParameters
-    connectivity::ConnectivityParameters
-    stimulus::StimulusParameters
-    β::PopulationParam
-    τ::PopulationParam
-    α::PopulationParam
-    r::PopulationParam
-    a::PopulationParam
-    θ::PopulationParam
+    connectivity::ConnectivityParameters{ValueT}
+    stimulus::StimulusParameters{ValueT, TimeT, DistT}
+    β::PopulationParam{ValueT}
+    τ::PopulationParam{ValueT}
+    α::PopulationParam{ValueT}
+    r::PopulationParam{ValueT}
+    a::PopulationParam{ValueT}
+    θ::PopulationParam{ValueT}
 end
 
-@with_kw struct SolverParameters
-    T::TimeType
-    dt::TimeType
+@with_kw struct SolverParameters{TimeT<:Real}
+    T::TimeT
+    dt::TimeT
 end
 
 @with_kw struct AnalysesParameters
@@ -66,19 +63,20 @@ end
     activity_gif::Dict
 end
 
-@with_kw struct WC73InputParameters
-    model::WC73ModelParameters
-    solver::SolverParameters
+@with_kw struct WC73InputParameters{ValueT<:Real, TimeT<:Real, DistT<:Real}
+    model::WC73ModelParameters{ValueT, TimeT, DistT}
+    solver::SolverParameters{TimeT}
     analyses::AnalysesParameters
 end
 export SpaceDimParameters, SpaceParameters, ConnectivityParameters, StimulusParameters
 export WC73ModelParameters, SolverParameters, AnalysesParameters, WC73InputParameters
 
-
+# * Mesh
 # Define a mesh type that standardizes interaction with the discretization of
 # space (and populations, though those are inherently discrete, as we currently
 # conceptualize them).
 
+# ** Type Definition and Constructors
 # All meshes are subtyped from AbstractMesh. SpaceMesh contains only discretized
 # spatial dimensions. PopMesh contains a SpaceMesh, but also an integer indicating
 # the number of colocalized populations (i.e. each spatial point contains members
@@ -92,16 +90,16 @@ export WC73ModelParameters, SolverParameters, AnalysesParameters, WC73InputParam
 # debug.
 
 abstract type AbstractMesh end
-struct SpaceMesh <: AbstractMesh
-    dims::Array{SpaceDim}
+struct SpaceMesh{DistT} <: AbstractMesh
+    dims::Array{SpaceDim{DistT}}
 end
-struct PopMesh <: AbstractMesh
-    space::SpaceMesh
+struct PopMesh{DistT} <: AbstractMesh
+    space::SpaceMesh{DistT}
     n_pops::Integer
 end
-struct FlatMesh <: AbstractMesh
-    pop_mesh::PopMesh
-    FlatMesh(mesh) = ndims(mesh) != 2 ? error("cannot flatten >1D mesh.") : new(mesh)
+struct FlatMesh{DistT} <: AbstractMesh
+    pop_mesh::PopMesh{DistT}
+    FlatMesh{DistT}(mesh) where {DistT <: Real} = ndims(mesh) != 2 ? error("cannot flatten >1D mesh.") : new(mesh)
 end
 
 # Flatten and unflatten take a PopMesh to a FlatMesh and vice versa (only if the
@@ -110,20 +108,22 @@ flatten(mesh::PopMesh) = FlatMesh(mesh)
 unflatten(mesh::FlatMesh) = mesh.pop_mesh
 
 # FlatMesh has no outer constructor, as it uses the more descriptive "flatten."
-function SpaceMesh(dim_dcts::Array{T}) where T <: Dict
+function SpaceMesh(DistT::DataType, dim_dcts::Array{D}) where {D <: Dict}
     dims = Array{StepRangeLen}(length(dim_dcts))
     for (i, dim) in enumerate(dim_dcts)
-        extent::NumType = dim[:extent]
+        extent::DistT = dim[:extent]
         N::Integer = dim[:N]
         dims[i] = linspace(-(extent/2), (extent/2), N)
     end
-    SpaceMesh(dims)
+    SpaceMesh{DistT}(dims)
 end
-function PopMesh(dim_dcts::Array{T}, n_pops::Integer) where T <: Dict
+function PopMesh{DistT}(dim_dcts::Array{<:Dict}, n_pops::Integer) where {DistT <: Real}
     PopMesh(SpaceMesh(dim_dcts),n_pops)
 end
 
-# * Simple methods
+export SpaceMesh
+
+# ** Methods
 # Numerous functions operating on meshes, including size, ndims, true_ndims,
 # coords, zeros, and expand_param.
 

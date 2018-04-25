@@ -11,17 +11,17 @@ using Colors
 using PerceptualColourMaps
 
 # * Timeseries
-const PopTimeseries1D = Array{NumType, 3} # 1 spatial dimension
-const Timeseries1D = Array{NumType,2}
+const PopTimeseries1D{ValueT<:Real} = Array{ValueT, 3} # 1 spatial dimension
+const Timeseries1D{ValueT<:Real} = Array{ValueT,2}
 
 # * Moving peaks
 # ** Definition
-struct MovingPeak
-    heights::Array{NumType}
+struct MovingPeak{ValueT<:Real}
+    heights::Array{ValueT}
     position_indices::Array{Int}
     time_indices::Array{Int}
-    scions::Array{MovingPeak}# = MovingPeak[]
-    sources::Array{MovingPeak}# = MovingPeak[] #Can be more than one if collision
+    scions::Array{MovingPeak{ValueT}}# = MovingPeak[]
+    sources::Array{MovingPeak{ValueT}}# = MovingPeak[] #Can be more than one if collision
 end
 
 # ** Constructor
@@ -63,13 +63,13 @@ acc(peak::MovingPeak) = vel(peak) - vel(peak,-1)
   end
 
 # * Find moving peaks
-function find_moving_peaks(timeseries::Timeseries1D,rtol)::Array{MovingPeak}
+function find_moving_peaks(timeseries::Timeseries1D{ValueT},rtol)::Array{MovingPeak} where {ValueT <: Real}
     peaks = MovingPeak[]
     n_time = size(timeseries,2)
     for i_time = 1:n_time
 	space_frame = timeseries[:,i_time]
 	new_maxima = find_local_maxima(space_frame)
-	new_peaks = [MovingPeak(NumType[space_frame[idx]], Int[idx], Int[i_time])
+	new_peaks = [MovingPeak(ValueT[space_frame[idx]], Int[idx], Int[i_time])
 		     for idx in new_maxima]
 	continue_moving_peaks!(peaks, new_peaks, rtol)
     end
@@ -186,13 +186,13 @@ function calc_pop_peak_timeseries(timeseries::PopTimeseries1D, rtol)
     return [peaks_to_timeseries(pop_peaks[j], end_t_dx, n_colors) for j in 1:size(timeseries,2)]
 end
 
-function peaks_to_timeseries(peaks::Array{MovingPeak}, end_time_dx::Int, n_colors::Int=0)
+function peaks_to_timeseries(peaks::Array{MovingPeak{ValueT}}, end_time_dx::Int, n_colors::Int=0) where {ValueT <: Real}
     if n_colors > 0
 	colors = distinguishable_colors(n_colors)
-	timeseries = Tuple{Array{Int}, Array{NumType}, Array{RGBA}}[(Int[], NumType[], RGBA[])
+	timeseries = Tuple{Array{Int}, Array{ValueT}, Array{RGBA}}[(Int[], ValueT[], RGBA[])
 						       for _ in 1:end_time_dx]
     else
-	timeseries = Tuple{Array{Int}, Array{NumType}}[(Int[], NumType[]) for _ in 1:end_time_dx]
+	timeseries = Tuple{Array{Int}, Array{ValueT}}[(Int[], ValueT[]) for _ in 1:end_time_dx]
     end
     for (i_peak, peak) in enumerate(peaks)
 	for (i_time_indices, time_dx) in enumerate(peak.time_indices)
