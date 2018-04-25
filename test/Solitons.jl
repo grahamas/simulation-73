@@ -6,7 +6,7 @@ module Solitons
 
 simple_soliton(x,t,c,x_0) = c/2 * sech(sqrt(c)/2 * (x - c * t - x_0)) ^ 2
 function make_simple_soliton(c, x_0)
-    return (x,t) -> c/2 * sech(sqrt(c)/2 * (x - c * t - x_0)) ^ 2
+    return (x,t) -> abs(c)/2 * (1-tanh(sqrt(abs(c))/2 * (x - c * t - x_0))^2)
 end
 
 generic_soliton(x,t,A,b,c,x_0) = A * sech(b * x - c * t - x_0) ^ 2
