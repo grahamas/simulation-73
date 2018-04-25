@@ -1,5 +1,4 @@
 *.swp
-*.jl
 results
 *.gif
 .juliahistory
