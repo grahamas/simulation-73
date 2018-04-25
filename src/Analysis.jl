@@ -2,7 +2,10 @@
 
 ENV["GKSwstype"] = "100" # For headless plotting (on server)
 ENV["MPLBACKEND"]="Agg"
-using Plots; pyplot(reuse=true)
+using PyCall
+@pyimport mpl_toolkits.mplot3d as mpl
+Axes3D = mpl.Axes3D
+using Plots; pyplot()
 
 using Colors
 using PerceptualColourMaps
@@ -231,7 +234,8 @@ function standardize_frame(frame, mesh::PopMesh)
     frame # The PopMesh shape is the standard.
 end
 
-# * Plot gif of solution
+# * Plotting
+# ** Plot gif of solution
 function solution_gif(t, timeseries::PopTimeseries1D; dir_name="", file_name="solution.gif",
 		      disable=0, subsample=1, fps=15, pop_peak_timeseries=[],
 		      spatial_subsample_to=0)
@@ -258,6 +262,15 @@ function solution_gif(t, timeseries::PopTimeseries1D; dir_name="", file_name="so
     end
     save_path = joinpath(dir_name, file_name)
     @safe_write(save_path, gif(anim, save_path, fps=floor(Int,fps)))
+end
+# ** Plot solution as surface
+function plot_solution_surface(solution::Timeseries1D, mesh::SpaceMesh, T, dt; save=nothing, seriestype=:surface)
+    time_range = 0:dt:T
+    x_range = mesh.dims
+    plot(time_range, x_range, solution, seriestype=seriestype)
+    if save != nothing
+        savefig(save)
+    end
 end
 
 # * Run analyses
