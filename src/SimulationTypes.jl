@@ -169,7 +169,22 @@ function expand_param(mesh::FlatMesh, param::RowVector)::ExpandedParamFlat
     return expand_param(mesh.pop_mesh, param)[:]
 end
 
-# * Interface for applying functions
+# ** Interface for applying functions
 function apply(fn, mesh::SpaceMesh)
     return hcat([fn.(dim) for dim in mesh.dims]...)
 end
+
+function apply_with_time(fn, mesh::SpaceMesh, time)
+    return hcat([fn.(dim, time) for dim in mesh.dims]...)
+end
+
+function apply_through_time(fn, mesh::SpaceMesh, time_len, dt)
+    time_range = 0:dt:time_len
+    output = Array{Float64,2}(size(mesh)..., length(time_range))
+    for (i_time, time) in enumerate(time_range)
+        output[:, i_time] = apply_with_time(fn, mesh, time)
+    end
+    return output
+end
+
+export apply, apply_through_time
