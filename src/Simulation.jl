@@ -41,10 +41,12 @@ operating on any number of populations (though must still be 1D!). It is much
 less efficient in the 2-pop case than the latter, which takes a matrix instead
 of a tensor as the interaction term.
 =#
-WilsonCowan73!(dA,A::SpaceState1D,p::WilsonCowan73Params{InteractionTensor},t) = begin
+function WilsonCowan73!(dA::SpaceState1D{ValueT},A::SpaceState1D{ValueT},
+               p::WilsonCowan73Params{InteractionTensor{ValueT},ExpandedParam{ValueT}},
+               t::TimeT) where {ValueT <: Real, TimeT <: Real}
     # Use dA as intermediate variable for tensor op since it is preallocated
     @tensor dA[x_tgt, pop_tgt] = p.W[x_tgt, pop_tgt, x_src, pop_src] * A[x_src, pop_src]
-    dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(dA + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
+    dA .= (-p.α .* A + p.β .* (1 .- A) .* p.nonlinearity_fn(dA + p.stimulus_fn(t))) ./ p.τ
 end
 
 doc"""
@@ -56,9 +58,12 @@ This simulates a single timestep of the 1D spatial equation
 \end{align}
 ```
 """
-WilsonCowan73!(dA,A::SpaceState1DFlat,p::WilsonCowan73Params{Interaction1DFlat},t) = begin
+function WilsonCowan73!(dA::SpaceState1DFlat{ValueT},A::SpaceState1DFlat{ValueT},
+                        p::WilsonCowan73Params{Interaction1DFlat{ValueT},ExpandedParamFlat{ValueT}},
+                        t::TimeT) where {ValueT <: Real, TimeT<: Real}
     # Use dA as intermediate variable for tensor op since it is preallocated
-    dA .= (-p.α .* A + p.β .* (1 .- A) .* sigmoid_fn(p.W*A + p.stimulus_fn(t), p.a, p.θ)) ./ p.τ
+    # println(size(p.β .* (1 .- A) .* p.nonlinearity_fn(p.W*A + p.stimulus_fn(t))))
+    dA .= (-p.α .* A + p.β .* (1 .- A) .* p.nonlinearity_fn(p.W*A + p.stimulus_fn(t))) ./ p.τ
 end
 
 # * Solver function definition

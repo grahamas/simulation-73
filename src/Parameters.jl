@@ -9,8 +9,6 @@ using JSON
     α::ParamType     # Weight on homeostatic term
     β::ParamType     # Weight on nonlinear term
     τ::ParamType     # Time constant
-    a::ParamType     # Sigmoid steepness
-    θ::ParamType     # Sigmoid translation
     r::ParamType     # Refractory period multiplier
   # Other fields in parameter file include
   # :time => {[:N], :extent}
@@ -20,6 +18,7 @@ using JSON
   # Constructed fields
     W::InteractionType    # Tensor interaction multiplier
     stimulus_fn::Function
+    nonlinearity_fn::Function
     mesh::AbstractMesh
 end
 # ** Constructor and helper
@@ -35,25 +34,34 @@ function WilsonCowan73Params(p)
     end
     @assert mesh isa FlatMesh
 
-    stimulus_params = expand_params(mesh, pop!(p, :stimulus))
-    connectivity_params = expand_params(mesh, pop!(p, :connectivity))
-    p = expand_params(mesh, p)
+    stimulus_params = expand_param(mesh, pop!(p, :stimulus))
+    #connectivity_params = expand_param(mesh, pop!(p, :connectivity))
+    connectivity_params = pop!(p, :connectivity)
+    nonlinearity_params = expand_param(mesh, pop!(p, :nonlinearity))
+    p = expand_param(mesh, p)
 
     p[:mesh] = mesh
+    p[:nonlinearity_fn] = make_nonlinearity_fn(; nonlinearity_params...)
     p[:stimulus_fn] = make_stimulus_fn(mesh; stimulus_params...)
     p[:W] = sholl_connectivity(mesh, connectivity_params[:amplitudes],
                                connectivity_params[:spreads])
-
     return WilsonCowan73Params(; p...)
 end
 
-function expand_params(mesh::AbstractMesh, dct::T) where T <: Dict
+function expand_param(mesh::AbstractMesh, dct::D) where D <: Dict
+    new_dct = Dict{Symbol,Any}()
     for (k,v) in dct
-        if v isa PopulationParam
-            dct[k] = expand_param(mesh, v)
-        end
+        new_dct[k] = expand_param(mesh, v)
     end
-    return dct
+    return new_dct
+end
+
+function expand_param(mesh::AbstractMesh, v::Number)
+    return v
+end
+
+function expand_param(mesh::AbstractMesh, s::AbstractString)
+    return s
 end
 
 # ** Export
@@ -70,11 +78,13 @@ end
 
 function convert_py(a::T) where T <: Array
     if a[1] isa Array && a[1][1] isa Number # eltype gives Any, for some reason
-        return InteractionParam(vcat([convert_py(arr) for arr in a]...))
+        return vcat([convert_py(arr) for arr in a]...)
     elseif a[1] isa Dict
         return convert_py.(a)
     elseif a[1] isa Number
-        return PopulationParam(convert_py.(vcat(a...))) # Python arrays are rows...
+        return RowVector(convert_py.(vcat(a...))) # Python arrays are rows...
+    elseif a[1] isa AbstractString
+        return convert_py.(a)
     else
         error("Unsupported parse input array of eltype $(typeof(a[1]))")
     end
@@ -92,8 +102,9 @@ function convert_py(d::T) where T <: Dict
             return k_sym
         end
     end
-    convert_pykey(k::String) = (convert_pykey ∘ Symbol)(k)
-
+    function convert_pykey(k::String)
+        (convert_pykey ∘ Symbol)(k)
+    end
     return Dict(convert_pykey(k) => convert_py(v) for (k,v) in d)
 end
 
@@ -137,13 +148,16 @@ function make_stimulus_fn(mesh; name=nothing, stimulus_args...)
         "smooth_bump" => smooth_bump_factory,
         "sharp_bump" => sharp_bump_factory
     )
-    return stimulus_factories[name](mesh; args...)
+    return stimulus_factories[name](mesh; stimulus_args...)
 end
 
 # ** Smooth bump
 "Implementation of smooth_bump_frame used in smooth_bump_factory."
 function make_smooth_bump_frame(mesh_coords::Array{DistT}, width::DistT, strength::ValueT, steepness::ValueT) where {ValueT <: Real, DistT <: Real}
-    @. strength * (simple_sigmoid_fn(mesh_coords, steepness, -width/2) - simple_sigmoid_fn(mesh_coords, steepness, width/2))
+    sig_diff_fn = make_sigmoid_diff_fn(; a=steepness, θ=-width/2, width=width)
+    normed_bump_frame = sig_diff_fn.(mesh_coords)
+    return strength .* normed_bump_frame
+    #@. strength * (simple_sigmoid_fn(mesh_coords, steepness, -width/2) - simple_sigmoid_fn(mesh_coords, steepness, width/2))
 end
 
 """
@@ -267,4 +281,74 @@ function flatten_sholl(tensor)::Interaction1DFlat
         end
     end
     return flat
+end
+# * Nonlinearity functions
+
+function make_nonlinearity_fn(; name=error("Missing arg"), args=error("Missing arg"))
+    nonlinearity_factories = Dict(
+        "sigmoid" => make_sigmoid_fn,
+        "sech2" => make_sech2_fn,
+        "sigmoid_diff" => make_sigmoid_diff_fn
+
+    )
+    nonlinearity_factory = nonlinearity_factories[name]
+    return nonlinearity_factory(; args...)
+end
+
+function rectify(x)
+    return max(0,x)
+end
+
+# ** Sech2 functions
+
+function make_sech2_fn(; a=error("Missing arg"), θ=error("Missing arg"))
+    return (x) -> max.(0,sech2_fn(x, a, θ))
+end
+
+function sech2_fn(x, a, θ)
+    return @. 1 - tanh(a * (x - θ))^2
+end
+
+# ** Sigmoid functions
+function make_sigmoid_fn(; a=error("Missing arg"), θ=error("Missing arg"))
+    return (x) -> sigmoid_fn(x, a, θ)
+end
+
+doc"""
+The sigmoid function is defined
+```math
+\begin{align}
+\mathcal{S}(x) = \frac{1}{1 + \exp(-a(x - \theta))}
+\end{align}
+```
+where $a$ describes the slope's steepness and $\theta$ describes translation of the slope's center away from zero.
+
+This is "simple" because in practice we use the rectified sigmoid.
+"""
+function simple_sigmoid_fn(x, a, theta)
+    return @. (1 / (1 + exp(-a * (x - theta))))
+end
+
+doc"""
+A rectified version of `simple_sigmoid_fn`.
+
+In practice, we use rectified sigmoid functions because firing rates cannot be negative.
+
+TODO: Rename to rectified_sigmoid_fn.
+"""
+function sigmoid_fn(x, a, theta)
+    return max.(0, simple_sigmoid_fn(x, a, theta) .- simple_sigmoid_fn(0, a, theta))
+end
+
+# ** Difference of sigmoids functions
+function make_sigmoid_diff_fn(; a=nothing, θ=nothing, width=nothing)
+    unscaled(y) = sigmoid_diff_fn(y, a, θ, width)  # Peak is not always 1
+    range = (θ-(1.0 ./ a)):0.001:(θ+(1.0 ./ a)+width)
+    println("range $range")
+    maxes = maximum(unscaled.(range), 1)
+    return (x) -> unscaled(x) ./ maxes
+end
+
+function sigmoid_diff_fn(input, a, θ, width)
+    return max.(0,sigmoid_fn(input, a, θ) - sigmoid_fn(input, a, θ + width))
 end

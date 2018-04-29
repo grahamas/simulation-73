@@ -89,17 +89,21 @@ export WC73ModelParameters, SolverParameters, AnalysesParameters, WC73InputParam
 # implementation worked, and I needed to have a direct comparison in order to
 # debug.
 
-abstract type AbstractMesh end
-struct SpaceMesh{DistT} <: AbstractMesh
+abstract type AbstractMesh{DistT <: Real} end
+struct SpaceMesh{DistT} <: AbstractMesh{DistT}
     dims::Array{SpaceDim{DistT}}
 end
-struct PopMesh{DistT} <: AbstractMesh
+struct PopMesh{DistT} <: AbstractMesh{DistT}
     space::SpaceMesh{DistT}
     n_pops::Integer
 end
-struct FlatMesh{DistT} <: AbstractMesh
+struct FlatMesh{DistT} <: AbstractMesh{DistT}
     pop_mesh::PopMesh{DistT}
     FlatMesh{DistT}(mesh) where {DistT <: Real} = ndims(mesh) != 2 ? error("cannot flatten >1D mesh.") : new(mesh)
+end
+
+function FlatMesh(mesh::AbstractMesh{DistT}) where {DistT <: Real}
+    FlatMesh{DistT}(mesh)
 end
 
 # Flatten and unflatten take a PopMesh to a FlatMesh and vice versa (only if the
@@ -108,17 +112,17 @@ flatten(mesh::PopMesh) = FlatMesh(mesh)
 unflatten(mesh::FlatMesh) = mesh.pop_mesh
 
 # FlatMesh has no outer constructor, as it uses the more descriptive "flatten."
-function SpaceMesh(DistT::DataType, dim_dcts::Array{D}) where {D <: Dict}
+function SpaceMesh(dim_dcts::Array{Dict{Symbol,DistT}}) where {DistT <: Real}
     dims = Array{StepRangeLen}(length(dim_dcts))
     for (i, dim) in enumerate(dim_dcts)
         extent::DistT = dim[:extent]
-        N::Integer = dim[:N]
+        N::Integer = floor(Int,dim[:N])
         dims[i] = linspace(-(extent/2), (extent/2), N)
     end
     SpaceMesh{DistT}(dims)
 end
-function PopMesh{DistT}(dim_dcts::Array{<:Dict}, n_pops::Integer) where {DistT <: Real}
-    PopMesh(SpaceMesh(dim_dcts),n_pops)
+function PopMesh(dim_dcts::Array{<:Dict{Symbol,DistT}}, n_pops::Integer) where {DistT <: Real}
+    PopMesh{DistT}(SpaceMesh(dim_dcts),n_pops)
 end
 
 export SpaceMesh
@@ -161,13 +165,18 @@ end
 function zeros(mesh::AbstractMesh)
     zeros(coords(mesh))
 end
-function expand_param(mesh::PopMesh, param::RowVector)::ExpandedParam
-    space_dims = size(mesh)[1:end-1]
+function expand_param(mesh::PopMesh{DistT}, param::RowVector{ValueT})::ExpandedParam{ValueT} where {ValueT <: Real, DistT <: Real}
+    space_dims = size(mesh.space)
     return repeat(param, inner=(space_dims..., 1))
 end
-function expand_param(mesh::FlatMesh, param::RowVector)::ExpandedParamFlat
+function expand_param(mesh::FlatMesh{DistT}, param::RowVector{ValueT})::ExpandedParamFlat{ValueT} where {ValueT <: Real, DistT <: Real}
     return expand_param(mesh.pop_mesh, param)[:]
 end
+function expand_param(mesh::FlatMesh{DistT}, param::InteractionParam{ValueT})::Interaction1DFlat{ValueT} where {ValueT <: Real, DistT <: Real}
+    expanded = [expand_param(mesh, RowVector(param[i,:])) for i in 1:size(param,1)]
+    hcat(expanded...)
+end
+
 
 # ** Interface for applying functions
 function apply(fn, mesh::SpaceMesh)
