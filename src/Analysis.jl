@@ -222,6 +222,11 @@ function output_dir_name(; root=nothing, simulation_name=nothing, other...)
     return dir_name
 end
 
+function write_params(dir_name; params...)
+    save_path = joinpath(dir_name, "parameters.json")
+    @safe_write(save_path, write(save_path, JSON.json(params,4)))
+end
+
 # * Unflatten timeseries
 function standardize_timeseries(timeseries, mesh::M)::PopTimeseries1D where M <: AbstractMesh
     # Join array of arrays into matrix Other Dims x Time
@@ -273,13 +278,24 @@ function plot_solution_surface(solution::Timeseries1D, mesh::SpaceMesh, T, dt; s
     end
 end
 
+# ** Plot nonlinearity
+function plot_nonlinearity(; dir_name=nothing, model=nothing, pop_names=nothing, other_params...)
+    @assert all([dir_name, model, pop_names] .!= nothing)
+    nonlinearity_params = model[:nonlinearity]
+    nonlinearity_fn = make_nonlinearity_fn(; nonlinearity_params...)
+    x_range = -1:0.01:15
+    y_output = vcat(nonlinearity_fn.(x_range)...)
+    plot(x_range, y_output, labelspop_names)
+    savefig(joinpath(dir_name,"nonlinearity.png"))
+end
 # * Run analyses
 function analyse_WilsonCowan73_solution(soln; analyses=nothing, other_params...)
     dir_name = output_dir_name(; analyses...)
     write_params(dir_name; analyses=analyses, other_params...)
     timeseries = standardize_timeseries(soln.u, soln.prob.p.mesh)
-    pop_peak_timeseries = calc_pop_peak_timeseries(timeseries, 0)
-    solution_gif(soln.t, timeseries; dir_name=dir_name, pop_peak_timeseries=pop_peak_timeseries,
+    #pop_peak_timeseries = calc_pop_peak_timeseries(timeseries, 0)
+    plot_nonlinearity(; dir_name=dir_name, analyses..., other_params...)
+    solution_gif(soln.t, timeseries; dir_name=dir_name, #pop_peak_timeseries=pop_peak_timeseries,
 		 analyses[:activity_gif]...)
 end
 
