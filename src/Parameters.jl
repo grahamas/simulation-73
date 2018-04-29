@@ -127,13 +127,28 @@ function deep_merge(el1, void::Void)
     return el1
 end
 
+# ** Standardizations
+function standardize_parameters!(param_dct::Dict{Symbol}, json_filename::String)
+    standardizations = [
+        function check_simulation_name!(dct)
+            if length(dct[:analyses][:simulation_name]) == 0
+                dct[:analyses][:simulation_name] = splitext(basename(json_filename))[1]
+            end
+        end
+    ]
+    standardizations .|> (fn) -> fn(param_dct)
+end
+
 # ** Loading function
 
 function load_WilsonCowan73_parameters(json_filename::String, modifications=nothing)
     # Parse JSON with keys as symbols.
     param_dct = (convert_py ∘ JSON.parsefile)(json_filename)
-    return deep_merge(param_dct, modifications)
+    param_dct = deep_merge(param_dct, modifications)
+    standardize_parameters!(param_dct, json_filename)
+    return param_dct
 end
+
 # ** Export
 export load_WilsonCowan73_parameters
 # * Stimulus functions
