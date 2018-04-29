@@ -231,9 +231,9 @@ doc"""
 This matrix contains values such that the $j^{th}$ column of the $i^{th}$ row
 contains the distance between locations $i$ and $j$ in the 1D space dimension provided.
 """
-function distance_matrix(xs::SpaceDim)
+function distance_matrix(xs::SpaceDim{DistT}) where {DistT <: Real}
     # aka Hankel, but that method isn't working in SpecialMatrices
-    distance_mx = zeros(eltype(xs), length(xs), length(xs))
+    distance_mx = zeros(DistT, length(xs), length(xs))
     for i in range(1, length(xs))
         distance_mx[:, i] = abs.(xs - xs[i])
     end
@@ -263,8 +263,8 @@ population in another location (indexed: `[tgt_loc, tgt_pop, src_loc,
 src_pop]`). This works for arbitrarily many populations (untested) but only for
 1D space.
 """
-function sholl_connectivity(mesh::PopMesh{ValueT}, W::Interaction1DFlat{ValueT},
-			    Σ::Interaction1DFlat{ValueT})::InteractionTensor{ValueT} where {ValueT <: Real}
+function sholl_connectivity(mesh::PopMesh{DistT}, W::InteractionParam{ValueT},
+			    Σ::InteractionParam{ValueT})::InteractionTensor{ValueT} where {ValueT <: Real, DistT <: Real}
     xs = mesh.space.dims[1]
     N_x = length(xs)
     N_pop = size(W)[1]
@@ -281,7 +281,7 @@ doc"""
 In the two population case, flattening the tensor and using matrix
 multiplication is 3x faster. This function provides exactly that.
 """
-function sholl_connectivity(mesh::FlatMesh, args...)
+function sholl_connectivity(mesh::FlatMesh{ValueT}, args...) where {ValueT <: Real}
     # Why didn't I provide an unflattened mesh in the first place?
     sholl_connectivity(unflatten(mesh), args...) |> flatten_sholl
 end
