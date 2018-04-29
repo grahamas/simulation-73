@@ -6,33 +6,6 @@ using DifferentialEquations
 import Base.Dates
 
 # * Simulation function definitions
-# ** Sigmoid functions
-doc"""
-The sigmoid function is defined
-```math
-\begin{align}
-\mathcal{S}(x) = \frac{1}{1 + \exp(-a(x - \theta))}
-\end{align}
-```
-where $a$ describes the slope's steepness and $\theta$ describes translation of the slope's center away from zero.
-
-This is "simple" because in practice we use the rectified sigmoid.
-"""
-function simple_sigmoid_fn(x, a, theta)
-    return @. (1 / (1 + exp(-a * (x - theta))))
-end
-
-doc"""
-A rectified version of `simple_sigmoid_fn`.
-
-In practice, we use rectified sigmoid functions because firing rates cannot be negative.
-
-TODO: Rename to rectified_sigmoid_fn.
-"""
-function sigmoid_fn(x, a, theta)
-    return max.(0, simple_sigmoid_fn(x, a, theta) .- simple_sigmoid_fn(0, a, theta))
-end
-
 # ** Core differential functions
 #=
 Two versions of the differential equation function, both implementing the same
