@@ -131,7 +131,7 @@ export SpaceMesh
 # Numerous functions operating on meshes, including size, ndims, true_ndims,
 # coords, zeros, and expand_param.
 
-import Base: size, ndims, zeros
+import Base: size, ndims, zeros, reshape
 function size(mesh::SpaceMesh)
     return length.(mesh.dims)
 end
@@ -140,6 +140,9 @@ function size(mesh::PopMesh)
 end
 function size(mesh::FlatMesh)
     return size(mesh.pop_mesh)[1] * mesh.pop_mesh.n_pops
+end
+function reshape(mesh::FlatMesh, array::Array)
+    return reshape(array, size(mesh))
 end
 function ndims(mesh::AbstractMesh)
     return length(size(mesh))

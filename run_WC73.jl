@@ -6,7 +6,7 @@ else
 end
 
 changes = ["heightened_EI", "original"]
-nonlinearity_exts = ["", "_sigmoid_diff"]#, "_sech2"]
+nonlinearity_exts = ["_sigmoid_diff"]#, "_sech2"]
 ext = ".json"
 
 param_files = [joinpath("params", change .* nonlinearity .* ext) for change in changes, nonlinearity in nonlinearity_exts][:]

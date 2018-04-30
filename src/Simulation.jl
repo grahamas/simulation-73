@@ -36,6 +36,8 @@ function WilsonCowan73!(dA::SpaceState1DFlat{ValueT},A::SpaceState1DFlat{ValueT}
                         t::TimeT) where {ValueT <: Real, TimeT<: Real}
     # Use dA as intermediate variable for tensor op since it is preallocated
     # println(size(p.β .* (1 .- A) .* p.nonlinearity_fn(p.W*A + p.stimulus_fn(t))))
+    (t ≈ 0) && dbg(p.nonlinearity_fn(p.W * A))
+    (t ≈ 0) && dbg(p.nonlinearity_fn(p.W * A)[1])
     dA .= (-p.α .* A + p.β .* (1 .- A) .* p.nonlinearity_fn(p.W*A + p.stimulus_fn(t))) ./ p.τ
 end
 

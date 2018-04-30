@@ -37,11 +37,11 @@ function WilsonCowan73Params(p)
     stimulus_params = expand_param(mesh, pop!(p, :stimulus))
     #connectivity_params = expand_param(mesh, pop!(p, :connectivity))
     connectivity_params = pop!(p, :connectivity)
-    nonlinearity_params = expand_param(mesh, pop!(p, :nonlinearity))
+    nonlinearity_params = pop!(p, :nonlinearity) #DO NOT EXPAND_PARAM
     p = expand_param(mesh, p)
 
     p[:mesh] = mesh
-    p[:nonlinearity_fn] = make_nonlinearity_fn(; nonlinearity_params...)
+    p[:nonlinearity_fn] = make_nonlinearity_fn(mesh; nonlinearity_params...)
     p[:stimulus_fn] = make_stimulus_fn(mesh; stimulus_params...)
     p[:W] = sholl_connectivity(mesh, connectivity_params[:amplitudes],
                                connectivity_params[:spreads])
@@ -169,7 +169,7 @@ end
 # ** Smooth bump
 "Implementation of smooth_bump_frame used in smooth_bump_factory."
 function make_smooth_bump_frame(mesh_coords::Array{DistT}, width::DistT, strength::ValueT, steepness::ValueT) where {ValueT <: Real, DistT <: Real}
-    sig_diff_fn = make_sigmoid_diff_fn(; a=steepness, θ=-width/2, width=width)
+    sig_diff_fn = make_neg_domain_sigmoid_diff_fn(steepness, -width/2, width)
     normed_bump_frame = sig_diff_fn.(mesh_coords)
     return strength .* normed_bump_frame
     #@. strength * (simple_sigmoid_fn(mesh_coords, steepness, -width/2) - simple_sigmoid_fn(mesh_coords, steepness, width/2))
@@ -299,19 +299,20 @@ function flatten_sholl(tensor)::Interaction1DFlat
 end
 # * Nonlinearity functions
 
-function make_nonlinearity_fn(; name=error("Missing arg"), args=error("Missing arg"))
+function make_nonlinearity_fn(mesh::FlatMesh; kwargs...)
+    nl_fn = make_nonlinearity_fn(mesh.pop_mesh; kwargs...)
+    return (x) -> reshape(mesh, nl_fn(x))
+end
+
+function make_nonlinearity_fn(mesh::PopMesh; name=error("Missing arg"), args=error("Missing arg"))
     nonlinearity_factories = Dict(
         "sigmoid" => make_sigmoid_fn,
         "sech2" => make_sech2_fn,
-        "sigmoid_diff" => make_sigmoid_diff_fn
-
+        "sigmoid_diff" => make_sigmoid_diff_fn,
+        "neg_domain_sigmoid_diff" => make_neg_domain_sigmoid_diff_fn
     )
     nonlinearity_factory = nonlinearity_factories[name]
     return nonlinearity_factory(; args...)
-end
-
-function rectify(x)
-    return max(0,x)
 end
 
 # ** Sech2 functions
@@ -328,7 +329,7 @@ end
 function make_sigmoid_fn(; a=error("Missing arg"), θ=error("Missing arg"))
     return (x) -> sigmoid_fn(x, a, θ)
 end
-
+# *** TEMP
 doc"""
 The sigmoid function is defined
 ```math
@@ -341,7 +342,7 @@ where $a$ describes the slope's steepness and $\theta$ describes translation of 
 This is "simple" because in practice we use the rectified sigmoid.
 """
 function simple_sigmoid_fn(x, a, theta)
-    return @. (1 / (1 + exp(-a * (x - theta))))
+    return @. (1.0 / (1 + exp(-a * (x - theta))))
 end
 
 doc"""
@@ -357,13 +358,32 @@ end
 
 # ** Difference of sigmoids functions
 function make_sigmoid_diff_fn(; a=nothing, θ=nothing, width=nothing)
-    unscaled(y) = sigmoid_diff_fn(y, a, θ, width)  # Peak is not always 1
-    range = (θ-(1.0 ./ a)):0.001:(θ+(1.0 ./ a)+width)
-    println("range $range")
-    maxes = maximum(unscaled.(range), 1)
-    return (x) -> unscaled(x) ./ maxes
+    if size(a) == ()
+        return make_sigmoid_diff_fn(a, θ, width)
+    end
+    arg_list = collect(zip(a, θ, width))
+    fn_list = arg_list .|> (args) -> make_sigmoid_diff_fn(args...)
+    return (xs) -> map((fnx) -> fnx[1](fnx[2]), zip(fn_list, xs))
 end
 
-function sigmoid_diff_fn(input, a, θ, width)
-    return max.(0,sigmoid_fn(input, a, θ) - sigmoid_fn(input, a, θ + width))
+function make_sigmoid_diff_fn(a::T, θ::T, width::T) where {T <: Real}
+    unscaled(y) = sigmoid_diff_fn(y, a, θ, width)  # Peak is not always 1
+    range = (θ-(1.0 ./ a)):0.001:(θ+(1.0 ./ a)+width)
+    maxes = maximum(unscaled.(range), 1)
+    return (x) -> unscaled(x) ./ maxes[1]
+end
+
+function make_neg_domain_sigmoid_diff_fn(a::T, θ::T, width::T) where {T <: Real}
+    unscaled(y) = neg_domain_sigmoid_diff_fn(y, a, θ, width)  # Peak is not always 1
+    range = (θ-(1.0 ./ a)):0.001:(θ+(1.0 ./ a)+width)
+    maxes = maximum(unscaled.(range), 1)
+    return (x) -> unscaled(x) / maxes[1]
+end
+
+function sigmoid_diff_fn(x, a, θ, width)
+    return max.(0,sigmoid_fn(x, a, θ) - sigmoid_fn(x, a, θ + width))
+end
+
+function neg_domain_sigmoid_diff_fn(input, a, θ, width)
+    return max.(0,simple_sigmoid_fn(input, a, θ) - simple_sigmoid_fn(input, a, θ + width))
 end

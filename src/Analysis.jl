@@ -208,7 +208,7 @@ end
 macro safe_write(path, writer)
     quote
 	if !(isfile($(esc(path))))
-	    $(esc(writer))
+	    $(@schedule esc(writer))
 	else
 	    warn("Tried to write existing file: $(esc(path))")
 	end
@@ -274,18 +274,16 @@ function plot_solution_surface(solution::Timeseries1D, mesh::SpaceMesh, T, dt; s
     x_range = mesh.dims
     plot(time_range, x_range, solution, seriestype=seriestype)
     if save != nothing
-        savefig(save)
+        @safe_write(save, savefig(save))
     end
 end
 
 # ** Plot nonlinearity
-function plot_nonlinearity(; dir_name=nothing, model=nothing, pop_names=nothing, other_params...)
+function plot_nonlinearity(nonlinearity_fn; dir_name=nothing, model=nothing, pop_names=nothing, other_params...)
     @assert all([dir_name, model, pop_names] .!= nothing)
-    nonlinearity_params = model[:nonlinearity]
-    nonlinearity_fn = make_nonlinearity_fn(; nonlinearity_params...)
     x_range = -1:0.01:15
-    y_output = vcat(nonlinearity_fn.(x_range)...)
-    plot(x_range, y_output, labelspop_names)
+    y_output = nonlinearity_fn(x_range)
+    plot(x_range, y_output, lab=Array{String,1}(pop_names))
     savefig(joinpath(dir_name,"nonlinearity.png"))
 end
 # * Run analyses
@@ -294,7 +292,7 @@ function analyse_WilsonCowan73_solution(soln; analyses=nothing, other_params...)
     write_params(dir_name; analyses=analyses, other_params...)
     timeseries = standardize_timeseries(soln.u, soln.prob.p.mesh)
     #pop_peak_timeseries = calc_pop_peak_timeseries(timeseries, 0)
-    plot_nonlinearity(; dir_name=dir_name, analyses..., other_params...)
+    plot_nonlinearity(soln.prob.p.nonlinearity_fn; dir_name=dir_name, analyses..., other_params...)
     solution_gif(soln.t, timeseries; dir_name=dir_name, #pop_peak_timeseries=pop_peak_timeseries,
 		 analyses[:activity_gif]...)
 end
