@@ -37,10 +37,13 @@
 	"activity_gif" : {
 	    "file_name": "activity.gif",
 	    "disable": 0,
-	    "spatial_subsample_to": 200,
-	    "subsample": 5,
 	    "fps": 5
-	}
+	},
+	"heatmap" : {
+	    "name" : "heatmap.png"
+	},
+	"spatial_stride": 2,
+	"temporal_stride": 5
     }
 
 }
