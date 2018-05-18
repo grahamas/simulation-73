@@ -9,12 +9,90 @@ using Solitons
 
 using Plots; pyplot()
 using Optim
+using IterTools
+
+# * Iterators
+
+type ModGenerator
+    addresses::Array{Tuple}
+    names::Array{String}
+    values
+end
+
+function ModGenerator(mods)
+    addresses = [mod[1] for mod in mods]
+    names = [mod[3] for mod in mods]
+    values = product([mod[2] for mod in mods]...)
+    ModGenerator(addresses, names, values)
+end
+
+import Base: length, start, done, next
+
+length(mg::ModGenerator) = length(mg.values)
+
+start(mg::ModGenerator) = start(mg.values)
+done(mg::ModGenerator, s) = done(mg.values, s)
+function next(mg::ModGenerator, s)
+    values, next_state = next(mg.values, s)
+    addresses_values = zip(mg.addresses, values)
+    name = join(["""$(pair[1])$(replace("$(pair[2])", ".", "p"))""" for pair in zip(mg.names, values)], "_")
+    return ((addresses_values, name), next_state)
+end
+
+type ParamGenerator
+    base_params::Dict
+    mod_generator::ModGenerator
+    ParamGenerator(base_params, mods) = new(base_params, ModGenerator(mods))
+end
+
+length(pg::ParamGenerator) = length(pg.mod_generator)
+
+
+# function ParamGenerator(base_params, mods)
+#     mg = ModGenerator(mods)
+#     ParamGenerator(base_params, mg)
+# end
+
+
+function set_address!(dct, address, value)
+    all_but_last = address[1:end-1]
+    tmp = dct
+    for dx in all_but_last
+        if dx isa Tuple
+            tmp = tmp[dx...]
+        else
+            tmp = tmp[dx]
+        end
+    end
+    dx = address[end]
+    if dx isa Tuple
+        tmp[dx...] = value
+    else
+        tmp[dx] = value
+    end
+end
+
+start(pg::ParamGenerator) = start(pg.mod_generator)
+done(pg::ParamGenerator, s) = done(pg.mod_generator, s)
+function next(pg::ParamGenerator, s)
+    ((addresses_values, name), next_state) = next(pg.mod_generator, s)
+    params = deepcopy(pg.base_params)
+    for (address, value) in addresses_values
+        set_address!(params, address, value)
+    end
+    params[:output][:mod_name] = name
+    return (params, next_state)
+end
 
 # * Run simulation
+function run_WilsonCowan73_trial(params::Dict)
+    solution = WC73.solve_WilsonCowan73(; params...)
+    WC73.analyse_WilsonCowan73_solution(solution; params...)
+end
+
 function run_WilsonCowan73_trial(json_filename::String, modifications=nothing::Union{Dict, Void})
-    all_params = WC73.load_WilsonCowan73_parameters(json_filename, modifications)
-    solution = WC73.solve_WilsonCowan73(; all_params...)
-    WC73.analyse_WilsonCowan73_solution(solution; all_params...)
+    params = WC73.load_WilsonCowan73_parameters(json_filename, modifications)
+    run_WilsonCowan73_trial(params)
 end
 
 function run_WilsonCowan73_trial(l_json_filename::Array{String,1}, modifications=nothing::Union{Dict,Void})
@@ -23,6 +101,13 @@ function run_WilsonCowan73_trial(l_json_filename::Array{String,1}, modifications
     end
 end
 
+first(pg::ParamGenerator) = next(pg, start(pg))[1]
+function run_WilsonCowan73_trial(json_filename::String, varying_mods::Array,
+                                 constant_mods=nothing::Union{Dict, Void})
+    base_params = WC73.load_WilsonCowan73_parameters(json_filename, constant_mods)
+    #run_WilsonCowan73_trial(first(ParamGenerator(base_params, varying_mods)))
+    pmap(run_WilsonCowan73_trial, ParamGenerator(base_params, varying_mods))
+end
 
 # * Example solitons
 

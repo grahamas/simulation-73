@@ -2,10 +2,17 @@
 
 ENV["GKSwstype"] = "100" # For headless plotting (on server)
 ENV["MPLBACKEND"]="Agg"
-using PyCall
-@pyimport mpl_toolkits.mplot3d as mpl
-Axes3D = mpl.Axes3D
-using Plots; pyplot()
+# using PyCall
+# @pyimport mpl_toolkits.mplot3d as mpl
+# Axes3D = mpl.Axes3D
+using Plots; gr() #pyplot()
+
+# upscale = 8 #8x upscaling in resolution
+# fntsm = Plots.font("sans-serif", 10.0*upscale)
+# fntlg = Plots.font("sans-serif", 14.0*upscale)
+# default(titlefont=fntlg, guidefont=fntlg, tickfont=fntsm, legendfont=fntsm)
+# default(size=(600*upscale,400*upscale)) #Plot canvas size
+# default(dpi=300) #Only for PyPlot - presently broken
 
 using Colors
 using PerceptualColourMaps
@@ -205,26 +212,47 @@ function peaks_to_timeseries(peaks::Array{MovingPeak{ValueT}}, end_time_dx::Int,
 end
 
 # * File ops
-macro safe_write(path, writer)
-    quote
-	if !(isfile($(esc(path))))
-	    $(@schedule esc(writer))
-	else
-	    warn("Tried to write existing file: $(esc(path))")
-	end
-    end
-end
-
-function output_dir_name(; root=nothing, simulation_name=nothing, other...)
+function make_individual_output_folder(root, simulation_name, mod_name)
     now = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS.s")
+    if length(mod_name) > 0
+        now = join([mod_name, now], "_")
+    end
     dir_name = joinpath(root, simulation_name, now)
     mkpath(dir_name)
     return dir_name
 end
 
-function write_params(dir_name; params...)
-    save_path = joinpath(dir_name, "parameters.json")
-    @safe_write(save_path, write(save_path, JSON.json(params,4)))
+function make_experiment_output_folder(root, simulation_name, mod_name, experiment_name)
+    @assert length(mod_name) > 0
+    #now = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS.s")
+    #experiment_dir_name = join([experiment_name, now], "_")
+    dir_name = joinpath(root, experiment_name)
+    mkpath(dir_name)
+    return (dir_name, if (length(simulation_name) > 0) join([simulation_name, mod_name], "_") else mod_name end)
+end
+
+function make_write_fn(; root="", simulation_name="", mod_name="", experiment_name="", other...)
+    @assert(all(length.([simulation_name, root]) .> 0))
+    if length(experiment_name) == 0
+        dir_name, prefix = (make_individual_output_folder(root, simulation_name, mod_name), "")
+    else
+        dir_name, prefix = (make_experiment_output_folder(root, simulation_name, mod_name, experiment_name))
+    end
+    function safe_write_fn(base_name, write_fn)
+        prefixed_name = join([prefix, base_name], "_")
+        full_path = joinpath(dir_name, prefixed_name)
+        if !(isfile(full_path))
+   	     write_fn(full_path)
+	else
+	     warn("Tried to write existing file: $full_path")
+	end
+    end
+    return safe_write_fn
+end
+
+function write_params(safe_write_fn; params...)
+    base_name = "parameters.json"
+    safe_write_fn(base_name, (path) -> write(path, JSON.json(params,4)))
 end
 
 # * Unflatten timeseries
@@ -241,60 +269,122 @@ end
 
 # * Plotting
 # ** Plot gif of solution
-function solution_gif(t, timeseries::PopTimeseries1D; dir_name="", file_name="solution.gif",
-		      disable=0, subsample=1, fps=15, pop_peak_timeseries=[],
-		      spatial_subsample_to=0)
+function plot_activity_gif(t, x, timeseries::PopTimeseries1D, safe_write_fn; file_name="solution.gif",
+		      disable=0, fps=15, pop_peak_timeseries=[])
     @assert size(timeseries, 2) == 2
     if disable != 0
 	return
     end
-
-    if spatial_subsample_to > 0
-	spatial_stride = round(Int, size(timeseries,1) / spatial_subsample_to)
-    else
-	spatial_stride = 1
-    end
+    gr()
     max_activity = maximum(timeseries, (1,2,3))[1] # I don't know why this index is here.
     min_activity = minimum(timeseries, (1,2,3))[1]
-    subsample = floor(Int, subsample)
-    indices = 1:spatial_stride:size(timeseries,1)
-    anim = @animate for i in 1:subsample:length(t)
-	plot([indices, indices], [timeseries[1:spatial_stride:end,1,i], timeseries[1:spatial_stride:end,2,i]],
-	     ylim=(min_activity, max_activity), title="t=$(t[i])", legend=:none)
+    anim = @animate for i in 1:length(t)
+	Plots.plot(x, timeseries[:,1,i], lab="E",
+	     ylim=(min_activity, max_activity), title="t=$(t[i])",
+             xlab="Space", ylab="Proportion pop. active")
+        Plots.plot!(x, timeseries[:,2,i], lab="I")
 	for peak_timeseries in pop_peak_timeseries
-	    scatter!(peak_timeseries[i][1], peak_timeseries[i][2], markercolor=peak_timeseries[i][3])
+	    Plots.scatter!(peak_timeseries[i][1], peak_timeseries[i][2], markercolor=peak_timeseries[i][3])
 	end
     end
-    save_path = joinpath(dir_name, file_name)
-    @safe_write(save_path, gif(anim, save_path, fps=floor(Int,fps)))
+    safe_write_fn("activity.gif", (path) -> gif(anim, path, fps=floor(Int,fps)))
 end
+
+# ** Plot heatmap
+using PyPlot, PyCall
+@pyimport mpl_toolkits.axes_grid1 as axgrid
+
+function plot_heatmap(t, x, timeseries, safe_write_fn; name="heatmap.png", kwargs...)
+    base, ext = splitext(name)
+    # @assert(all([ndims(timeseries) == 3, size(timeseries,2) == 2]))
+    # heatmap(x=t, y=x, timeseries[:,1,:]; kwargs...)
+    # E_file_name = "$(base)_E$ext"
+    # safe_write_fn(E_file_name, savefig)
+    # heatmap(x=t, y=x, timeseries[:,2,:]; kwargs...)
+    # I_file_name = "$(base)_I$ext"
+    # safe_write_fn(I_file_name, savefig)
+    PyPlot.clf()
+    ax = PyPlot.gca()
+    im = PyPlot.imshow(timeseries[:,1,:], ColorMap("viridis"), origin="lower",
+extent=[t[1], t[end], x[1], x[end]])
+    ax[:set_ylim](x[1], x[end])
+    ax[:set_xlim](t[1], t[end])
+    PyPlot.xlabel("Time (s)")
+    PyPlot.ylabel("Space (a.u.)")
+    ax[:set_aspect](:auto)
+    divider = axgrid.make_axes_locatable(ax)
+    cax = divider[:append_axes]("right", size="7%", pad="2%")#, size="5%")
+    PyPlot.colorbar(im, cax=cax)
+    E_file_name = "$(base)_E$ext"
+    safe_write_fn(E_file_name, PyPlot.savefig)
+
+    PyPlot.clf()
+    ax = PyPlot.gca()
+    im = PyPlot.imshow(timeseries[:,1,:], ColorMap("viridis"), origin="lower",
+                       extent=[t[1], t[end], x[1], x[end]])
+    ax[:set_xlim](t[1], t[end])
+    ax[:set_yticks]([])
+    ax[:set_aspect](:auto)
+    divider = axgrid.make_axes_locatable(ax)
+    cax = divider[:append_axes]("right", size="7%", pad="2%")#, size="5%")
+    PyPlot.colorbar(im, cax=cax)
+    E_file_name = "$(base)_E_naked$ext"
+    safe_write_fn(E_file_name, PyPlot.savefig)
+end
+
 # ** Plot solution as surface
-function plot_solution_surface(solution::Timeseries1D, mesh::SpaceMesh, T, dt; save=nothing, seriestype=:surface)
+function plot_solution_surface(solution::Timeseries1D, mesh::SpaceMesh, T, dt, safe_write_fn;
+                               save=nothing, seriestype=:surface)
     time_range = 0:dt:T
     x_range = mesh.dims
-    plot(time_range, x_range, solution, seriestype=seriestype)
+    Plots.plot(time_range, x_range, solution, seriestype=seriestype)
     if save != nothing
-        @safe_write(save, savefig(save))
+        safe_write_fn(save, savefig)
     end
 end
 
 # ** Plot nonlinearity
-function plot_nonlinearity(nonlinearity_fn; dir_name=nothing, model=nothing, pop_names=nothing, other_params...)
-    @assert all([dir_name, model, pop_names] .!= nothing)
-    x_range = -1:0.01:15
-    y_output = nonlinearity_fn(x_range)
-    plot(x_range, y_output, lab=Array{String,1}(pop_names))
-    savefig(joinpath(dir_name,"nonlinearity.png"))
+function plot_nonlinearity(nonlinearity_fn, safe_write_fn, pop_names; disable=0)
+    if disable != 0
+        return
+    end
+    resolution = 100
+    n_pops = length(pop_names)
+    one_pop_x = linspace(-1,15,resolution)
+    x_range = repeat(one_pop_x, outer=(n_pops))
+    y_output = reshape(nonlinearity_fn(x_range), (:, n_pops))
+    Plots.plot(one_pop_x, y_output, lab=pop_names,
+         xlab="Input current", ylab="Proportion pop. reaching at least threshold")
+    safe_write_fn("nonlinearity.png", savefig)
+end
+# * Down sampling
+function down_sample(t, mesh, timeseries; spatial_stride=1, temporal_stride=1)
+    x = x_range(mesh)
+    @assert size(timeseries,1) == length(x)
+    @assert size(timeseries,3) == length(t)
+    spatial_stride = floor(Int, spatial_stride)
+    temporal_stride = floor(Int, temporal_stride)
+    t_dx = 1:temporal_stride:length(t)
+    x_dx = 1:spatial_stride:length(x)
+    return t[t_dx], x[x_dx], timeseries[x_dx, :, t_dx]
 end
 # * Run analyses
-function analyse_WilsonCowan73_solution(soln; analyses=nothing, other_params...)
-    dir_name = output_dir_name(; analyses...)
-    write_params(dir_name; analyses=analyses, other_params...)
+
+function analyse_WilsonCowan73_solution(soln; output=nothing, analyses=nothing, other_params...)
+    @assert analyses != nothing
+    write_fn = make_write_fn(; output...)
+    write_params(write_fn; output=output, analyses=analyses, other_params...)
+    analyse_WilsonCowan73_solution(soln, write_fn; analyses...)
+end
+
+function analyse_WilsonCowan73_solution(soln, write_fn::Function; down_sampling=nothing, nonlinearity=nothing,
+                                        pop_names=nothing, activity_gif=nothing, heatmap=nothing)
     timeseries = standardize_timeseries(soln.u, soln.prob.p.mesh)
+    if (down_sampling != nothing) ds_t, ds_x, ds_timeseries = down_sample(soln.t, soln.prob.p.mesh, timeseries; down_sampling...) end
+    if (heatmap != nothing) plot_heatmap(ds_t, ds_x, ds_timeseries, write_fn; heatmap...) end
     #pop_peak_timeseries = calc_pop_peak_timeseries(timeseries, 0)
-    plot_nonlinearity(soln.prob.p.nonlinearity_fn; dir_name=dir_name, analyses..., other_params...)
-    solution_gif(soln.t, timeseries; dir_name=dir_name, #pop_peak_timeseries=pop_peak_timeseries,
-		 analyses[:activity_gif]...)
+    #if (nonlinearity != nothing) plot_nonlinearity(soln.prob.p.nonlinearity_fn, write_fn, pop_names; nonlinearity) end
+    if (activity_gif != nothing) plot_activity_gif(ds_t, ds_x, ds_timeseries, write_fn; activity_gif...) end
 end
 
 # * Export

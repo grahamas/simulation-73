@@ -132,6 +132,15 @@ export SpaceMesh
 # coords, zeros, and expand_param.
 
 import Base: size, ndims, zeros, reshape
+function x_range(mesh::PopMesh)
+    x_range(mesh.space)
+end
+function x_range(mesh::FlatMesh)
+    x_range(mesh.pop_mesh)
+end
+function x_range(mesh::SpaceMesh)
+    mesh.dims[1]
+end
 function size(mesh::SpaceMesh)
     return length.(mesh.dims)
 end
@@ -141,8 +150,11 @@ end
 function size(mesh::FlatMesh)
     return size(mesh.pop_mesh)[1] * mesh.pop_mesh.n_pops
 end
-function reshape(mesh::FlatMesh, array::Array)
-    return reshape(array, size(mesh))
+function flatten(array, mesh::FlatMesh)
+    return array[:]
+end
+function unflatten(array, mesh::PopMesh)
+    return reshape(array, (:,mesh.n_pops))
 end
 function ndims(mesh::AbstractMesh)
     return length(size(mesh))
