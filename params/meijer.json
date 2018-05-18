@@ -1,0 +1,54 @@
+{
+    "model" : {
+	"space": [{"extent": 1002, "N": 501}],
+	"connectivity": {
+	    "amplitudes": [[2.0, -1.65],
+			   [1.5, -0.01]],
+	    "spreads": [[70, 90],
+			[90, 70]]
+	},
+	"beta": [1.0, 1.0],
+	"tau": [1.0, 1.0],
+	"alpha": [1.0, 1.0],
+	"stimulus": {
+	    "name": "sharp_bump",
+	    "duration": 1,
+	    "strength": [9.0, 0.0],
+	    "width": 100
+	},
+	"r": [1,1],
+	"nonlinearity" : {
+	    "name" : "sigmoid_diff",
+	    "args" : {
+		"a": [2, 0.95],
+		"theta": [12.41, 7.33],
+		"width": [3.0, 3.0]
+	    }
+	}
+    },
+    "solver": {
+	"T": 2.5,
+	"dt": 0.001
+    },
+    "output": {
+	"root": "/home/grahams/Dropbox/Research/simulation-73/results/",
+	"simulation_name": ""
+    },
+    "analyses": {
+	"pop_names": ["E", "I"],
+	"activity_gif" : {
+	    "file_name": "activity.gif",
+	    "disable": 1,
+	    "fps": 5
+	},
+	"heatmap" : {
+	    "name" : "heatmap.png"
+	},
+	"down_sampling":
+	{
+	    "spatial_stride": 4,
+	    "temporal_stride": 10
+	}
+    }
+
+}
