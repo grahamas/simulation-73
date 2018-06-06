@@ -39,6 +39,7 @@ function WilsonCowan73!(dA::SpaceState1DFlat{ValueT},A::SpaceState1DFlat{ValueT}
     dA .= (-p.α .* A + p.β .* (1 .- A) .* p.nonlinearity_fn(p.W*A + p.stimulus_fn(t))) ./ p.τ
 end
 
+
 # * Solver function definition
 function solve_WilsonCowan73(; model=nothing, solver=nothing, other...)
     # The solver parameters are modified, but are used elsewhere so need to be copied
