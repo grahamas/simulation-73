@@ -15,61 +15,21 @@ export PopulationParam, InteractionParam, ExpandedParam
 export ExpandedParamFlat, InteractionTensor, Interaction1DFlat
 export SpaceState1D, SpaceState1DFlat, SpaceDim
 
-# * Structs
-# The structure used to input parameters.
-# This maybe should be in a different module...?
-
-@with_kw struct SpaceDimParameters
-    extent::Int
-    N::Int
+# * Space
+abstract type Space end
+struct Segment{DistT} <: Space
+    extent::DistT
+    n_points::Int
+    mesh::StepRangeLen{DistT}
+    Segment(extent, n_points) = new(extent, n_points, linspace(-(extent/2), (extent/2), N))
 end
-
-@with_kw struct SpaceParameters
-    dimensions::Array{SpaceDimParameters}
+function refresh_if_different(seg::Segment, extent, n_points)
+    if ((extent == seg.extent) && (n_points == seg.n_points))
+        return seg
+    else
+        return Segment(extent, n_points)
+    end
 end
-
-@with_kw struct ConnectivityParameters{T}
-    amplitudes::InteractionParam{T}
-    spreads::InteractionParam{T}
-end
-
-@with_kw struct StimulusParameters{ValueT<:Real, TimeT<:Real, DistT<:Real}
-    name::String
-    strength::ValueT
-    duration::TimeT
-    width::DistT
-end
-
-@with_kw struct WC73ModelParameters{ValueT<:Real, TimeT<:Real, DistT<:Real}
-    space::SpaceParameters
-    connectivity::ConnectivityParameters{ValueT}
-    stimulus::StimulusParameters{ValueT, TimeT, DistT}
-    β::PopulationParam{ValueT}
-    τ::PopulationParam{ValueT}
-    α::PopulationParam{ValueT}
-    r::PopulationParam{ValueT}
-    a::PopulationParam{ValueT}
-    θ::PopulationParam{ValueT}
-end
-
-@with_kw struct SolverParameters{TimeT<:Real}
-    T::TimeT
-    dt::TimeT
-end
-
-@with_kw struct AnalysesParameters
-    simulation_name::String
-    root::String
-    activity_gif::Dict
-end
-
-@with_kw struct WC73InputParameters{ValueT<:Real, TimeT<:Real, DistT<:Real}
-    model::WC73ModelParameters{ValueT, TimeT, DistT}
-    solver::SolverParameters{TimeT}
-    analyses::AnalysesParameters
-end
-export SpaceDimParameters, SpaceParameters, ConnectivityParameters, StimulusParameters
-export WC73ModelParameters, SolverParameters, AnalysesParameters, WC73InputParameters
 
 # * Mesh
 # Define a mesh type that standardizes interaction with the discretization of

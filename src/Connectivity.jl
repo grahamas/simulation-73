@@ -1,5 +1,50 @@
 module Connectivity
 
+using ..Space
+using ..Calculated
+
+# * Types
+
+abstract type Connectivity end
+
+struct ShollConnectivity{T<:Number} <: Connectivity
+    amplitude::T
+    spread::T
+end
+
+mutable struct CalculatedShollConnectivity{T<:Number} <: Calculated{ShollConnectivity}
+    connectivity::ShollConnectivity{T}
+    calc_dist_mx::CalculatedDistanceMatrix{T}
+    value::Matrix{T}
+    CalculatedShollConnectivity{T}(c::ShollConnectivity{T},d::CalculatedDistanceMatrix{T}) = new(c, d, make_sholl_mx(c, d))
+end
+
+function CalculatedShollConnectivity(connectivity::ShollConnectivity, segment::Segment)
+    calc_dist_mx = CalculatedDistanceMatrix(segment)
+    return CalculatedShollConnectivity(connectivity, calc_dist_mx)
+end
+
+
+function update!(csc::CalculatedShollConnectivity, connectivity::ShollConnectivity)
+    if csc.connectivity == connectivity
+        return false
+    else
+        csc.connectivity = connectivity
+        csc.value = make_sholl_mx(connectivity, csc.calc_dist_mx)
+        return true
+    end
+end
+
+function update!(csc::CalculatedShollConnectivity, connectivity::ShollConnectivity, space::Space)
+    if update!(csc.calc_dist_mx, space)
+        csc.connectivity = connectivity
+        csc.value = make_sholl_mx(csc.connectivity, csc.calc_dist_mx)
+        return true
+    else
+        return update!(csc, connectivity)
+    end
+end
+
 # * Top factories
 
 function make_connectivity_mx(mesh; name=error("Missing arg"), args...)
@@ -9,29 +54,15 @@ function make_connectivity_mx(mesh; name=error("Missing arg"), args...)
     return connectivity_mx_factories[name](mesh; args...)
 end
 
-# * Distance matrix
-doc"""
-This matrix contains values such that the $j^{th}$ column of the $i^{th}$ row
-contains the distance between locations $i$ and $j$ in the 1D space dimension provided.
-"""
-function distance_matrix(xs::SpaceDim{DistT}) where {DistT <: Real}
-    # aka Hankel, but that method isn't working in SpecialMatrices
-    distance_mx = zeros(DistT, length(xs), length(xs))
-    for i in range(1, length(xs))
-        distance_mx[:, i] = abs.(xs - xs[i])
-    end
-    return distance_mx'
-end
 # * Sholl connectivity
 
-function make_sholl_mx(mesh::FlatMesh; A, σ)
-    space_dim = mesh.space.dims[1]
-    dist_mx = distance_matrix(space_dim)
-    step_size = step(space_dim)
+function make_sholl_mx(connectivity::ShollConnectivity, calc_dist_mx::CalculatedDistMatrix)
+    A = connectivity.amplitude
+    σ = connectivity.spread
+    dist_mx = calc_dist_mx.value
+    step_size = calc_dist_mx.step
     return sholl_matrix(A, σ, dist_mx, step_size)
 end
-
-@memoize function make_sholl_mx(, A, σ)
 
 doc"""
 We use an exponential connectivity function, inspired both by Sholl's

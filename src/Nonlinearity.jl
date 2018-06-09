@@ -1,8 +1,39 @@
 module Nonlinearity
+
+using ..Calculated
+
 export make_nonlinearity_fn
 export sigmoid_fn, make_sigmoid_fn
 export sech2_fn, make_sech2_fn
 export sigmoid_diff_fn, make_sigmoid_diff_fn, neg_domain_sigmoid_diff_fn, make_neg_domain_sigmoid_diff_fn
+# * Types
+
+abstract type Nonlinearity{T<:Number} end
+
+struct SigmoidNonlinearity{T<:Number}
+    a::T
+    θ::T
+end
+
+function calculate(sn::SigmoidNonlinearity)
+    make_sigmoid_fn(sn.a, sn.θ)
+end
+
+mutable struct CalculatedSigmoidNonlinearity{T<:Number} <: Calculated{SigmoidNonlinearity{T}}
+    sigmoid::SigmoidNonlinearity
+    value::Function
+    CalculatedSigmoidNonlinearity{T}(s::SigmoidNonlinearity{T}) where T<:Number = new(s, calculate(s))
+end
+
+function update!(csn::CalculatedSigmoidNonlinearity, sn::SigmoidNonlinearity)
+    if csn.sigmoid == sn
+        return false
+    else
+        csn.sigmoid = sn
+        csn.value = calculate(sn)
+    end
+end
+
 # * Top factory
 function make_nonlinearity_fn(mesh::FlatMesh; kwargs...)
     nl_fn = make_nonlinearity_fn(mesh.pop_mesh; kwargs...)
