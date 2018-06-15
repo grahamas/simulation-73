@@ -24,7 +24,6 @@ step(cdm::CalculatedDistanceMatrix) = step(cdm.calc_segment)
 function CalculatedDistanceMatrix(segment::Segment)
     CalculatedDistanceMatrix(CalculatedSegment(segment))
 end
-step(cs::CalculatedSegment) = step(cs.mesh)
 
 function update!(cdm::CalculatedDistanceMatrix, segment::Segment)
     if update!(cdm.calc_segment, segment)
@@ -41,6 +40,8 @@ struct Segment{DistT<:Number}
     n_points::Int
 end
 
+zeros(seg::Segment{T}) where T = zeros(T,seg.n_points)
+
 function calculate_segment(segment::Segment)
     return linspace(-(segment.extent/2), (segment.extent/2), segment.n_points)
 end
@@ -49,6 +50,10 @@ mutable struct CalculatedSegment{DistT<:Number} <: Calculated{Segment{DistT}}
     segment::Segment{DistT}
     value::StepRangeLen{DistT}
     CalculatedSegment{DistT}(segment) = new(segment, calculate_segment(segment))
+end
+
+function Calculated(segment::Segment)
+    CalculatedSegment(segment)
 end
 
 function update!(cs::CalculatedSegment, segment::Segment)
@@ -61,6 +66,6 @@ function update!(cs::CalculatedSegment, segment::Segment)
     end
 end
 
-
+step(cs::CalculatedSegment) = step(cs.value)
 
 end

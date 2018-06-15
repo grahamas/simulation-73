@@ -1,18 +1,19 @@
 module Nonlinearity
 
-using ..Calculated
+using Parameters
+using ..CalculatedParameter
 
-export make_nonlinearity_fn
-export sigmoid_fn, make_sigmoid_fn
-export sech2_fn, make_sech2_fn
-export sigmoid_diff_fn, make_sigmoid_diff_fn, neg_domain_sigmoid_diff_fn, make_neg_domain_sigmoid_diff_fn
 # * Types
 
-abstract type Nonlinearity{T<:Number} end
+abstract type Nonlinearity{T} <: Parameter{T} end
 
-struct SigmoidNonlinearity{T<:Number}
+@with_kw struct SigmoidNonlinearity{T} <: Nonlinearity{T}
     a::T
     θ::T
+end
+
+function SigmoidNonlinearity(p)
+    SigmoidNonlinearity(p[:(Nonlinearity.a)], p[:(Nonlinearity.θ)])
 end
 
 function calculate(sn::SigmoidNonlinearity)
@@ -25,6 +26,10 @@ mutable struct CalculatedSigmoidNonlinearity{T<:Number} <: Calculated{SigmoidNon
     CalculatedSigmoidNonlinearity{T}(s::SigmoidNonlinearity{T}) where T<:Number = new(s, calculate(s))
 end
 
+function Calculated(sigmoid::SigmoidNonlinearity)
+    CalculatedSigmoidNonlinearity(sigmoid)
+end
+
 function update!(csn::CalculatedSigmoidNonlinearity, sn::SigmoidNonlinearity)
     if csn.sigmoid == sn
         return false
@@ -34,25 +39,7 @@ function update!(csn::CalculatedSigmoidNonlinearity, sn::SigmoidNonlinearity)
     end
 end
 
-# * Top factory
-function make_nonlinearity_fn(mesh::FlatMesh; kwargs...)
-    nl_fn = make_nonlinearity_fn(mesh.pop_mesh; kwargs...)
-    return (x) -> flatten((nl_fn ∘ unflatten)(x, mesh.pop_mesh), mesh)
-end
-
-function make_nonlinearity_fn(mesh::PopMesh; name=error("Missing arg"), args=error("Missing arg"))
-    nonlinearity_factories = Dict(
-        "sigmoid" => make_sigmoid_fn,
-        "sech2" => make_sech2_fn,
-        "sigmoid_diff" => make_sigmoid_diff_fn,
-        "neg_domain_sigmoid_diff" => make_neg_domain_sigmoid_diff_fn
-    )
-    nonlinearity_factory = nonlinearity_factories[name]
-    return nonlinearity_factory(; args...)
-end
-
-# * Sech2 functions
-
+# * Sech2
 function make_sech2_fn(; a=error("Missing arg"), θ=error("Missing arg"))
     return (x) -> max.(0,sech2_fn(x, a, θ))
 end
@@ -65,8 +52,7 @@ end
 function make_sigmoid_fn(; a=error("Missing arg"), θ=error("Missing arg"))
     return (x) -> sigmoid_fn(x, a, θ)
 end
-# ** TEMP
-doc"""
+"""
 The sigmoid function is defined
 ```math
 \begin{align}
@@ -125,4 +111,5 @@ function neg_domain_sigmoid_diff_fn(input, a, θ, width)
     return max.(0,simple_sigmoid_fn(input, a, θ) - simple_sigmoid_fn(input, a, θ + width))
 end
 
+# * end
 end

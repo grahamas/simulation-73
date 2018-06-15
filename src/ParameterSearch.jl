@@ -1,56 +1,111 @@
 
 module ParameterSearch
+# * Parameter
+abstract type Variable end
 
-struct CalculatedWilsonCowan73{C<:Connectivity,
-                               N<:Nonlinearity,S<:Stimulus}
-    connectivity::Calculated{C}
-    nonlinearity::Calculated{N}
-    stimulus::Calculated{S}
-end
-function CalculatedWilsonCowan73(space::Space, connectivity::C,
-                                 nonlinearity::N, stimulus::S) where {C<:Connectivity,
-                                                                      N<:Nonlinearity, S<:Stimulus}
-    CalculatedWilsonCowan73{C,N,T}(
-        calculate(connectivity, space),
-        calculate(nonlinearity),
-        calculate(stimulus,space))
+struct UnboundedVariable{T<:Real}
+    value::T
 end
 
-function update!(cwc::CalculatedWilsonCowan73{C,N,S}, p)
-    connectivity = C(p)
-    nonlinearity = N(p)
-    stimulus = N(p)
-    return any([update!(cwc, connectivity),
-                update!(cwc, nonlinearity),
-                update!(cwc, stimulus)])
-end
-update!(cwc::CalculatedWilsonCowan73, c::Connectivity) = update!(cwc.connectivity, c)
-update!(cwc::CalculatedWilsonCowan73, n::Nonlinearity) = update!(cwc.nonlinearity, n)
-update!(cwc::CalculatedWilsonCowan73, s::Stimulus) = update!(cwc.stimulus, s)
-# No space changes allowed
-
-function make_WilsonCowan73!(mesh, α, β, τ, nonlinearity_args, stimulus_args, connectivity_args) where T
-    nonlinearity_fn = make_nonlinearity(mesh; nonlinearity_args...)
-    stimulus_fn = make_stimulus(mesh; stimulus_args...)
-    connectivity_fn = make_connectivity(mesh; connectivity_args...)
-    function wc!(dA, A, p, t)
-        @. dA = (-α * A + β * (1-A) * nonlinearity_fn(connectivity_fn(A) + stimulus_fn(t))) / τ
-    end
-end
-
-function make_make_WilsonCowan73(space::Space, connectivity::Connectivity,
-                                 nonlinearity::Nonlinearity, stimulus::Stimulus)
-    cwc = CalculatedWilsonCowan73(space, connectivity, nonlinearity, stimulus)
-    function make_WilsonCowan73(prob::ODEProblem, p)
-        τ = p.τ
-        α = p.α
-        β = p.β
-        update!(calculated_connectivity, connectivity)
-        update!(calculated_nonlinearity, nonlinearity)
-        update!(calculated_stimulus, stimulus)
-        function WilsonCowan73!(dA, A, p, t)
-            @. dA = (-α * A + β * (1-A) * nonlinearity_fn(connectivity_fn(A) + stimulus_fn(t))) / τ
+function variable_p(x)
+    dxs = Int[]
+    ps = []
+    for dx in 1:nfields(x)
+        val = variable_p(getfield(x,dx))
+        if val != nothing
+            push!(dxs, dx)
+            push!(ps, val)
         end
     end
+    return dxs, ps
 end
+
+function variable_p(x::Variable)
+    return x.value
+end
+
+function variable_p(x::Number)
+    return nothing
+end
+
+# * Parameter search type
+struct ParameterSearch{M <: Model}
+    model::M
+    solver::Solver
+    analyses::Analyses
+    output::Output
+    target::Target
+    variable_map
+end
+
+function fix_variables(variable_model::M) where {T<:Real,M <: Model{Union{Variable,T}}}
+    pass
+end
+
+function ParameterSearch(variable_model::Model{Union{Variable, T<:Real}}, solver::Solver,
+                         analyses::Analyses, output::Output)
+    variable_map, model = fix_variables(variable_model)
+    ParameterSearch{M{T}}(model, solver, analyses, output, variable_map)
+end
+
+# ** Helpers to modify parameters
+
+function set_deep_dx!(array, dxs, val)
+    tmp = array
+    for dx in dxs[1:end-1]
+        tmp = tmp[dx]
+    end
+    tmp[dxs[end]] = val
+end
+
+function deconstruct(val::Real)
+    val
+end
+
+function deconstruct(m)
+    deconstruction = []
+    for i_field in 1:nfields(m)
+        substruct = deconstruct(getfield(m, i_field))
+        push!(deconstruction, substruct)
+    end
+    return deconstruction
+end
+
+function reconstruct(m, val::Real)
+    val
+end
+
+function reconstruct(m, arr)
+    typeof(m)([reconstruct(getfield(m, i), arr[i]) for i in 1:nfields(m)]...)
+end
+
+function model_from_p(p_search::ParameterSearch, p)
+    model = p_search.model
+    model_array = deconstruct(model)
+    variable_map = p_search.variable_map
+    for (dx, val) in enumerate(p)
+        target_dxs = variable_map[dx]
+        set_deep_dx!(model_array, target_dxs, val)
+    end
+    return reconstruct(model, model_array)
+end
+
+# * Run the search
+
+function run(search::ParameterSearch)
+    initial_problem, problem_generator = make_problem_generator(search)
+    loss_fn = loss(target, search.model)
+    loss_obj = build_loss_objective(initial_problem, Tsit5(), loss_fn;
+                                    prob_generator=problem_generator)
+end
+
+function solve(simulation::WC73Simulation)
+    initial_problem, problem_generator = make_problem_generator(simulation)
+    params = solver_params(simulation)
+    soln = solve(initial_problem; params...)
+    return soln
+end
+
+export solve
+
 end

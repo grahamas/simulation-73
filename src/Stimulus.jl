@@ -1,24 +1,46 @@
 module Stimulus
 
-using ..Calculated
+using Parameters
 
-abstract type Stimulus{T<:Number} end
+using ..Space
+using ..CalculatedParameter
 
-struct SharpBumpStimulus{T<:Number}
+type Stimulus{T} <: Parameter{T} end
+
+@with_kw struct SharpBumpStimulus{T} <: Stimulus{T}
     width::T
     strength::T
     duration::T
 end
 
-function calculate(sbs::SharpBumpStimulus)
-    sharp_bump_factory(sbs.width, sbs.strength, sbs.duration)
+function SharpBumpStimulus(p)
+    SharpBumpStimulus(p[:(Stimulus.width)], p[:(Stimulus.strength)], p[:(Stimulus.duration)])
 end
 
-mutable struct CalculatedSharpBumpStimulus{T<:Number} <: Calculated{SharpBumpStimulus}
-    stimulus::SharpBumpStimulus{T}
-    value::Function
-    CalculatedSharpBumpStimulus{T}(s::SharpBumpStimulus{T}) where {T<:Number} = new(s, calculate(s))
+function calculate(sbs::SharpBumpStimulus, space::Space)
+    sharp_bump_factory(calculate(space), sbs.width, sbs.strength, sbs.duration)
 end
+
+function Calculated(sbs::SharpBumpStimulus, space::Space)
+    CalculatedSharpBumpStimulus(sbs, space, calculate(sbs, space))
+end
+
+mutable struct CalculatedSharpBumpStimulus{T} <: Calculated{SharpBumpStimulus}
+    stimulus::SharpBumpStimulus{T}
+    space::Segment
+    value::Function
+    CalculatedSharpBumpStimulus{T}(s::SharpBumpStimulus{T}) = new(s, calculate(s))
+end
+
+function update!(csbs::CalculatedSharpBumpStimulus, sbs::SharpBumpStimulus)
+    if csbs.stimulus == sbs
+        return false
+    else
+        csbs.stimulus = sbs
+        csbs.value = calculate(stimulus, space)
+    end
+end
+
 
 # * Stimulus functions
 
@@ -85,6 +107,9 @@ end
 function make_sharp_bump_frame(mesh::PopMesh{ValueT}, width::DistT, strength) where {ValueT <: Real, DistT <: Real}
     make_sharp_bump_frame(coords(mesh), width, strength)
 end
+function make_sharp_bump_frame(segment::Calculated{Segment{DistT}}, width::DistT, strength) where {DistT <: Number}
+    make_sharp_bump_frame(segment.value, width, strength)
+end
 
 function make_sharp_bump_frame(mesh_coords::Array{DistT}, width::DistT, strength::Union{ValueT,PopulationParam{ValueT}}) where {ValueT <: Real, DistT <: Real}
     mid_dx = floor(Int, size(mesh_coords, 1) / 2)
@@ -106,9 +131,9 @@ end
 The "sharp bump" is the usual theoretical impulse: Binary in both time and
 space. On, then off.
 """
-function sharp_bump_factory(width, strength, duration)
+function sharp_bump_factory(segment::Calculated{Segment}, width, strength, duration)
         # WARNING: Defaults are ugly; Remove when possible.
-    on_frame = make_sharp_bump_frame(mesh, width, strength)
+    on_frame = make_sharp_bump_frame(segment, width, strength)
     off_frame = zeros(on_frame)
     return (t) -> (t <= duration) ? on_frame : off_frame
 end

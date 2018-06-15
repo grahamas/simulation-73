@@ -1,3 +1,4 @@
+module Analysis
 # * Load Modules
 
 ENV["GKSwstype"] = "100" # For headless plotting (on server)
@@ -16,6 +17,12 @@ using Plots; gr() #pyplot()
 
 using Colors
 using PerceptualColourMaps
+
+# * Analysis types
+abstract type Analysis end
+const Analyses = Dict
+
+export Analyses
 
 # * Timeseries
 const PopTimeseries1D{ValueT<:Real} = Array{ValueT, 3} # 1 spatial dimension
@@ -211,50 +218,6 @@ function peaks_to_timeseries(peaks::Array{MovingPeak{ValueT}}, end_time_dx::Int,
     return timeseries
 end
 
-# * File ops
-function make_individual_output_folder(root, simulation_name, mod_name)
-    now = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS.s")
-    if length(mod_name) > 0
-        now = join([mod_name, now], "_")
-    end
-    dir_name = joinpath(root, simulation_name, now)
-    mkpath(dir_name)
-    return dir_name
-end
-
-function make_experiment_output_folder(root, simulation_name, mod_name, experiment_name)
-    @assert length(mod_name) > 0
-    #now = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS.s")
-    #experiment_dir_name = join([experiment_name, now], "_")
-    dir_name = joinpath(root, experiment_name)
-    mkpath(dir_name)
-    return (dir_name, if (length(simulation_name) > 0) join([simulation_name, mod_name], "_") else mod_name end)
-end
-
-function make_write_fn(; root="", simulation_name="", mod_name="", experiment_name="", other...)
-    @assert(all(length.([simulation_name, root]) .> 0))
-    if length(experiment_name) == 0
-        dir_name, prefix = (make_individual_output_folder(root, simulation_name, mod_name), "")
-    else
-        dir_name, prefix = (make_experiment_output_folder(root, simulation_name, mod_name, experiment_name))
-    end
-    function safe_write_fn(base_name, write_fn)
-        prefixed_name = join([prefix, base_name], "_")
-        full_path = joinpath(dir_name, prefixed_name)
-        if !(isfile(full_path))
-   	     write_fn(full_path)
-	else
-	     warn("Tried to write existing file: $full_path")
-	end
-    end
-    return safe_write_fn
-end
-
-function write_params(safe_write_fn; params...)
-    base_name = "parameters.json"
-    safe_write_fn(base_name, (path) -> write(path, JSON.json(params,4)))
-end
-
 # * Unflatten timeseries
 function standardize_timeseries(timeseries, mesh::M)::PopTimeseries1D where M <: AbstractMesh
     # Join array of arrays into matrix Other Dims x Time
@@ -370,11 +333,10 @@ function down_sample(t, mesh, timeseries; spatial_stride=1, temporal_stride=1)
 end
 # * Run analyses
 
-function analyse_WilsonCowan73_solution(soln; output=nothing, analyses=nothing, other_params...)
-    @assert analyses != nothing
-    write_fn = make_write_fn(; output...)
-    write_params(write_fn; output=output, analyses=analyses, other_params...)
-    analyse_WilsonCowan73_solution(soln, write_fn; analyses...)
+function analyse_WilsonCowan73_solution(soln; sim::Simulation)
+    write_fn = make_write_fn(sim.output)
+    write_params(write_fn, sim)
+    analyse_WilsonCowan73_solution(soln, write_fn; sim.analyses...)
 end
 
 function analyse_WilsonCowan73_solution(soln, write_fn::Function; down_sampling=nothing, nonlinearity=nothing,
@@ -393,3 +355,5 @@ export analyse_WilsonCowan73_solution,
     find_local_maxima,
 
     plot_solution_surface
+
+end
