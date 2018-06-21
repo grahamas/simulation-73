@@ -8,3 +8,5 @@ py_exemplars/
 *.tex
 /wilson-cowan.julia
 /.#*
+
+*.sublime*

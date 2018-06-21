@@ -1,5 +1,8 @@
 module WC73
 
+using Parameters
+using Simulation
+
 @with_kw struct WC73{T<:Real} <: Model
     α::Array{T}
     β::Array{T}
@@ -50,15 +53,13 @@ end
 
 # * Problem generation
 function make_problem_generator(p_search::ParameterSearch{WC73})
-    u0 = initial_value(p_search)
+    model = initial_model(p_search)
     tspan = time_span(p_search)
 
-    n_pops = length(p_search.model.α)
-    space = p_search.model.space
-    connectivity = p_search.model.connectivity
-    nonlinearity = p_search.model.nonlinearity
-    stimulus = p_search.model.stimulus
-    cwc = CalculatedWilsonCowan73(space, connectivity, nonlinearity, stimulus)
+    u0 = initial_value(model)
+
+    n_pops = length(model.α)
+    cwc = CalculatedWilsonCowan73(model)
     function problem_generator(prob, new_p)
         update_from_p!(cwc, new_p, p_search)
         α, β, τ, connectivity_fn, nonlinearity_fn, stimulus_fn = get_values(cwc)

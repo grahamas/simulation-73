@@ -5,7 +5,7 @@ using TensorOperations
 
 using DifferentialEquations
 
-using ..Analysis
+using Analysis
 
 import Base.Dates
 # * Simulation object
@@ -29,5 +29,9 @@ time_span(sim::Simulation) = time_span(sim.solver)
 initial_value(model::Model) = repeat(zeros(model.space),
                                      outer=([1 for x in 1:ndims(zeros(model.space))]..., model.n_pops))
 initial_value(sim::Simulation) = initial_value(sim.model)
+
+function solve(problem::DEProblem, solver::Solver)
+	solve(problem; solver.params...)
+end
 
 end

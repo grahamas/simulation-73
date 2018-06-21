@@ -42,14 +42,14 @@ end
 
 zeros(seg::Segment{T}) where T = zeros(T,seg.n_points)
 
-function calculate_segment(segment::Segment)
+function calculate(segment::Segment)
     return linspace(-(segment.extent/2), (segment.extent/2), segment.n_points)
 end
 
 mutable struct CalculatedSegment{DistT<:Number} <: Calculated{Segment{DistT}}
     segment::Segment{DistT}
     value::StepRangeLen{DistT}
-    CalculatedSegment{DistT}(segment) = new(segment, calculate_segment(segment))
+    CalculatedSegment{DistT}(segment) = new(segment, calculate(segment))
 end
 
 function Calculated(segment::Segment)
