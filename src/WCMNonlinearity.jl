@@ -1,9 +1,9 @@
-module Nonlinearity
+module WCMNonlinearity
+# * Types
 
 using Parameters
-using ..CalculatedParameter
-
-# * Types
+using CalculatedParameters
+import CalculatedParameters: Calculated, update!
 
 abstract type Nonlinearity{T} <: Parameter{T} end
 
@@ -12,22 +12,18 @@ abstract type Nonlinearity{T} <: Parameter{T} end
     θ::T
 end
 
-function SigmoidNonlinearity(p)
-    SigmoidNonlinearity(p[:(Nonlinearity.a)], p[:(Nonlinearity.θ)])
-end
-
 function calculate(sn::SigmoidNonlinearity)
     make_sigmoid_fn(sn.a, sn.θ)
 end
 
-mutable struct CalculatedSigmoidNonlinearity{T<:Number} <: Calculated{SigmoidNonlinearity{T}}
-    sigmoid::SigmoidNonlinearity
+mutable struct CalculatedSigmoidNonlinearity{T} <: CalculatedParam{SigmoidNonlinearity{T}}
+    sigmoid::SigmoidNonlinearity{T}
     value::Function
     CalculatedSigmoidNonlinearity{T}(s::SigmoidNonlinearity{T}) where T<:Number = new(s, calculate(s))
 end
 
-function Calculated(sigmoid::SigmoidNonlinearity)
-    CalculatedSigmoidNonlinearity(sigmoid)
+function Calculated(sigmoid::SigmoidNonlinearity{T}) where T
+    CalculatedSigmoidNonlinearity{T}(sigmoid)
 end
 
 function update!(csn::CalculatedSigmoidNonlinearity, sn::SigmoidNonlinearity)
@@ -49,10 +45,10 @@ function sech2_fn(x, a, θ)
 end
 
 # * Sigmoid functions
-function make_sigmoid_fn(; a=error("Missing arg"), θ=error("Missing arg"))
+function make_sigmoid_fn(a, θ)
     return (x) -> sigmoid_fn(x, a, θ)
 end
-"""
+doc"""
 The sigmoid function is defined
 ```math
 \begin{align}
@@ -110,6 +106,8 @@ end
 function neg_domain_sigmoid_diff_fn(input, a, θ, width)
     return max.(0,simple_sigmoid_fn(input, a, θ) - simple_sigmoid_fn(input, a, θ + width))
 end
+
+export Nonlinearity, SigmoidNonlinearity, CalculatedSigmoidNonlinearity, Calculated, update!
 
 # * end
 end

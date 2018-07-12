@@ -1,13 +1,15 @@
-module Connectivity
+module WCMConnectivity
 
-using ..Space
-using ..CalculatedParameter
+using Meshes
+using CalculatedParameters
+import CalculatedParameters: Calculated, update!
+using Parameters
 
 # * Types
 
-abstract type Connectivity end
+abstract type Connectivity{T} <: Parameter{T} end
 
-@with_kw struct ShollConnectivity{T<:Number} <: Connectivity
+@with_kw struct ShollConnectivity{T} <: Connectivity{T}
     amplitude::T
     spread::T
 end
@@ -16,16 +18,18 @@ function ShollConnectivity(p)
     ShollConnectivity(p[:("Connectivity.amplitude")], p[:("Connectivity.spread")])
 end
 
-mutable struct CalculatedShollConnectivity{T<:Number} <: Calculated{ShollConnectivity}
+mutable struct CalculatedShollConnectivity{T} <: CalculatedParam{ShollConnectivity{T}}
     connectivity::ShollConnectivity{T}
     calc_dist_mx::CalculatedDistanceMatrix{T}
     value::Matrix{T}
-    CalculatedShollConnectivity{T}(c::ShollConnectivity{T},d::CalculatedDistanceMatrix{T}) = new(c, d, make_sholl_mx(c, d))
+    function CalculatedShollConnectivity{T}(c::ShollConnectivity{T},d::CalculatedDistanceMatrix{T}) where T
+        new(c, d, sholl_matrix(c, d))
+    end
 end
 
-function CalculatedShollConnectivity(connectivity::ShollConnectivity, segment::Segment)
-    calc_dist_mx = CalculatedDistanceMatrix(segment)
-    return CalculatedShollConnectivity(connectivity, calc_dist_mx)
+function CalculatedShollConnectivity(connectivity::ShollConnectivity{T}, segment::Segment{T}) where T
+    calc_dist_mx = Calculated(DistanceMatrix(segment))
+    return CalculatedShollConnectivity{T}(connectivity, calc_dist_mx)
 end
 
 function Calculated(connectivity::ShollConnectivity, segment::Segment)
@@ -37,15 +41,15 @@ function update!(csc::CalculatedShollConnectivity, connectivity::ShollConnectivi
         return false
     else
         csc.connectivity = connectivity
-        csc.value = make_sholl_mx(connectivity, csc.calc_dist_mx)
+        csc.value = sholl_matrix(connectivity, csc.calc_dist_mx)
         return true
     end
 end
 
-function update!(csc::CalculatedShollConnectivity, connectivity::ShollConnectivity, space::Space)
+function update!(csc::CalculatedShollConnectivity, connectivity::ShollConnectivity, space::Segment)
     if update!(csc.calc_dist_mx, space)
         csc.connectivity = connectivity
-        csc.value = make_sholl_mx(csc.connectivity, csc.calc_dist_mx)
+        csc.value = sholl_matrix(csc.connectivity, csc.calc_dist_mx)
         return true
     else
         return update!(csc, connectivity)
@@ -55,11 +59,11 @@ end
 
 # * Sholl connectivity
 
-function sholl_matrix(connectivity::ShollConnectivity, calc_dist_mx::CalculatedDistMatrix)
+function sholl_matrix(connectivity::ShollConnectivity, calc_dist_mx::CalculatedDistanceMatrix)
     A = connectivity.amplitude
     σ = connectivity.spread
     dist_mx = calc_dist_mx.value
-    step_size = calc_dist_mx.step
+    step_size = step(calc_dist_mx)
     return sholl_matrix(A, σ, dist_mx, step_size)
 end
 
@@ -78,5 +82,7 @@ function sholl_matrix(amplitude::ValueT, spread::ValueT,
         -abs(dist_mx / spread)
     ) / (2 * spread)
 end
+
+export Connectivity, ShollConnectivity, CalculatedShollConnectivity, Calculated, update!
 
 end
