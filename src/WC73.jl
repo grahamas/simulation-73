@@ -1,25 +1,18 @@
 module WC73
 
-macro print_using(mod)
-	quote
-        #println("Using ", $(string(mod)))
-        using $mod
-        #println("... done using ", $(string(mod)))
-    end
-end
-
-@print_using Parameters
-@print_using CalculatedParameters
+using Parameters
+using CalculatedParameters
 import CalculatedParameters: Calculated, update!
-@print_using Modeling
-@print_using Analysis
-@print_using WCMConnectivity
-@print_using WCMNonlinearity
-@print_using WCMStimulus
-@print_using Meshes
-@print_using Exploration
-@print_using DifferentialEquations
-@print_using Targets
+using Modeling
+using Analysis
+using WCMAnalysis
+using WCMConnectivity
+using WCMNonlinearity
+using WCMStimulus
+using Meshes
+using Exploration
+using DifferentialEquations
+using Targets
 using Records
 import Records: required_modules
 
@@ -121,9 +114,11 @@ function make_problem_generator(p_search::ParameterSearch{<:WCMSpatial1D})
     function problem_generator(prob, new_p)
         update_from_p!(cwc, new_p, p_search)
         α, β, τ, connectivity_mx, nonlinearity_fn, stimulus_fn = get_values(cwc)
-        function WilsonCowan73!(dA, A, p, t)
+        function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Array{T,1}, t::T) where {T<:Float64}
             for i in 1:n_pops
-                dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.-A[:,i]) .* nonlinearity_fn[i](sum(connectivity_mx[i,j] * A[:,j] for j in 1:n_pops) .+ stimulus_fn[i](t))) ./ τ[i]
+                #stim_val::Array{T,1} = stimulus_fn[i](t)
+                #nonl_val::Array{T,1} = nonlinearity_fn[i](sum(connectivity_mx[i,j] * A[:,j] for j in 1:n_pops) .+ stim_val)
+                dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.-A[:,i]) .*  nonlinearity_fn[i](sum(connectivity_mx[i,j] * A[:,j] for j in 1:n_pops) .+ stimulus_fn[i](t))) ./ τ[i]
             end
         end
         ODEProblem(WilsonCowan73!, u0, tspan, new_p)
@@ -150,21 +145,21 @@ end
 
 export analyse
 
-@with_kw struct DecayingWaveFactory{T} <: TargetFactory{T}
-    timepoints::AbstractArray
-    decay::T
-    speed::T
-    target_pop::Int
+
+
+function Analysis.analyse(soln::DESolution, output::Output, model::WCMSpatial1D; sampling=nothing,
+                          nonlinearity=nothing, pop_names=nothing, activity_gif=nothing, heatmap=nothing)
+    ds_t, ds_x, ds_timeseries = sample_timeseries(soln, model; sampling...)
+    if (heatmap != nothing) plot_heatmap(ds_t, ds_x, ds_timeseries, output; heatmap...) end
+    #pop_peak_timeseries = calc_pop_peak_timeseries(timeseries, 0)
+    #if (nonlinearity != nothing) plot_nonlinearity(soln.prob.p.nonlinearity_fn, output, pop_names; nonlinearity) end
+    if (activity_gif != nothing) plot_activity_gif(ds_t, ds_x, ds_timeseries, output; activity_gif...) end
 end
 
-function (F::DecayingWaveFactory)(model::WCMSpatial1D)
-    segment = Calculated(model.space).value
-    wave_fn(t) = @. exp(F.decay * t) * sech(segment - F.speed * t)
-    l_wave_frames = wave_fn.(F.timepoints)
-    target_pop = cat(3, l_wave_frames...)
-    return cat(2, target_pop, zeros(target_pop))
+function Analysis.analyse(sim::Simulation{WCMSpatial1D}, soln)
+    analyse(soln, sim.output, sim.model; sim.analyses...)
 end
 
-export DecayingWaveFactory
+export analyse
 
 end

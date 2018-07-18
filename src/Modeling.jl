@@ -10,13 +10,13 @@ end
 # * Load Modules
 @print_using DifferentialEquations
 @print_using Analysis
+import Analysis: analyse
 @print_using Records
 
 import Base.Dates
 
 @print_using Parameters
 @print_using CalculatedParameters
-using JLD
 # * Simulation object
 
 abstract type Model{T} <: Parameter{T} end
@@ -47,7 +47,7 @@ function solve(problem::DEProblem, solver::Solver)
 end
 
 function write_params(sim::Simulation)
-	write_object(sim.output, "parameters.jld", "sim", sim)
+	write_object(sim.output, "parameters.jld2", "sim", sim)
 end
 
 function analyse(sim::Simulation, solution::DESolution)

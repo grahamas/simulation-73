@@ -39,7 +39,8 @@ function update!(csbs::CalculatedSharpBumpStimulus, sbs::SharpBumpStimulus)
         return false
     else
         csbs.stimulus = sbs
-        csbs.value = calculate(sbs, space)
+        csbs.value = calculate(sbs, csbs.space)
+        return true
     end
 end
 export Stimulus, SharpBumpStimulus, Calculated, update!

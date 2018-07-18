@@ -1,19 +1,11 @@
-
 module Exploration
 
-macro print_using(mod)
-	quote
-        #println("Using ", $(string(mod)))
-        using $mod
-        #println("... done using ", $(string(mod)))
-    end
-end
-@print_using Parameters
-@print_using Modeling
-@print_using Analysis
-@print_using Records
-@print_using CalculatedParameters
-@print_using Targets
+using Parameters
+using Modeling
+using Analysis
+using Records
+using CalculatedParameters
+using Targets
 using DifferentialEquations
 using BlackBoxOptim
 import Records: required_modules
@@ -27,7 +19,7 @@ struct ParameterSearch{M<: Model}
     solver::Solver
     analyses::Analyses
     output::Output
-    target::TargetFactory
+    target::Target
     initial_p
     variable_map
     p_bounds
@@ -39,9 +31,9 @@ end
 
 function ParameterSearch(;variable_model::M=nothing, solver::Solver=nothing,
                      analyses::Analyses=nothing, output::Output=nothing,
-                     target_factory::TF=nothing) where {M<:Model, TF<: TargetFactory}
+                     target::Target=nothing) where {M<:Model}
     initial_p, variable_dxs, p_bounds = init_variables(variable_model)
-    ParameterSearch{M}(variable_model, solver, analyses, output, target_factory,
+    ParameterSearch{M}(variable_model, solver, analyses, output, target,
         initial_p, variable_dxs, p_bounds)
 end
 
@@ -168,6 +160,11 @@ function loss(factory::TargetFactory, model::Model)
     weights = zeros(target_data)
     weights[Calculated(model.space).value .>= 0,factory.target_pop,:] .= 1
     L2Loss(factory.timepoints, target_data; data_weight=weights)
+end
+
+function loss(fn::LossFunction, model::Model)
+    calc_space = Calculated(model.space).value
+    return (soln) -> fn(soln, calc_space)
 end
 
 make_problem_generator() = error("undefined.")

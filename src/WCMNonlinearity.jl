@@ -32,6 +32,7 @@ function update!(csn::CalculatedSigmoidNonlinearity, sn::SigmoidNonlinearity)
     else
         csn.sigmoid = sn
         csn.value = calculate(sn)
+        return true
     end
 end
 

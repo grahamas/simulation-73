@@ -37,10 +37,9 @@ end
     return dir_name
 end
 
-
 function make_write_fn(dir_name::String, prefix::String="")
-    function safe_write_fn(write_fn, base_name)
-        prefixed_name = join([prefix, base_name], "_")
+    function safe_write_fn(write_fn::Function, base_name)
+        prefixed_name = join([x for x in [prefix, base_name] if length(x) > 0], "_")
         full_path = joinpath(dir_name, prefixed_name)
             if !(isfile(full_path))
                 write_fn(full_path)
@@ -80,6 +79,6 @@ function write_object(output::Output, file_name::String, object_name::String, ob
 end
 
 export Output, SingleOutput, ExperimentOutput
-export write_object, required_modules
+export write_object, required_modules, write_fn
 
 end

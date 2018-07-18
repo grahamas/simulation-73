@@ -1,14 +1,7 @@
 module SearchWC73
 
-macro print_using(mod)
-	quote
-        #println("Using ", $(string(mod)))
-        using $mod
-        #println("... done using ", $(string(mod)))
-    end
-end
-@print_using Exploration
-@print_using WC73
+using Exploration
+using WC73
 using JLD
 
 function search_WilsonCowan73(jl_filename::String)
