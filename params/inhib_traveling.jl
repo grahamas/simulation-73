@@ -12,8 +12,8 @@ p_search = ParameterSearch(
         variable_model = WCMSpatial1D(;#{varying{Float64}}(;
             α = v[BV(1.1, (0.8, 1.3)), BV(1.0, (0.8, 1.3))],
             β = v[1.1, 1.1],
-            τ = v[BV(0.1, (0.05,0.25)), 0.18],
-            P = v[0.0, BV(0.1, (0.0,1.0))],
+            τ = v[0.18, 0.1],
+            P = v[0.0, 0.0],
             space = Segment{v}(; n_points=1001, extent=250.5),
             nonlinearity = pops(SigmoidNonlinearity{v}; a=[BV(1.2, (0.5,2.0)), BV(1.0, (0.5,2.0))],
                                                         θ=[BV(2.6, (2.0,8.5)), BV(8.0, (2.0,8.5))]),
@@ -50,7 +50,7 @@ p_search = ParameterSearch(
             root = "/home/grahams/Dropbox/Research/simulation-73/results/",
             simulation_name = ""
             ),
-        target = DecayingTraveling(;
+        target = Traveling(;
             space_start=0.0,
             timepoints=1.5:0.01:T,
             target_pop=1

@@ -54,8 +54,24 @@ function must_decrease(timeseries)
 	return sum(decreases)
 end
 
+function must_be_pulse(timeseries)
+	if timeseries[1] ≈ 0
+		first_nonzero = find(timeseries .> 0)[1]
+		timeseries = timeseries[first_nonzero:end]
+	end
+	if (length(timeseries) == 0) || (sum(timeseries .≈ 0) == 0)
+		return Inf
+	end
+	return 0
+end
 
 @with_kw struct DecayingTraveling{T} <: LossFunction{T}
+	timepoints::AbstractArray{T}
+	target_pop::Int
+	space_start::T
+end
+
+@with_kw struct Traveling{T} <: LossFunction{T}
 	timepoints::AbstractArray{T}
 	target_pop::Int
 	space_start::T
@@ -74,7 +90,24 @@ function (p::DecayingTraveling{T})(soln::DESolution, calc_space) where {T}
 	return (penalize_decreasing(peak_dxs)
 			+ must_travel(peak_vals, peak_dxs)
 			+ must_not_increase(peak_vals)
-			+ must_decrease(peak_vals))
+			+ must_decrease(peak_vals)
+			+ must_be_pulse(timeseries[1,:]))
+end
+
+function (p::Traveling{T})(soln::DESolution, calc_space) where {T}
+	time_vec = p.timepoints
+	pop = p.target_pop
+	timeseries = soln(time_vec)[calc_space .> p.space_start,pop,:]
+	peak_vals = Array{T,1}(length(time_vec))
+	peak_dxs = Array{Int,1}(length(time_vec))
+	for time_dx in 1:length(time_vec)
+		peak_vals[time_dx], peak_dxs[time_dx] = findmax(timeseries[:,time_dx])
+	end
+
+	return (penalize_decreasing(peak_dxs)
+			+ must_travel(peak_vals, peak_dxs)
+			+ must_not_increase(peak_vals)
+			+ must_be_pulse(timeseries[1,:]))
 end
 
 @with_kw struct DecayingWaveFactory{T} <: TargetFactory{T}

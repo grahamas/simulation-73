@@ -41,7 +41,7 @@ export ParameterSearch, required_modules
 
 function init_variables(variable_model::M) where {M <: Model}
     doc"Takes model with variable parameters, and returns default variable values and indices to those variables."
-    deconstructed = deconstruct(variable_model)
+    deconstructed = var_deconstruct(variable_model)
     initial_p, variable_dxs, p_bounds = init_variables(deconstructed)
     return initial_p, variable_dxs, p_bounds
 end
@@ -86,7 +86,12 @@ function set_deep_dx!(model_deconstruction::Tuple{Type,Array}, dxs, val)
     tmp[2][dxs[end]] = val
 end
 
-function deconstruct(val::O) where {O <: Union{Real, Variable}}
+function deconstruct(v::Variable)
+    val = default_value(v)
+    return (typeof(val), val)
+end
+
+function deconstruct(val::Number)
     return (typeof(val), val)
 
 end
@@ -102,6 +107,29 @@ end
 
 function deconstruct(arr::Array)
     deconstruction = map(deconstruct, arr)
+    return (base_type(typeof(arr)), deconstruction)
+end
+
+function var_deconstruct(val::Variable)
+    return (typeof(val), val)
+end
+
+function var_deconstruct(val::Number)
+    return (typeof(val), val)
+
+end
+
+function var_deconstruct(m::M) where {M <: Parameter}
+    deconstruction = Tuple{Type,Any}[]
+    for i_field in 1:nfields(m)
+        substruct = var_deconstruct(getfield(m, i_field))
+        push!(deconstruction, substruct)
+    end
+    return (typeof(m), deconstruction)
+end
+
+function var_deconstruct(arr::Array)
+    deconstruction = map(var_deconstruct, arr)
     return (base_type(typeof(arr)), deconstruction)
 end
 
@@ -185,7 +213,7 @@ function run_search(p_search::ParameterSearch)
     loss_obj = build_loss_objective(initial_problem, Tsit5(), loss_fn;
                                     prob_generator=problem_generator)
     result = bboptimize(loss_obj; NumDimensions=length(p_search.initial_p),
-        MaxSteps=1, SearchRange=p_search.p_bounds)
+        MaxSteps=11e3, SearchRange=p_search.p_bounds)
     write_results(p_search, result)
     result_sim = simulation_from_p(p_search, best_candidate(result))
     result_problem = problem_generator(nothing, best_candidate(result))

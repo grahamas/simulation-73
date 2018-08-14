@@ -21,18 +21,19 @@ import Records: required_modules
     α::Array{T}
     β::Array{T}
     τ::Array{T}
+    P::Array{T}
     space::Space{T}
     connectivity::Array{C}
     nonlinearity::Array{L}
     stimulus::Array{S}
     function WCMSpatial1D{T,C,L,S}(α::Array{T},
-        β::Array{T}, τ::Array{T},
+        β::Array{T}, τ::Array{T}, P::Array{T},
         s::Space{T}, c::Array{C},
         n::Array{L}, t::Array{S}) where {T,
                                          C<:Connectivity{T},
                                          L<:Nonlinearity{T},
                                          S<:Stimulus{T}}
-        new(α, β, τ, s, c, n, t)
+        new(α, β, τ, P, s, c, n, t)
     end
 end
 
@@ -55,16 +56,18 @@ mutable struct CalculatedWCMSpatial1D{T,C,L,S, CC<:CalculatedParam{C},CL <: Calc
     α::Array{T}
     β::Array{T}
     τ::Array{T}
+    P::Array{T}
     connectivity::Array{CC}
     nonlinearity::Array{CL}
     stimulus::Array{CS}
     function CalculatedWCMSpatial1D{T,C,L,S,CC,CL,CS}(α::Array{T},
                                                 β::Array{T},
                                                 τ::Array{T},
+                                                P::Array{T},
                                                 connectivity::Array{CC},
                                                 nonlinearity::Array{CL},
                                                 stimulus::Array{CS}) where {T,C,L,S,CC,CL,CS}
-        new(α,β,τ,connectivity,nonlinearity,stimulus)
+        new(α,β,τ,P,connectivity,nonlinearity,stimulus)
     end
 end
 
@@ -79,7 +82,7 @@ function CalculatedWCMSpatial1D(wc::WCMSpatial1D{T,C,L,S}) where {T<:Real,
     CL = eltype(nonlinearity)
     CS = eltype(stimulus)
     CalculatedWCMSpatial1D{T,C,L,S,CC,CL,CS}(
-        wc.α, wc.β, wc.τ,
+        wc.α, wc.β, wc.τ, wc.P,
         connectivity, nonlinearity, stimulus)
 end
 
@@ -88,6 +91,7 @@ function update_from_p!(cwc::CalculatedWCMSpatial1D{<:Real}, new_p, p_search::Pa
     cwc.α = new_model.α
     cwc.β = new_model.β
     cwc.τ = new_model.τ
+    cwc.P = new_model.P
     update!(cwc, new_model.connectivity)
     update!(cwc, new_model.nonlinearity)
     update!(cwc, new_model.stimulus)
@@ -98,7 +102,7 @@ update!(cwc::CalculatedWCMSpatial1D, s::Array{<:Stimulus}) = update!(cwc.stimulu
 
 function get_values(cwc::CalculatedWCMSpatial1D)
     get_value = (el) -> el.value
-    (cwc.α, cwc.β, cwc.τ, get_value.(cwc.connectivity), get_value.(cwc.nonlinearity), get_value.(cwc.stimulus))
+    (cwc.α, cwc.β, cwc.τ, cwc.P, get_value.(cwc.connectivity), get_value.(cwc.nonlinearity), get_value.(cwc.stimulus))
 end
 
 import Exploration: make_problem_generator
@@ -113,12 +117,12 @@ function make_problem_generator(p_search::ParameterSearch{<:WCMSpatial1D})
     cwc = CalculatedWCMSpatial1D(model)
     function problem_generator(prob, new_p)
         update_from_p!(cwc, new_p, p_search)
-        α, β, τ, connectivity_mx, nonlinearity_fn, stimulus_fn = get_values(cwc)
-        function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Array{T,1}, t::T) where {T<:Float64}
+        α, β, τ, P, connectivity_mx, nonlinearity_fn, stimulus_fn = get_values(cwc)
+        function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Array{T,1}, t::T)::Void where {T<:Float64}
             for i in 1:n_pops
-                #stim_val::Array{T,1} = stimulus_fn[i](t)
-                #nonl_val::Array{T,1} = nonlinearity_fn[i](sum(connectivity_mx[i,j] * A[:,j] for j in 1:n_pops) .+ stim_val)
-                dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.-A[:,i]) .*  nonlinearity_fn[i](sum(connectivity_mx[i,j] * A[:,j] for j in 1:n_pops) .+ stimulus_fn[i](t))) ./ τ[i]
+                stim_val::Array{T,1} = stimulus_fn[i](t)
+                nonl_val::Array{T,1} = nonlinearity_fn[i](sum(connectivity_mx[i,j]::Array{T,2} * A[:,j] for j in 1:n_pops) .+ stim_val)
+                dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.-A[:,i]) .*  nonl_val + P[i]) ./ τ[i]
             end
         end
         ODEProblem(WilsonCowan73!, u0, tspan, new_p)
