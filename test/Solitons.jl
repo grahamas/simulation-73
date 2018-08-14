@@ -14,7 +14,7 @@ function make_generic_soliton(A, b, c, x_0)
     return (x,t) ->  A * sech(b * x - c * t - x_0) ^ 2
 end
 
-exponential_decay(t,A,σ) = A * exp(t / σ)
+exponential_decay(t,A,σ) = A * exp(-t / σ)
 function make_exponential_decay(A, σ)
     return (t) -> A * exp(-t / σ)
 end
