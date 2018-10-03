@@ -67,7 +67,7 @@ function sholl_matrix(connectivity::ShollConnectivity, calc_dist_mx::CalculatedD
     return sholl_matrix(A, σ, dist_mx, step_size)
 end
 
-doc"""
+"""
 We use an exponential connectivity function, inspired both by Sholl's
 experimental work, and by certain theoretical considerations.
 

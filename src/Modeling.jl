@@ -1,22 +1,16 @@
 module Modeling
 
-macro print_using(mod)
-	quote
-        #println("Using ", $(string(mod)))
-        using $mod
-        #println("... done using ", $(string(mod)))
-    end
-end
 # * Load Modules
-@print_using DifferentialEquations
-@print_using Analysis
+using DifferentialEquations
+import DifferentialEquations: solve, DESolution#, DEProblem
+using Analysis
 import Analysis: analyse
-@print_using Records
+using Records
 
-import Base.Dates
+import Dates
 
-@print_using Parameters
-@print_using CalculatedParameters
+using Parameters
+using CalculatedParameters
 # * Simulation object
 
 abstract type Model{T} <: Parameter{T} end
@@ -40,9 +34,7 @@ initial_value(model::Model) = repeat(zeros(model.space),
                                      outer=([1 for x in 1:ndims(zeros(model.space))]..., length(model.α)))
 initial_value(sim::Simulation) = initial_value(sim.model)
 
-import DifferentialEquations: solve
-
-function solve(problem::DEProblem, solver::Solver)
+function solve(problem, solver::Solver)
 	solve(problem; solver.params...)
 end
 

@@ -1,10 +1,12 @@
 module CalculatedParameters
 
+using Logging
+
 # * Parameter
 abstract type Variable{T<:Real} end
 
+"A parameter to vary, without bounds."
 struct UnboundedVariable{T} <: Variable{T}
-    doc"A parameter to vary, without bounds."
     value::T
 end
 
@@ -19,11 +21,12 @@ bounds(var::V) where V <: Variable = var.bounds
 
 abstract type Parameter{T<:Union{S,Variable{S}} where S<:Real} end
 
+"Map a type over kwargs"
 function pops(t; kwargs...)
-    doc"Map a type over kwargs"
-    syms, args = zip(values(kwargs)...)
-    single_args = zip(args...)
-    new_kwargs = (zip(syms, arg) for arg in single_args)
+    syms = keys(kwargs)
+    args = zip(values(kwargs)...)
+    new_kwargs = (zip(syms, arg) for arg in args)
+    @info "type: $t, syms: $syms"
     return map((single_kwargs) -> t(;single_kwargs...), new_kwargs)
 end
 

@@ -1,15 +1,7 @@
 module Meshes
 
-macro print_using(mod)
-	quote
-        #println("Using ", $(string(mod)))
-        using $mod
-        #println("... done using ", $(string(mod)))
-    end
-end
-
-@print_using Parameters
-@print_using CalculatedParameters
+using Parameters
+using CalculatedParameters
 import CalculatedParameters: Calculated, update!
 
 abstract type Space{T} <: Parameter{T} end
@@ -63,7 +55,7 @@ function DistanceMatrix(seg::Segment{T}) where T
     DistanceMatrix{T}(Calculated(seg))
 end
 
-doc"""
+@doc doc"""
 This matrix contains values such that the $j^{th}$ column of the $i^{th}$ row
 contains the distance between locations $i$ and $j$ in the 1D space dimension provided.
 """

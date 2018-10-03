@@ -1,7 +1,7 @@
 using Modeling, Exploration, WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
 using WC73: WCMSpatial1D
 
-if !isdefined(:UV)
+if !(@isdefined UV)
   const UV = UnboundedVariable
   const BV = BoundedVariable
   const varying{T} = Union{T,BV{T}}

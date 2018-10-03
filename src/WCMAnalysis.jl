@@ -115,7 +115,7 @@ function plot_nonlinearity(nonlinearity_fn, output::Output, pop_names; disable=0
     write_fn(output)(savefig, "nonlinearity.png")
 end
 
-doc"Subsample timeseries that was solved with fixed dt; no interpolation."
+"Subsample timeseries that was solved with fixed dt; no interpolation."
 function sample_timeseries(soln::DESolution, model::Model,
         spatial_stride::Int, temporal_stride::Int)
     t = soln.t
@@ -126,9 +126,9 @@ function sample_timeseries(soln::DESolution, model::Model,
     return t[t_dx], x[x_dx], u[x_dx, :, t_dx]
 end
 
-doc"Sample timeseries through interpolation of given timepoints"
+"Sample timeseries through interpolation of given timepoints"
 function sample_timeseries(soln::DESolution, model::Model,
-        spatial_stride::Int, timepoints::Range)
+        spatial_stride::Int, timepoints::AbstractRange)
     x = Calculated(model.space).value
     u = cat(3, soln(timepoints)...)
     x_dx = 1:spatial_stride:length(x)
@@ -153,7 +153,7 @@ function sample_timeseries(soln::DESolution, model::Model;
 end
 
 # * Down sampling
-function down_sample(t, x::Range, timeseries;
+function down_sample(t, x::AbstractRange, timeseries;
     spatial_stride=1, temporal_stride=1)
     @assert(size(timeseries,1) == length(x), "Space wrong size")
     @assert(size(timeseries,3) == length(t), "Time wrong size")

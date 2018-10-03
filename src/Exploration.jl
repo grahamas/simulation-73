@@ -6,14 +6,14 @@ using Analysis
 using Records
 using CalculatedParameters
 using Targets
-using DifferentialEquations
+using DifferentialEquations, DiffEqParamEstim
 using BlackBoxOptim
 import Records: required_modules
 
 import BlackBoxOptim: OptimizationResults
 required_modules(::Type{OptimizationResults}) = [BlackBoxOptim]
 
-doc"A model with variable parameters, and a target."
+"A model with variable parameters, and a target."
 struct ParameterSearch{M<: Model}
     model::M
     solver::Solver
@@ -39,8 +39,8 @@ end
 
 export ParameterSearch, required_modules
 
+"Takes model with variable parameters, and returns default variable values and indices to those variables."
 function init_variables(variable_model::M) where {M <: Model}
-    doc"Takes model with variable parameters, and returns default variable values and indices to those variables."
     deconstructed = var_deconstruct(variable_model)
     initial_p, variable_dxs, p_bounds = init_variables(deconstructed)
     return initial_p, variable_dxs, p_bounds
@@ -50,7 +50,7 @@ function init_variables(deconstructed::Tuple{Type,<:AbstractArray})
     variable_dxs = []
     initial_p = []
     p_bounds = Tuple{Float64,Float64}[]
-    for dx in CartesianRange(size(deconstructed[2]))
+    for dx in CartesianIndices(size(deconstructed[2]))
         (typ, val) = deconstructed[2][dx]
         if typ <: Variable
             push!(variable_dxs, [dx])
@@ -208,6 +208,7 @@ end
 
 function run_search(p_search::ParameterSearch)
     write_params(p_search)
+
     initial_problem, problem_generator = make_problem_generator(p_search)
     loss_fn = loss(p_search.target, initial_model(p_search))
     loss_obj = build_loss_objective(initial_problem, Tsit5(), loss_fn;

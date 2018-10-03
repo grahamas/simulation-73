@@ -3,6 +3,7 @@ module Records
 using Parameters
 using JLD2
 using Memoize
+using Dates
 
 abstract type Output end
 
@@ -23,16 +24,16 @@ end
 
 # function make_experiment_output_folder(root, simulation_name, mod_name, experiment_name)
 #     @assert length(mod_name) > 0
-#     #now = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS.s")
-#     #experiment_dir_name = join([experiment_name, now], "_")
+#     #nowstr = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS.s")
+#     #experiment_dir_name = join([experiment_name, nowstr], "_")
 #     dir_name = joinpath(root, experiment_name)
 #     mkpath(dir_name)
 #     return (dir_name, if (length(simulation_name) > 0) join([simulation_name, mod_name], "_") else mod_name end)
 # end
 
 @memoize function directory(output::SingleOutput)
-    now = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS.s")
-    dir_name = joinpath(output.root, output.simulation_name, now)
+    nowstr = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS.s")
+    dir_name = joinpath(output.root, output.simulation_name, nowstr)
     mkpath(dir_name)
     return dir_name
 end

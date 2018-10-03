@@ -1,7 +1,7 @@
 using Modeling, Exploration, WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
 using WC73: WCMSpatial1D
 
-if !isdefined(:UV)
+if !(@isdefined UV)
   const UV = UnboundedVariable
   const BV = BoundedVariable
   const varying{T} = Union{T,BV{T}}
@@ -57,9 +57,6 @@ p_search = ParameterSearch(
             )
         )
 
-using JLD
+using JLD2
 
-jldopen("parameters.jld", "w") do file
-  addrequire.(file, [WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus])
-  write(file, "p_search", p_search)
-end
+@save "parameters.jld2" p_search
