@@ -13,33 +13,33 @@ using IterTools
 
 # * Iterators
 
-type ModGenerator
+struct ModGenerator
     addresses::Array{Tuple}
-    names::Array{String}
-    values
+    mod_names::Array{String}
+    mod_values
 end
 
 function ModGenerator(mods)
     addresses = [mod[1] for mod in mods]
-    names = [mod[3] for mod in mods]
-    values = product([mod[2] for mod in mods]...)
-    ModGenerator(addresses, names, values)
+    mod_names = [mod[3] for mod in mods]
+    mod_values = product([mod[2] for mod in mods]...)
+    ModGenerator(addresses, mod_names, mod_values)
 end
 
 import Base: length, start, done, next
 
-length(mg::ModGenerator) = length(mg.values)
+length(mg::ModGenerator) = length(mg.mod_values)
 
-start(mg::ModGenerator) = start(mg.values)
-done(mg::ModGenerator, s) = done(mg.values, s)
+start(mg::ModGenerator) = start(mg.mod_values)
+done(mg::ModGenerator, s) = done(mg.mod_values, s)
 function next(mg::ModGenerator, s)
-    values, next_state = next(mg.values, s)
-    addresses_values = zip(mg.addresses, values)
-    name = join(["""$(pair[1])$(replace("$(pair[2])", ".", "p"))""" for pair in zip(mg.names, values)], "_")
-    return ((addresses_values, name), next_state)
+    mod_values, next_state = next(mg.mod_values, s)
+    addresses_mod_values = zip(mg.addresses, mod_values)
+    name = join(["""$(pair[1])$(replace("$(pair[2])", ".", "p"))""" for pair in zip(mg.mod_names, mod_values)], "_")
+    return ((addresses_mod_values, name), next_state)
 end
 
-type ParamGenerator
+struct ParamGenerator
     base_params::Dict
     mod_generator::ModGenerator
     ParamGenerator(base_params, mods) = new(base_params, ModGenerator(mods))
@@ -75,9 +75,9 @@ end
 start(pg::ParamGenerator) = start(pg.mod_generator)
 done(pg::ParamGenerator, s) = done(pg.mod_generator, s)
 function next(pg::ParamGenerator, s)
-    ((addresses_values, name), next_state) = next(pg.mod_generator, s)
+    ((addresses_mod_values, name), next_state) = next(pg.mod_generator, s)
     params = deepcopy(pg.base_params)
-    for (address, value) in addresses_values
+    for (address, value) in addresses_mod_values
         set_address!(params, address, value)
     end
     params[:output][:mod_name] = name
@@ -179,9 +179,9 @@ end
 
 # * Local peak detection
 
-function amplitude_width_offset(values, mesh, max_dx, half_window::Int=1)
+function amplitude_width_offset(mod_values, mesh, max_dx, half_window::Int=1)
     @assert length(mesh.dims) == 1
-    around_max = values[max_dx-half_window:max_dx+half_window]
+    around_max = mod_values[max_dx-half_window:max_dx+half_window]
     locs = mesh.dims[1][max_dx-half_window:max_dx+half_window]
 
     max_guess = around_max[half_window+1]
@@ -225,8 +225,8 @@ function get_peak_maximum_fit(fn, around_max, locs, guess, lower, upper)
 end
 
 
-function get_peak_maximum(values, mesh, max_dx, args...)
-    values[max_dx]
+function get_peak_maximum(mod_values, mesh, max_dx, args...)
+    mod_values[max_dx]
 end
 
 function plot_peak_magnitude{ValueT,TimeT}(save_path, fit_half_window=1;
