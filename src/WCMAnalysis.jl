@@ -30,6 +30,15 @@ const PopTimeseries1D{ValueT<:Real} = Array{ValueT, 3} # 1 spatial dimension
 const Timeseries1D{ValueT<:Real} = Array{ValueT,2}
 
 # * Plotting
+
+@userplot struct WCMPlot
+    soln::DESolution
+end
+@recipe function f(w::WCMPlot; nonlinearity=true, animation=true)
+
+
+
+
 # ** Plot gif of solution
 function plot_activity_gif(t, x, timeseries::PopTimeseries1D, output::Output; file_name="solution.gif",
 		      disable=0, fps=15, pop_peak_timeseries=[])
@@ -52,43 +61,28 @@ function plot_activity_gif(t, x, timeseries::PopTimeseries1D, output::Output; fi
     write_fn(output)((path) -> gif(anim, path, fps=floor(Int,fps)), "activity.gif")
 end
 
-function plot_heatmap(t, x, timeseries, output::Output; name="heatmap.png", kwargs...)
-    base, ext = splitext(name)
-    # @assert(all([ndims(timeseries) == 3, size(timeseries,2) == 2]))
-    # heatmap(x=t, y=x, timeseries[:,1,:]; kwargs...)
-    # E_file_name = "$(base)_E$ext"
-    # safe_write_fn(E_file_name, savefig)
-    # heatmap(x=t, y=x, timeseries[:,2,:]; kwargs...)
-    # I_file_name = "$(base)_I$ext"
-    # safe_write_fn(I_file_name, savefig)
-    PyPlot.clf()
-    ax = PyPlot.gca()
-    im = PyPlot.imshow(timeseries[:,1,:], ColorMap("viridis"), origin="lower",
-extent=[t[1], t[end], x[1], x[end]])
-    ax[:set_ylim](x[1], x[end])
-    ax[:set_xlim](t[1], t[end])
-    PyPlot.xlabel("Time (s)")
-    PyPlot.ylabel("Space (a.u.)")
-    ax[:set_aspect](:auto)
-    divider = axgrid.make_axes_locatable(ax)
-    cax = divider[:append_axes]("right", size="7%", pad="2%")#, size="5%")
-    PyPlot.colorbar(im, cax=cax)
-    E_file_name = "$(base)_E$ext"
-    safe_write_fn(E_file_name, PyPlot.savefig)
-
-    PyPlot.clf()
-    ax = PyPlot.gca()
-    im = PyPlot.imshow(timeseries[:,1,:], ColorMap("viridis"), origin="lower",
-                       extent=[t[1], t[end], x[1], x[end]])
-    ax[:set_xlim](t[1], t[end])
-    ax[:set_yticks]([])
-    ax[:set_aspect](:auto)
-    divider = axgrid.make_axes_locatable(ax)
-    cax = divider[:append_axes]("right", size="7%", pad="2%")#, size="5%")
-    PyPlot.colorbar(im, cax=cax)
-    E_file_name = "$(base)_E_naked$ext"
-    write_fn(output)(PyPlot.savefig, E_file_name)
+const PopActivity1D = Array{Float64, 3}
+@userplot struct PopActivityHeatmap
+    t::Array{Float64,1}
+    x::Array{Float64,1}
+    timeseries::PopActivity1D
 end
+@recipe function f(h::PopActivityHeatmap)
+    @assert size(h.timeseries, 2) == 2      # only defined for 2 pops
+    clims := (minimum(h.timeseries), maximum(h.timeseries))
+    grid := false
+    layout := (2,1)
+    for i_pop in 1:size(h.timeseries,2)
+        @series begin
+            seriestype := :heatmap
+            subplot := i_pop
+            xticks := h.t
+            yticks := h.x
+            h.timeseries[:,i_pop,:]
+        end
+    end
+end
+
 
 # ** Plot solution as surface
 function plot_solution_surface(solution::Timeseries1D, x_range::StepRangeLen, T, dt, output::Output;
@@ -101,18 +95,24 @@ function plot_solution_surface(solution::Timeseries1D, x_range::StepRangeLen, T,
 end
 
 # ** Plot nonlinearity
-function plot_nonlinearity(nonlinearity_fn, output::Output, pop_names; disable=0)
-    if disable != 0
-        return
-    end
-    resolution = 100
+@userplot struct NonlinearityPlot
+    nonlinearity_fn::Function
+    pop_names::Array{<:AbstractString}
+end
+@recipe function f(n::NonlinearityPlot; resolution=100, fn_bounds=(-1,15))
+    pop_names = n.pop_names
+    nonlinearity_fn = n.nonlinearity_fn
     n_pops = length(pop_names)
-    one_pop_x = linspace(-1,15,resolution)
+    one_pop_x = linspace(fn_bounds..., resolution)
+    delete!.(plotattributes,[:resolution,:fn_bounds])
     x_range = repeat(one_pop_x, outer=(n_pops))
     y_output = reshape(nonlinearity_fn(x_range), (:, n_pops))
-    Plots.plot(one_pop_x, y_output, lab=pop_names,
-         xlab="Input current", ylab="Proportion pop. reaching at least threshold")
-    write_fn(output)(savefig, "nonlinearity.png")
+    lab --> pop_names
+    xlab := "Input current"
+    ylab := "Proportion pop. reaching at least threshold"
+    x := one_pop_x
+    y := y_output
+    ()
 end
 
 doc"Subsample timeseries that was solved with fixed dt; no interpolation."
@@ -140,7 +140,7 @@ function sample_timeseries(soln::DESolution, model::Model;
         n_time_samples::Int=-1, dt::Float64=0)
     @assert sum([(temporal_stride == 1),
         (n_time_samples == 0),
-        (dt == 0)]) == 1
+        (dt == 0)]) == 1 # Only one sampling spec allowed
     if temporal_stride != 1
         sample_timeseries(soln, model, spatial_stride, temporal_stride)
     elseif n_time_samples > 0
@@ -151,19 +151,5 @@ function sample_timeseries(soln::DESolution, model::Model;
         sample_timeseries(soln, model, spatial_stride, timepoints)
     end
 end
-
-# * Down sampling
-function down_sample(t, x::Range, timeseries;
-    spatial_stride=1, temporal_stride=1)
-    @assert(size(timeseries,1) == length(x), "Space wrong size")
-    @assert(size(timeseries,3) == length(t), "Time wrong size")
-    spatial_stride = floor(Int, spatial_stride)
-    temporal_stride = floor(Int, temporal_stride)
-    t_dx = 1:temporal_stride:length(t)
-    x_dx = 1:spatial_stride:length(x)
-    return t[t_dx], x[x_dx], timeseries[x_dx, :, t_dx]
-end
-
-export sample_timeseries, plot_heatmap, plot_activity_gif
 
 end
