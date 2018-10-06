@@ -57,9 +57,9 @@ p_search = ParameterSearch(
             )
         )
 
-using JLD
+using JLD2
 
-jldopen("parameters.jld", "w") do file
-  addrequire.(file, [WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus])
+open("parameters.jld2", "w") do file
+  #addrequire.(file, [WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus])
   write(file, "p_search", p_search)
 end
