@@ -57,7 +57,7 @@ end
     make_writer(dir_name)
 end
 
-(o::Output)(write_fn::Function, base_name::AbstractString) = begin
+(o::SingleOutput)(write_fn::Function, base_name::AbstractString) = begin
     output_fn = make_writer(o)
     output_fn(write_fn, base_name)
 end

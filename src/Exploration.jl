@@ -13,7 +13,7 @@ import Records: required_modules
 import BlackBoxOptim: OptimizationResults
 required_modules(::Type{OptimizationResults}) = [BlackBoxOptim]
 
-doc"A model with variable parameters, and a target."
+"A model with variable parameters, and a target."
 struct ParameterSearch{M<: Model}
     model::M
     solver::Solver
@@ -39,8 +39,9 @@ end
 
 export ParameterSearch, required_modules
 
+"""Takes model with variable parameters,
+and returns default variable values and indices to those variables."""
 function init_variables(variable_model::M) where {M <: Model}
-    doc"Takes model with variable parameters, and returns default variable values and indices to those variables."
     deconstructed = var_deconstruct(variable_model)
     initial_p, variable_dxs, p_bounds = init_variables(deconstructed)
     return initial_p, variable_dxs, p_bounds

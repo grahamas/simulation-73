@@ -6,7 +6,7 @@ using Records
 import DifferentialEquations: DESolution
 using Meshes
 using Colors
-
+using RecipesBase
 
 # upscale = 8 #8x upscaling in resolution
 # fntsm = Plots.font("sans-serif", 10.0*upscale)
@@ -15,10 +15,6 @@ using Colors
 # default(size=(600*upscale,400*upscale)) #Plot canvas size
 # default(dpi=300) #Only for PyPlot - presently broken
 
-using PyPlot
-using PyCall
-@pyimport mpl_toolkits.axes_grid1 as axgrid
-
 const PopTimeseries1D{ValueT<:Real} = Array{ValueT, 3} # 1 spatial dimension
 const Timeseries1D{ValueT<:Real} = Array{ValueT,2}
 
@@ -26,7 +22,7 @@ const Timeseries1D{ValueT<:Real} = Array{ValueT,2}
 
 @userplot struct WCMPlot
     soln::DESolution
-    plot_syms::Array{Symbol}
+    analyses
 end
 @recipe function f(w::WCMPlot)
     plot_fns = Dict(
@@ -35,9 +31,6 @@ end
         )
     [plot_fns[plt_sym](w.soln) for plt_sym in w.plot_syms]
 end
-
-
-
 
 # # ** Plot gif of solution
 # function plot_activity_gif(t, x, timeseries::PopTimeseries1D, output::Output; file_name="solution.gif",
@@ -118,7 +111,7 @@ end
     ()
 end
 
-doc"Subsample timeseries that was solved with fixed dt; no interpolation."
+"Subsample timeseries that was solved with fixed dt; no interpolation."
 function sample_timeseries(soln::DESolution, model::Model,
         spatial_stride::Int, temporal_stride::Int)
     t = soln.t
@@ -129,7 +122,7 @@ function sample_timeseries(soln::DESolution, model::Model,
     return t[t_dx], x[x_dx], u[x_dx, :, t_dx]
 end
 
-doc"Sample timeseries through interpolation of given timepoints"
+"Sample timeseries through interpolation of given timepoints"
 function sample_timeseries(soln::DESolution, model::Model,
         spatial_stride::Int, timepoints::Range)
     x = Calculated(model.space).value

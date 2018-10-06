@@ -45,6 +45,8 @@ p_search = ParameterSearch(
                :disable => 0,
                :fps => 20
                )
+           :nonlinearity => Dict(),
+           :heatmap => Dict()
            ),
         output = SingleOutput(;
             root = "/home/grahams/Dropbox/Research/simulation-73/results/",
