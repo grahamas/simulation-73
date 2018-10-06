@@ -7,13 +7,6 @@ import DifferentialEquations: DESolution
 using Meshes
 using Colors
 
-ENV["GKSwstype"] = "100" # For headless plotting (on server)
-ENV["MPLBACKEND"]="Agg"
-# using PyCall
-# @pyimport mpl_toolkits.mplot3d as mpl
-# Axes3D = mpl.Axes3D
-
-using Plots; gr() #pyplot()
 
 # upscale = 8 #8x upscaling in resolution
 # fntsm = Plots.font("sans-serif", 10.0*upscale)
@@ -33,80 +26,90 @@ const Timeseries1D{ValueT<:Real} = Array{ValueT,2}
 
 @userplot struct WCMPlot
     soln::DESolution
+    plot_syms::Array{Symbol}
 end
-@recipe function f(w::WCMPlot; nonlinearity=true, animation=true)
-
-
-
-
-# ** Plot gif of solution
-function plot_activity_gif(t, x, timeseries::PopTimeseries1D, output::Output; file_name="solution.gif",
-		      disable=0, fps=15, pop_peak_timeseries=[])
-    @assert size(timeseries, 2) == 2
-    if disable != 0
-	   return
-    end
-    gr()
-    max_activity = maximum(timeseries, (1,2,3))[1] # I don't know why this index is here.
-    min_activity = minimum(timeseries, (1,2,3))[1]
-    anim = @animate for i in 1:length(t)
-	Plots.plot(x, timeseries[:,1,i], lab="E",
-	     ylim=(min_activity, max_activity), title="t=$(t[i])",
-             xlab="Space", ylab="Proportion pop. active")
-        Plots.plot!(x, timeseries[:,2,i], lab="I")
-	for peak_timeseries in pop_peak_timeseries
-	    Plots.scatter!(peak_timeseries[i][1], peak_timeseries[i][2], markercolor=peak_timeseries[i][3])
-	end
-    end
-    write_fn(output)((path) -> gif(anim, path, fps=floor(Int,fps)), "activity.gif")
+@recipe function f(w::WCMPlot)
+    plot_fns = Dict(
+            :nonlinearity => nonlinearityplot,
+            :heatmap => popactivityheatmap
+        )
+    [plot_fns[plt_sym](w.soln) for plt_sym in w.plot_syms]
 end
+
+
+
+
+# # ** Plot gif of solution
+# function plot_activity_gif(t, x, timeseries::PopTimeseries1D, output::Output; file_name="solution.gif",
+# 		      disable=0, fps=15, pop_peak_timeseries=[])
+#     @assert size(timeseries, 2) == 2
+#     if disable != 0
+# 	   return
+#     end
+#     gr()
+#     max_activity = maximum(timeseries, (1,2,3))[1] # I don't know why this index is here.
+#     min_activity = minimum(timeseries, (1,2,3))[1]
+#     anim = @animate for i in 1:length(t)
+# 	Plots.plot(x, timeseries[:,1,i], lab="E",
+# 	     ylim=(min_activity, max_activity), title="t=$(t[i])",
+#              xlab="Space", ylab="Proportion pop. active")
+#         Plots.plot!(x, timeseries[:,2,i], lab="I")
+# 	for peak_timeseries in pop_peak_timeseries
+# 	    Plots.scatter!(peak_timeseries[i][1], peak_timeseries[i][2], markercolor=peak_timeseries[i][3])
+# 	end
+#     end
+#     write_fn(output)((path) -> gif(anim, path, fps=floor(Int,fps)), "activity.gif")
+# end
 
 const PopActivity1D = Array{Float64, 3}
 @userplot struct PopActivityHeatmap
+    soln::DESolution
     t::Array{Float64,1}
     x::Array{Float64,1}
     timeseries::PopActivity1D
 end
 @recipe function f(h::PopActivityHeatmap)
-    @assert size(h.timeseries, 2) == 2      # only defined for 2 pops
-    clims := (minimum(h.timeseries), maximum(h.timeseries))
+    t, x, timeseries = sample_timeseries(h.soln)
+    @assert size(timeseries, 2) == 2      # only defined for 2 pops
+    clims := (minimum(timeseries), maximum(timeseries))
     grid := false
     layout := (2,1)
-    for i_pop in 1:size(h.timeseries,2)
+    for i_pop in 1:size(timeseries,2)
         @series begin
             seriestype := :heatmap
             subplot := i_pop
-            xticks := h.t
-            yticks := h.x
-            h.timeseries[:,i_pop,:]
+            xticks := t
+            yticks := x
+            timeseries[:,i_pop,:]
         end
     end
 end
 
-
-# ** Plot solution as surface
-function plot_solution_surface(solution::Timeseries1D, x_range::StepRangeLen, T, dt, output::Output;
-                               save=nothing, seriestype=:surface)
-    time_range = 0:dt:T
-    Plots.plot(time_range, x_range, solution, seriestype=seriestype)
-    if save != nothing
-        write_fn(output)(savefig, save)
-    end
-end
+# # ** Plot solution as surface
+# function plot_solution_surface(solution::Timeseries1D, x_range::StepRangeLen, T, dt, output::Output;
+#                                save=nothing, seriestype=:surface)
+#     time_range = 0:dt:T
+#     Plots.plot(time_range, x_range, solution, seriestype=seriestype)
+#     if save != nothing
+#         write_fn(output)(savefig, save)
+#     end
+# end
 
 # ** Plot nonlinearity
 @userplot struct NonlinearityPlot
-    nonlinearity_fn::Function
-    pop_names::Array{<:AbstractString}
+    soln::DESolution
 end
 @recipe function f(n::NonlinearityPlot; resolution=100, fn_bounds=(-1,15))
-    pop_names = n.pop_names
+    pop_names = n.soln.pop_names
     nonlinearity_fn = n.nonlinearity_fn
     n_pops = length(pop_names)
+
     one_pop_x = linspace(fn_bounds..., resolution)
     delete!.(plotattributes,[:resolution,:fn_bounds])
+
     x_range = repeat(one_pop_x, outer=(n_pops))
     y_output = reshape(nonlinearity_fn(x_range), (:, n_pops))
+
     lab --> pop_names
     xlab := "Input current"
     ylab := "Proportion pop. reaching at least threshold"

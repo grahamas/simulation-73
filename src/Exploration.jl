@@ -78,6 +78,16 @@ end
 
 export initial_model, time_span
 
+
+#########################################################
+######### MODEL DECONSTRUCTION & RECONSTRUCTION #########
+# Deconstruct a model (which is naturally hierarchical)
+# into a flat representation.
+# Alter flat representation.
+# Reconstruct hierarchical model.
+#########################################################
+
+
 function set_deep_dx!(model_deconstruction::Tuple{Type,Array}, dxs, val)
     tmp = model_deconstruction
     for dx in dxs[1:end-1]
@@ -165,6 +175,16 @@ function reconstruct(tup::Tuple{Type,Array})
     end
 end
 
+#############################################
+
+"""
+    model_from_p(p_seach::ParameterSearch, p)
+
+Deconstructs the "variable model" stored by p_search into a flat representation.
+Indexes into the flat representation using p_search's variable_map, which was
+created to relate the locations of varying parameters in p_search's variable
+model to the parameters in the parameter vector p.
+"""
 function model_from_p(p_search::ParameterSearch, p)
     var_model = p_search.model
     variable_map = p_search.variable_map
@@ -181,6 +201,8 @@ function simulation_from_p(p_search::ParameterSearch, p)
     return Simulation(model, p_search.solver,
         p_search.analyses, p_search.output)
 end
+
+
 # * Run the search
 
 function loss(factory::TargetFactory, model::Model)
@@ -217,9 +239,8 @@ function run_search(p_search::ParameterSearch)
     write_results(p_search, result)
     result_sim = simulation_from_p(p_search, best_candidate(result))
     result_problem = problem_generator(nothing, best_candidate(result))
-    result_sol = solve(result_problem, p_search.solver)
-    analyse(result_sim, result_sol)
-    return result
+    result_soln = solve(result_problem, p_search.solver)
+    return (result_sim, result_soln)
 end
 
 import DifferentialEquations: solve

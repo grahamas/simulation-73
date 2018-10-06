@@ -87,7 +87,10 @@ function CalculatedWCMSpatial1D(wc::WCMSpatial1D{T,C,L,S}) where {T<:Real,
 end
 
 function update_from_p!(cwc::CalculatedWCMSpatial1D{<:Real}, new_p, p_search::ParameterSearch{<:WCMSpatial1D})
+    # Use the variable model stored by p_search to create static model
     new_model = model_from_p(p_search, new_p)
+
+    # Update the calculated values from the new static model
     cwc.α = new_model.α
     cwc.β = new_model.β
     cwc.τ = new_model.τ
@@ -136,7 +139,6 @@ function Analysis.analyse(soln::DESolution, output::Output, model::WCMSpatial1D;
                           nonlinearity=nothing, pop_names=nothing, activity_gif=nothing, heatmap=nothing)
     ds_t, ds_x, ds_timeseries = sample_timeseries(soln, model; sampling...)
     if (heatmap != nothing) plot_heatmap(ds_t, ds_x, ds_timeseries, output; heatmap...) end
-    #pop_peak_timeseries = calc_pop_peak_timeseries(timeseries, 0)
     #if (nonlinearity != nothing) plot_nonlinearity(soln.prob.p.nonlinearity_fn, output, pop_names; nonlinearity) end
     if (activity_gif != nothing) plot_activity_gif(ds_t, ds_x, ds_timeseries, output; activity_gif...) end
 end
