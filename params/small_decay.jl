@@ -45,6 +45,8 @@ p_search = ParameterSearch(
                :disable => 0,
                :fps => 20
                )
+           :nonlinearity => Dict(),
+           :heatmap => Dict()
            ),
         output = SingleOutput(;
             root = "/home/grahams/Dropbox/Research/simulation-73/results/",
@@ -59,4 +61,16 @@ p_search = ParameterSearch(
 
 using JLD2
 
+<<<<<<< HEAD
 @save "parameters.jld2" p_search
+||||||| merged common ancestors
+jldopen("parameters.jld", "w") do file
+  addrequire.(file, [WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus])
+  write(file, "p_search", p_search)
+end
+=======
+open("parameters.jld2", "w") do file
+  #addrequire.(file, [WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus])
+  write(file, "p_search", p_search)
+end
+>>>>>>> feature/heatmap

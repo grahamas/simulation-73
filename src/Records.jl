@@ -38,7 +38,7 @@ end
     return dir_name
 end
 
-function make_write_fn(dir_name::String, prefix::String="")
+function make_writer(dir_name::String, prefix::String="")
     function safe_write_fn(write_fn::Function, base_name)
         prefixed_name = join([x for x in [prefix, base_name] if length(x) > 0], "_")
         full_path = joinpath(dir_name, prefixed_name)
@@ -48,14 +48,19 @@ function make_write_fn(dir_name::String, prefix::String="")
                 warn("Tried to write existing file: $full_path")
             end
     end
-    return safe_write_fn
+    return safe_writer
 end
 
-@memoize function write_fn(output::SingleOutput)
+@memoize function make_writer(output::SingleOutput)
     root = output.root
     simulation_name = output.simulation_name
     dir_name = directory(output)
-    make_write_fn(dir_name)
+    make_writer(dir_name)
+end
+
+(o::SingleOutput)(write_fn::Function, base_name::AbstractString) = begin
+    output_fn = make_writer(o)
+    output_fn(write_fn, base_name)
 end
 
 # function make_write_fn(output::ExperimentOutput)
