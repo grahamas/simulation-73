@@ -125,7 +125,7 @@ function make_problem_generator(p_search::ParameterSearch{<:WCMSpatial1D})
             for i in 1:n_pops
                 stim_val::Array{T,1} = stimulus_fn[i](t)
                 nonl_val::Array{T,1} = nonlinearity_fn[i](sum(connectivity_mx[i,j]::Array{T,2} * A[:,j] for j in 1:n_pops) .+ stim_val)
-                dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.-A[:,i]) .*  nonl_val + P[i]) ./ τ[i]
+                dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.0 .- A[:,i]) .*  nonl_val + P[i]) ./ τ[i]
             end
         end
         ODEProblem(WilsonCowan73!, u0, tspan, new_p)

@@ -22,7 +22,7 @@ const Timeseries1D{ValueT<:Real} = Array{ValueT,2}
 
 @userplot struct WCMPlot
     soln::DESolution
-    analyses
+    analyses::Array{Symbol}
 end
 @recipe function f(w::WCMPlot)
     plot_fns = Dict(
@@ -55,38 +55,27 @@ end
 # end
 
 const PopActivity1D = Array{Float64, 3}
-@userplot struct PopActivityHeatmap
-    soln::DESolution
-    t::Array{Float64,1}
-    x::Array{Float64,1}
+@userplot struct PopActivityPlot
+    v_time::Array{Float64,1}
+    v_space::Array{Float64,1}
     timeseries::PopActivity1D
 end
-@recipe function f(h::PopActivityHeatmap)
-    t, x, timeseries = sample_timeseries(h.soln)
+@recipe function f(h::PopActivityPlot)
+    v_time, v_space, timeseries = h.v_time, h.v_space, h.timeseries
     @assert size(timeseries, 2) == 2      # only defined for 2 pops
     clims := (minimum(timeseries), maximum(timeseries))
     grid := false
     layout := (2,1)
     for i_pop in 1:size(timeseries,2)
         @series begin
-            seriestype := :heatmap
+            seriestype --> :heatmap
             subplot := i_pop
-            xticks := t
-            yticks := x
+            x := v_time
+            y := v_space
             timeseries[:,i_pop,:]
         end
     end
 end
-
-# # ** Plot solution as surface
-# function plot_solution_surface(solution::Timeseries1D, x_range::StepRangeLen, T, dt, output::Output;
-#                                save=nothing, seriestype=:surface)
-#     time_range = 0:dt:T
-#     Plots.plot(time_range, x_range, solution, seriestype=seriestype)
-#     if save != nothing
-#         write_fn(output)(savefig, save)
-#     end
-# end
 
 # ** Plot nonlinearity
 @userplot struct NonlinearityPlot
@@ -124,7 +113,7 @@ end
 
 "Sample timeseries through interpolation of given timepoints"
 function sample_timeseries(soln::DESolution, model::Model,
-        spatial_stride::Int, timepoints::Range)
+        spatial_stride::Int, timepoints::AbstractRange)
     x = Calculated(model.space).value
     u = cat(3, soln(timepoints)...)
     x_dx = 1:spatial_stride:length(x)
