@@ -10,6 +10,7 @@ end
 T= 2.0
 p_search = ParameterSearch(
         variable_model = WCMSpatial1D(;#{varying{Float64}}(;
+            pop_names = ["E", "I"],
             α = v[BV(1.1, (0.8, 1.3)), BV(1.0, (0.8, 1.3))],
             β = v[1.1, 1.1],
             τ = v[BV(0.1, (0.05,0.25)), 0.18],
@@ -34,20 +35,20 @@ p_search = ParameterSearch(
                 #:alg_hints => [:stiff]
                 )
             ),
-        analyses =  Dict(
-           :pop_names => ["E", "I"],
-           :sampling => Dict(
-               :spatial_stride => 4,
-               :dt => 0.05
+        analyses = Analyses{WCMSpatial1D}(;
+           sampling = Sampler{WCMSpatial1D}(;
+               spatial_stride = 4,
+               dt = 0.05
                ),
-           :activity_gif => Dict(
-               :file_name => "activity.gif",
-               :disable => 0,
-               :fps => 20
-               )
-           :nonlinearity => Dict(),
-           :heatmap => Dict()
-           ),
+           plots = [
+              Animation(;
+                disable = 0,
+                fps = 20
+                ),
+              NonlinearityPlot(),
+              SpaceTimePlot()
+              ]
+            ),
         output = SingleOutput(;
             root = "/home/grahams/Dropbox/Research/simulation-73/results/",
             simulation_name = ""
@@ -61,16 +62,4 @@ p_search = ParameterSearch(
 
 using JLD2
 
-<<<<<<< HEAD
 @save "parameters.jld2" p_search
-||||||| merged common ancestors
-jldopen("parameters.jld", "w") do file
-  addrequire.(file, [WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus])
-  write(file, "p_search", p_search)
-end
-=======
-open("parameters.jld2", "w") do file
-  #addrequire.(file, [WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus])
-  write(file, "p_search", p_search)
-end
->>>>>>> feature/heatmap
