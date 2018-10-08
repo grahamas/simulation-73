@@ -8,17 +8,15 @@ using Meshes
 using Colors
 using RecipesBase
 
-# upscale = 8 #8x upscaling in resolution
-# fntsm = Plots.font("sans-serif", 10.0*upscale)
-# fntlg = Plots.font("sans-serif", 14.0*upscale)
-# default(titlefont=fntlg, guidefont=fntlg, tickfont=fntsm, legendfont=fntsm)
-# default(size=(600*upscale,400*upscale)) #Plot canvas size
-# default(dpi=300) #Only for PyPlot - presently broken
 
-const PopTimeseries1D{ValueT<:Real} = Array{ValueT, 3} # 1 spatial dimension
-const Timeseries1D{ValueT<:Real} = Array{ValueT,2}
-
+(a::WCMAnalyses{WCMSpatial1D})(soln::DESolution, sim::Simulation{WCMSpatial1D})
+    sample_timeseries
+end
 # * Plotting
+
+macro defined_userplot(typename::Symbol)
+    @shorthands((Symbol ∘ lowercase ∘ string)(typename))
+end
 
 @userplot struct WCMPlot
     soln::DESolution
@@ -100,9 +98,30 @@ end
     ()
 end
 
+function Sampler{WCMSpatial1D}(; dt::Float64=0, spatial_stride::Int=1)
+    @assert dt > 0
+    Sampler{WCMSpatial1D}(dt, [spatial_stride])
+end
+
+
+
+(sampler::Sampler{M})(soln::DESolution, model::M) where {M <: WCMSpatial1D}
+    timepoints = minimum(soln.t):sampler.dt:maximum(soln.t)
+    # Assuming densely sampled.
+    timesampled_u = soln(timepoints)
+
+    space = space(model)
+    space_stride = sampler.space_strides[1]
+    sampled_space = space[1:space_stride:end]
+
+    sampled_u = timesampled_u[1:space_stride:end,:,:]
+
+    return timepoints, sampled_space, sampled_u
+end
+
 "Subsample timeseries that was solved with fixed dt; no interpolation."
 function sample_timeseries(soln::DESolution, model::Model,
-        spatial_stride::Int, temporal_stride::Int)
+    spatial_stride::Int, temporal_stride::Int)
     t = soln.t
     x = Calculated(model.space).value
     u = cat(3, soln.u...)
@@ -113,7 +132,7 @@ end
 
 "Sample timeseries through interpolation of given timepoints"
 function sample_timeseries(soln::DESolution, model::Model,
-        spatial_stride::Int, timepoints::AbstractRange)
+    spatial_stride::Int, timepoints::AbstractRange)
     x = Calculated(model.space).value
     u = cat(3, soln(timepoints)...)
     x_dx = 1:spatial_stride:length(x)
@@ -136,19 +155,5 @@ function sample_timeseries(soln::DESolution, model::Model;
         sample_timeseries(soln, model, spatial_stride, timepoints)
     end
 end
-
-# * Down sampling
-function down_sample(t, x::AbstractRange, timeseries;
-    spatial_stride=1, temporal_stride=1)
-    @assert(size(timeseries,1) == length(x), "Space wrong size")
-    @assert(size(timeseries,3) == length(t), "Time wrong size")
-    spatial_stride = floor(Int, spatial_stride)
-    temporal_stride = floor(Int, temporal_stride)
-    t_dx = 1:temporal_stride:length(t)
-    x_dx = 1:spatial_stride:length(x)
-    return t[t_dx], x[x_dx], timeseries[x_dx, :, t_dx]
-end
-
-export sample_timeseries, plot_heatmap, plot_activity_gif
 
 end

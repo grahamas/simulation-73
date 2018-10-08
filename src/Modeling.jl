@@ -23,8 +23,12 @@ end
 @with_kw struct Simulation{M<:Model}
     model::M
     solver::Solver
-    analyses::Analyses
+    analyses::Analyses{M}
     output::Output
+end
+
+function space(model::Model)::AbstractArray
+    Calculated(model.space).value
 end
 
 time_span(solver::Solver) = (0.0, solver.T)
