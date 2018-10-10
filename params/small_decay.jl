@@ -36,17 +36,17 @@ p_search = ParameterSearch(
                 )
             ),
         analyses = Analyses{WCMSpatial1D}(;
-           sampling = Sampler{WCMSpatial1D}(;
+           subsampler = SubSampler{WCMSpatial1D}(;
                spatial_stride = 4,
                dt = 0.05
                ),
            plots = [
-              Animation(;
+              (x...) -> Animation(x...;
                 disable = 0,
                 fps = 20
                 ),
-              NonlinearityPlot(),
-              SpaceTimePlot()
+              NonlinearityPlot,
+              SpaceTimePlot
               ]
             ),
         output = SingleOutput(;

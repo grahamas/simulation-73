@@ -86,6 +86,10 @@ function CalculatedWCMSpatial1D(wc::WCMSpatial1D{T,C,L,S}) where {T<:Real,
         connectivity, nonlinearity, stimulus)
 end
 
+function Calculated(wc::WCMSpatial1D)
+    CalculatedWCMSpatial1D(wc)
+end
+
 function update_from_p!(cwc::CalculatedWCMSpatial1D{<:Real}, new_p, p_search::ParameterSearch{<:WCMSpatial1D})
     # Use the variable model stored by p_search to create static model
     new_model = model_from_p(p_search, new_p)
