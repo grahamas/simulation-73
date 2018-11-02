@@ -2,6 +2,7 @@ module Exploration
 
 using Parameters
 using Modeling
+using Simulating
 using Analysis
 using Records
 using CalculatedParameters
@@ -72,8 +73,7 @@ function initial_model(p_search::ParameterSearch)
     model_from_p(p_search, p_search.initial_p)
 end
 
-import Modeling: time_span
-function time_span(p_search::ParameterSearch)
+function Simulating.time_span(p_search::ParameterSearch)
     time_span(p_search.solver)
 end
 
@@ -125,9 +125,8 @@ function var_deconstruct(val::Variable)
     return (typeof(val), val)
 end
 
-function var_deconstruct(val::Number)
+function var_deconstruct(val::Union{AbstractString,Number})
     return (typeof(val), val)
-
 end
 
 function var_deconstruct(m::M) where {M <: Parameter}

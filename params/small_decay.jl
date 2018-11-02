@@ -1,4 +1,6 @@
-using Modeling, Exploration, WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
+using Modeling, Exploration, WC73, Meshes, Records, Simulating,
+  CalculatedParameters, Analysis, WCMAnalysis,
+  WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
 using WC73: WCMSpatial1D
 
 if !(@isdefined UV)
@@ -37,16 +39,16 @@ p_search = ParameterSearch(
             ),
         analyses = Analyses{WCMSpatial1D}(;
            subsampler = SubSampler{WCMSpatial1D}(;
-               spatial_stride = 4,
+               space_strides = [4],
                dt = 0.05
                ),
            plots = [
-              (x...) -> Animation(x...;
-                disable = 0,
-                fps = 20
-                ),
-              NonlinearityPlot,
-              SpaceTimePlot
+              # Animate(;
+              #   fps = 20
+              #   ),
+              NonlinearityPlot(;
+                kwargs = Dict(:fn_bounds => (-1,15))),
+              SpaceTimePlot()
               ]
             ),
         output = SingleOutput(;

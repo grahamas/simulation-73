@@ -7,22 +7,25 @@ import DifferentialEquations: DESolution
 using Meshes
 using Colors
 using RecipesBase
-using Memoize
+using Parameters
 
-(a::Analyses{WCMSpatial1D})(results::Results{WCMSpatial1D})
-    a.plots .|> (plot_fn) -> plot_fn(results)
+@with_kw struct Animate <: AbstractFigure
+    kwargs::Dict = Dict()
+    fps::Int = 20
 end
+Animate(; fps, kwargs...) = Animate(; fps=fps, kwargs = kwargs)
+function Analysis.plot_and_save(plot_type::Animate, base_name::AbstractString, results::AbstractResults, output::Output)
+    save_fn(fn, anim) = mp4(plt, fn; fps=plot_type.fps)
+    output(save_fn, base_name, plot(PlotResults{Animate}(results); plot_type.kwargs...))
+end
+# TODO: Implement animation (using RecipesBase being the challenge...)
+# NOTE: Probably requires PR to Plots.jl
 
-# * Plotting
-macro defined_userplot(typename::Symbol)
-    @shorthands((Symbol ∘ lowercase ∘ string)(typename))
+@with_kw struct SpaceTimePlot <: AbstractFigure
+    kwargs::Dict = Dict()
 end
-
-const PopActivity1D = Array{Float64, 3}
-@userplot struct SpaceTimePlot
-    results::AbstractResults
-end
-@recipe function f(h::SpaceTimePlot)
+SpaceTimePlot(; kwargs...) = SpaceTimePlot(; kwargs = kwargs)
+@recipe function f(h::PlotResults{SpaceTimePlot})
     v_time, v_space, timeseries = spatiotemporal_data(h.results)
     @assert size(timeseries, 2) == 2      # only defined for 2 pops
     clims := (minimum(timeseries), maximum(timeseries))
@@ -39,11 +42,14 @@ end
     end
 end
 
+export SpaceTimePlot
+
 # ** Plot nonlinearity
-@userplot struct NonlinearityPlot
-    results::AbstractResults
+@with_kw struct NonlinearityPlot <: AbstractFigure
+    kwargs::Dict = Dict()
 end
-@recipe function f(n::NonlinearityPlot; resolution=100, fn_bounds=(-1,15))
+NonlinearityPlot(; kwargs...) = NonlinearityPlot(; kwargs = kwargs)
+@recipe function f(n::PlotResults{NonlinearityPlot}; resolution=100, fn_bounds=(-1,15))
     pop_names = n.results.model.pop_names
     nonlinearity_fns = get_value.(Calculated(n.results.model).nonlinearity)
     n_pops = length(pop_names)
@@ -65,24 +71,6 @@ end
     end
 end
 
-function SubSampler{WCMSpatial1D}(; dt::Float64=0, spatial_stride::Int=1)
-    @assert dt > 0
-    SubSampler{WCMSpatial1D}(dt, [spatial_stride])
-end
-
-@memoize
-(subsampler::SubSampler{M})(soln::DESolution, model::M) where {M <: WCMSpatial1D}
-    timepoints = minimum(soln.t):subsampler.dt:maximum(soln.t)
-    # Assuming densely sampled.
-    timesampled_u = soln(timepoints)
-
-    space = space(model)
-    space_stride = subsampler.space_strides[1]
-    sampled_space = space[1:space_stride:end]
-
-    sampled_u = timesampled_u[1:space_stride:end,:,:]
-
-    return timepoints, sampled_space, sampled_u
-end
+export NonlinearityPlot
 
 end

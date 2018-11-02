@@ -3,6 +3,7 @@ module WC73
 using Parameters
 using CalculatedParameters
 import CalculatedParameters: Calculated, update!
+using Simulating
 using Modeling
 using Analysis
 using WCMAnalysis
@@ -15,6 +16,7 @@ using DifferentialEquations
 using Targets
 using Records
 import Records: required_modules
+using Memoize
 
 @with_kw struct WCMSpatial1D{T,C<:Connectivity{T},
                             L<:Nonlinearity{T},S<:Stimulus{T}} <: Model{T}
@@ -26,22 +28,20 @@ import Records: required_modules
     connectivity::Array{C}
     nonlinearity::Array{L}
     stimulus::Array{S}
+    pop_names::Array{<:AbstractString}
     function WCMSpatial1D{T,C,L,S}(α::Array{T},
         β::Array{T}, τ::Array{T}, P::Array{T},
         s::Space{T}, c::Array{C},
-        n::Array{L}, t::Array{S}) where {T,
+        n::Array{L}, t::Array{S},
+        pn::Array{<:AbstractString}) where {T,
                                          C<:Connectivity{T},
                                          L<:Nonlinearity{T},
                                          S<:Stimulus{T}}
-        new(α, β, τ, P, s, c, n, t)
+        new(α, β, τ, P, s, c, n, t, pn)
     end
 end
 
-function required_modules(::Type{M}) where {M <: WCMSpatial1D}
-    [Modeling, WC73, Meshes, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus]
-end
-
-export WCMSpatial1D, required_modules
+export WCMSpatial1D
 
 import Exploration: base_type
 function base_type(::Type{WCMSpatial1D{T1,T2,T3,T4}}) where {T1,T2,T3,T4}
@@ -139,10 +139,23 @@ function make_problem_generator(p_search::ParameterSearch{<:WCMSpatial1D})
 end
 export make_problem_generator
 
-function Analysis.analyse(sim::Simulation{WCMSpatial1D}, soln)
-    wcmplot(soln)
+function Analysis.SubSampler(; dt::Float64=0, spatial_stride::Int=1) where WCMSpatial1D
+    @assert dt > 0
+    SubSampler{WCMSpatial1D}(dt, [spatial_stride])
 end
 
-export analyse
+@memoize function Analysis.sample(subsampler::SubSampler{WCMSpatial1D}, soln::DESolution, model::WCMSpatial1D)
+    timepoints = minimum(soln.t):subsampler.dt:maximum(soln.t)
+    # Assuming densely sampled.
+    timesampled_u = soln(timepoints)
+
+    space = space(model)
+    space_stride = subsampler.space_strides[1]
+    sampled_space = space[1:space_stride:end]
+
+    sampled_u = timesampled_u[1:space_stride:end,:,:]
+
+    return timepoints, sampled_space, sampled_u
+end
 
 end
