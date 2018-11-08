@@ -57,11 +57,11 @@ end
 function make_sharp_bump_frame(mesh_coords::AbstractArray{DistT}, width::DistT, strength) where {DistT <: Real}
     mid_dx = floor(Int, size(mesh_coords, 1) / 2)
     mid_point = mesh_coords[mid_dx,1]
-    frame = zeros(mesh_coords)
+    frame = zero(mesh_coords)
     half_width = width / 2      # using truncated division
     xs = mesh_coords[:,1]   # Assumes all pops have same mesh_coords
-    start_dx = find(xs .>= mid_point - half_width)[1]
-    stop_dx = find(xs .<= mid_point + half_width)[end]
+    start_dx = findfirst(xs .>= mid_point - half_width)
+    stop_dx = findlast(xs .<= mid_point + half_width)
     frame[start_dx:stop_dx,:] .= strength
     return frame
 end
@@ -72,7 +72,7 @@ space. On, then off.
 function sharp_bump_factory(segment::CalculatedParam{Segment{DistT}}, width, strength, duration) where {DistT <: Real}
         # WARNING: Defaults are ugly; Remove when possible.
     on_frame = make_sharp_bump_frame(segment, width, strength)
-    off_frame = zeros(on_frame)
+    off_frame = zero(on_frame)
     return (t) -> (t <= duration) ? on_frame : off_frame
 end
 

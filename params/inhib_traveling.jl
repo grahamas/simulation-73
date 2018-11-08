@@ -1,4 +1,4 @@
-using Modeling, Exploration, WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
+using Modeling, Exploration, WCM, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
 using WC73: WCMSpatial1D
 
 if !(@isdefined UV)

@@ -1,12 +1,10 @@
-module WC73
+module WCM
 
 using Parameters
 using CalculatedParameters
 import CalculatedParameters: Calculated, update!
 using Simulating
 using Modeling
-using Analysis
-using WCMAnalysis
 using WCMConnectivity
 using WCMNonlinearity
 using WCMStimulus
@@ -16,7 +14,6 @@ using DifferentialEquations
 using Targets
 using Records
 import Records: required_modules
-using Memoize
 
 @with_kw struct WCMSpatial1D{T,C<:Connectivity{T},
                             L<:Nonlinearity{T},S<:Stimulus{T}} <: Model{T}
@@ -125,7 +122,7 @@ function make_problem_generator(p_search::ParameterSearch{<:WCMSpatial1D})
     function problem_generator(prob, new_p)
         update_from_p!(cwc, new_p, p_search)
         α, β, τ, P, connectivity_mx, nonlinearity_fn, stimulus_fn = get_values(cwc)
-        function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Array{T,1}, t::T)::Void where {T<:Float64}
+        function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Array{T,1}, t::T)::Nothing where {T<:Float64}
             for i in 1:n_pops
                 stim_val::Array{T,1} = stimulus_fn[i](t)
                 nonl_val::Array{T,1} = nonlinearity_fn[i](sum(connectivity_mx[i,j]::Array{T,2} * A[:,j] for j in 1:n_pops) .+ stim_val)
@@ -139,23 +136,23 @@ function make_problem_generator(p_search::ParameterSearch{<:WCMSpatial1D})
 end
 export make_problem_generator
 
-function Analysis.SubSampler(; dt::Float64=0, spatial_stride::Int=1) where WCMSpatial1D
-    @assert dt > 0
-    SubSampler{WCMSpatial1D}(dt, [spatial_stride])
+function generate_problem(simulation::Simulation{<:WCMSpatial1D})
+    tspan = time_span(simulation)
+    model = simulation.model
+    u0 = initial_value(model)
+    n_pops = length(model.pop_names)
+    cwc = CalculatedWCMSpatial1D(model)
+    α, β, τ, P, connectivity_mx, nonlinearity_fn, stimulus_fn = get_values(cwc)
+    function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Union{Array{T,1},Nothing}, t::T)::Nothing where {T<:Float64}
+        for i in 1:n_pops
+            stim_val::Array{T,1} = stimulus_fn[i](t)
+            nonl_val::Array{T,1} = nonlinearity_fn[i](sum(connectivity_mx[i,j]::Array{T,2} * A[:,j] for j in 1:n_pops) .+ stim_val)
+            dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.0 .- A[:,i]) .*  nonl_val .+ P[i]) ./ τ[i]
+        end
+    end
+    return ODEProblem(WilsonCowan73!, u0, tspan, nothing)
 end
 
-@memoize function Analysis.sample(subsampler::SubSampler{WCMSpatial1D}, soln::DESolution, model::WCMSpatial1D)
-    timepoints = minimum(soln.t):subsampler.dt:maximum(soln.t)
-    # Assuming densely sampled.
-    timesampled_u = soln(timepoints)
-
-    space = space(model)
-    space_stride = subsampler.space_strides[1]
-    sampled_space = space[1:space_stride:end]
-
-    sampled_u = timesampled_u[1:space_stride:end,:,:]
-
-    return timepoints, sampled_space, sampled_u
-end
+export generate_problem
 
 end

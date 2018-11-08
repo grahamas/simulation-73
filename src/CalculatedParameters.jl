@@ -31,6 +31,9 @@ function pops(t; kwargs...)
 end
 
 abstract type CalculatedParam{S <: Parameter} end
+function get_value(cp::CalculatedParam)
+    cp.value
+end
 
 function update!(olds::Array, news::Array)
     any(update!(pair...) for pair in zip(olds, news))
@@ -44,5 +47,6 @@ export Variable, UnboundedVariable, BoundedVariable
 export zero, default_value, bounds
 export Parameter, CalculatedParam, pops, Calculated
 export update!
+export get_value
 
 end

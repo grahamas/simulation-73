@@ -1,22 +1,24 @@
 module Analysis
-using CalculatedParameters
+using CalculatedParameters, Parameters
 using Parameters
 using DiffEqBase
 using Modeling
 using Records
 
+ENV["GKSwstype"] = "100" # For headless plotting (on server)
+ENV["MPLBACKEND"]="Agg"
+using Plots
+
 
 # * Analysis types
-
+# TODO: DANGER AbstractFigure is implemented in Recipes(Base?)
 abstract type AbstractResults{M<:Model} end
 abstract type AbstractFigure end
-struct PlotResults{AF <: AbstractFigure}
-    results::AbstractResults
-end
+function output_name end
 
-function plot_and_save(plot_obj::AF, base_name::AbstractString, results::AbstractResults, output::Output) where {AF <: AbstractFigure}
-	save_fn(fn, plt) = save(plt, fn)
-	output(save_fn, base_name, plot(PlotResults{AF}(results); plot_obj.kwargs...))
+function plot_and_save(plot_obj::AF, results::AbstractResults, output::Output) where {AF <: AbstractFigure}
+	save_fn(fn, plt) = savefig(plt, fn)
+	output(save_fn, "$(output_name(plot_obj)).png", plot(plot_obj, results; plot_obj.kwargs...))
 end
 
 
@@ -57,12 +59,14 @@ function spatiotemporal_data(soln::DESolution, model::Model)
 	return (t,x,u)
 end
 
-function (a::Analyses{M})(results::Results{M}, output::Output) where {M <: Model}
-    a.plots .|> (plot_fn) -> plot_fn(results)
+function analyse(a::Analyses{M}, results::Results{<:M}, output::Output) where {M <: Model}
+    a.plots .|> (plot_type) -> plot_and_save(plot_type, results, output)
 end
 
-export analyse, Analyses, AbstractFigure, SubSampler, spatiotemporal_data,
-		AbstractResults, Results, SubSampledResults, plot_and_save,
-		PlotResults, sample
+export AbstractResults, AbstractFigure, output_name
+export plot_and_save
+export SubSampler, sample, Analyses, Results, SubSampledResults
+export spatiotemporal_data
+export analyse
 
 end

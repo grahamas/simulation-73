@@ -44,17 +44,19 @@ function full_path(dir_name::String, base_name::String, prefix::String="")
     return full_path
 end
 
-function safe_write_fn(write_fn::Function, base_name, args...; kwargs...)
-    if !(isfile(full_path))
-        write_fn(full_path, args...; kwargs...)
-    else
-        warn("Tried to write existing file: $full_path")
+function make_writer(dir_name::AbstractString)
+    function safe_write_fn(write_fn::Function, base_name, args...; kwargs...)
+        fp = full_path(dir_name, base_name)
+        if !(isfile(fp))
+            write_fn(fp, args...; kwargs...)
+        else
+            warn("Tried to write existing file: $fp")
+        end
     end
+    return safe_write_fn
 end
 
 @memoize function make_writer(output::SingleOutput)
-    root = output.root
-    simulation_name = output.simulation_name
     dir_name = directory(output)
     make_writer(dir_name)
 end
@@ -65,7 +67,8 @@ function (o::SingleOutput)(write_fn::Function, base_name::AbstractString, args..
 end
 
 function (o::SingleOutput)(obj; base_name::AbstractString, write_fn)
-
+    return nothing
+end
 function required_modules()
     error("undefined.")
 end

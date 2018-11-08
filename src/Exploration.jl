@@ -244,15 +244,6 @@ function run_search(p_search::ParameterSearch)
     return (result_sim, result_soln)
 end
 
-import DifferentialEquations: solve
-
-function solve(simulation::Simulation)
-    initial_problem, problem_generator = make_problem_generator(simulation)
-    params = solver_params(simulation)
-    soln = solve(initial_problem; params...)
-    return soln
-end
-
-export solve, run_search, model_from_p
+export run_search, model_from_p
 
 end

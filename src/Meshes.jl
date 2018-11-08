@@ -13,7 +13,7 @@ abstract type Space{T} <: Parameter{T} end
 end
 
 function calculate(segment::Segment)
-    return linspace(-(segment.extent/2), (segment.extent/2), segment.n_points)
+    return range(-(segment.extent/2), stop=(segment.extent/2), length=segment.n_points)
 end
 
 mutable struct CalculatedSegment{DistT<:Number} <: CalculatedParam{Segment{DistT}}
@@ -63,8 +63,8 @@ function distance_matrix(dm::DistanceMatrix{T}) where {T <: Real}
     # aka Hankel, but that method isn't working in SpecialMatrices
     xs = dm.calculated_segment.value
     distance_mx = zeros(T, length(xs), length(xs))
-    for i in range(1, length(xs))
-        distance_mx[:, i] = abs.(xs - xs[i])
+    for i in range(1, length=length(xs))
+        distance_mx[:, i] = abs.(xs .- xs[i])
     end
     return distance_mx'
 end

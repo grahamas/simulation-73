@@ -27,6 +27,8 @@ mutable struct CalculatedShollConnectivity{T} <: CalculatedParam{ShollConnectivi
     end
 end
 
+# Uhhhh why is this function not just inside Calculated???
+# ShollConnectivity is specified by the argument; no need for name
 function CalculatedShollConnectivity(connectivity::ShollConnectivity{T}, segment::Segment{T}) where T
     calc_dist_mx = Calculated(DistanceMatrix(segment))
     return CalculatedShollConnectivity{T}(connectivity, calc_dist_mx)

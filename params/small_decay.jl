@@ -1,4 +1,4 @@
-using Modeling, Exploration, WC73, Meshes, Records, Simulating,
+using Modeling, Exploration, WCM, Meshes, Records, Simulating,
   CalculatedParameters, Analysis, WCMAnalysis,
   WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
 using WC73: WCMSpatial1D
