@@ -33,7 +33,6 @@ end
 SpaceTimePlot(; kwargs...) = SpaceTimePlot(kwargs)
 @recipe function f(plot_type::SpaceTimePlot, results::AbstractResults)
     v_time, v_space, timeseries = spatiotemporal_data(results)
-    timeseries = cat(timeseries..., dims=3)
     @assert (size(timeseries, 2) == 2) size(timeseries)   # only defined for 2 pops
     clims := (minimum(timeseries), maximum(timeseries))
     grid := false
