@@ -1,6 +1,6 @@
 module WCMTarget
 
-using WC73
+using WCM
 using Targets
 using Parameters
 import DifferentialEquations: DESolution

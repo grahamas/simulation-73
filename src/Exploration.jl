@@ -2,11 +2,12 @@ module Exploration
 
 using Parameters
 using Modeling
+using Simulating
 using Analysis
 using Records
 using CalculatedParameters
 using Targets
-using DifferentialEquations
+using DifferentialEquations, DiffEqParamEstim
 using BlackBoxOptim
 import Records: required_modules
 
@@ -51,7 +52,7 @@ function init_variables(deconstructed::Tuple{Type,<:AbstractArray})
     variable_dxs = []
     initial_p = []
     p_bounds = Tuple{Float64,Float64}[]
-    for dx in CartesianRange(size(deconstructed[2]))
+    for dx in CartesianIndices(size(deconstructed[2]))
         (typ, val) = deconstructed[2][dx]
         if typ <: Variable
             push!(variable_dxs, [dx])
@@ -72,8 +73,7 @@ function initial_model(p_search::ParameterSearch)
     model_from_p(p_search, p_search.initial_p)
 end
 
-import Modeling: time_span
-function time_span(p_search::ParameterSearch)
+function Simulating.time_span(p_search::ParameterSearch)
     time_span(p_search.solver)
 end
 
@@ -125,9 +125,8 @@ function var_deconstruct(val::Variable)
     return (typeof(val), val)
 end
 
-function var_deconstruct(val::Number)
+function var_deconstruct(val::Union{AbstractString,Number})
     return (typeof(val), val)
-
 end
 
 function var_deconstruct(m::M) where {M <: Parameter}
@@ -231,6 +230,7 @@ end
 
 function run_search(p_search::ParameterSearch)
     write_params(p_search)
+
     initial_problem, problem_generator = make_problem_generator(p_search)
     loss_fn = loss(p_search.target, initial_model(p_search))
     loss_obj = build_loss_objective(initial_problem, Tsit5(), loss_fn;
@@ -244,15 +244,6 @@ function run_search(p_search::ParameterSearch)
     return (result_sim, result_soln)
 end
 
-import DifferentialEquations: solve
-
-function solve(simulation::Simulation)
-    initial_problem, problem_generator = make_problem_generator(simulation)
-    params = solver_params(simulation)
-    soln = solve(initial_problem; params...)
-    return soln
-end
-
-export solve, run_search, model_from_p
+export run_search, model_from_p
 
 end

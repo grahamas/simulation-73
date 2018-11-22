@@ -1,11 +1,10 @@
-module WC73
+module WCM
 
 using Parameters
 using CalculatedParameters
 import CalculatedParameters: Calculated, update!
+using Simulating
 using Modeling
-using Analysis
-using WCMAnalysis
 using WCMConnectivity
 using WCMNonlinearity
 using WCMStimulus
@@ -26,22 +25,20 @@ import Records: required_modules
     connectivity::Array{C}
     nonlinearity::Array{L}
     stimulus::Array{S}
+    pop_names::Array{<:AbstractString}
     function WCMSpatial1D{T,C,L,S}(α::Array{T},
         β::Array{T}, τ::Array{T}, P::Array{T},
         s::Space{T}, c::Array{C},
-        n::Array{L}, t::Array{S}) where {T,
+        n::Array{L}, t::Array{S},
+        pn::Array{<:AbstractString}) where {T,
                                          C<:Connectivity{T},
                                          L<:Nonlinearity{T},
                                          S<:Stimulus{T}}
-        new(α, β, τ, P, s, c, n, t)
+        new(α, β, τ, P, s, c, n, t, pn)
     end
 end
 
-function required_modules(::Type{M}) where {M <: WCMSpatial1D}
-    [Modeling, WC73, Meshes, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus]
-end
-
-export WCMSpatial1D, required_modules
+export WCMSpatial1D
 
 import Exploration: base_type
 function base_type(::Type{WCMSpatial1D{T1,T2,T3,T4}}) where {T1,T2,T3,T4}
@@ -86,6 +83,10 @@ function CalculatedWCMSpatial1D(wc::WCMSpatial1D{T,C,L,S}) where {T<:Real,
         connectivity, nonlinearity, stimulus)
 end
 
+function Calculated(wc::WCMSpatial1D)
+    CalculatedWCMSpatial1D(wc)
+end
+
 function update_from_p!(cwc::CalculatedWCMSpatial1D{<:Real}, new_p, p_search::ParameterSearch{<:WCMSpatial1D})
     # Use the variable model stored by p_search to create static model
     new_model = model_from_p(p_search, new_p)
@@ -121,7 +122,7 @@ function make_problem_generator(p_search::ParameterSearch{<:WCMSpatial1D})
     function problem_generator(prob, new_p)
         update_from_p!(cwc, new_p, p_search)
         α, β, τ, P, connectivity_mx, nonlinearity_fn, stimulus_fn = get_values(cwc)
-        function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Array{T,1}, t::T)::Void where {T<:Float64}
+        function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Array{T,1}, t::T)::Nothing where {T<:Float64}
             for i in 1:n_pops
                 stim_val::Array{T,1} = stimulus_fn[i](t)
                 nonl_val::Array{T,1} = nonlinearity_fn[i](sum(connectivity_mx[i,j]::Array{T,2} * A[:,j] for j in 1:n_pops) .+ stim_val)
@@ -135,10 +136,23 @@ function make_problem_generator(p_search::ParameterSearch{<:WCMSpatial1D})
 end
 export make_problem_generator
 
-function Analysis.analyse(sim::Simulation{WCMSpatial1D}, soln)
-    wcmplot(soln)
+function generate_problem(simulation::Simulation{<:WCMSpatial1D})
+    tspan = time_span(simulation)
+    model = simulation.model
+    u0 = initial_value(model)
+    n_pops = length(model.pop_names)
+    cwc = CalculatedWCMSpatial1D(model)
+    α, β, τ, P, connectivity_mx, nonlinearity_fn, stimulus_fn = get_values(cwc)
+    function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Union{Array{T,1},Nothing}, t::T)::Nothing where {T<:Float64}
+        for i in 1:n_pops
+            stim_val::Array{T,1} = stimulus_fn[i](t)
+            nonl_val::Array{T,1} = nonlinearity_fn[i](sum(connectivity_mx[i,j]::Array{T,2} * A[:,j] for j in 1:n_pops) .+ stim_val)
+            dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.0 .- A[:,i]) .*  nonl_val .+ P[i]) ./ τ[i]
+        end
+    end
+    return ODEProblem(WilsonCowan73!, u0, tspan, nothing)
 end
 
-export analyse
+export generate_problem
 
 end

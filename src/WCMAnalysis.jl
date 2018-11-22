@@ -7,61 +7,30 @@ import DifferentialEquations: DESolution
 using Meshes
 using Colors
 using RecipesBase
+using Parameters
+using Memoize
+using WCM
+using CalculatedParameters
 
-# upscale = 8 #8x upscaling in resolution
-# fntsm = Plots.font("sans-serif", 10.0*upscale)
-# fntlg = Plots.font("sans-serif", 14.0*upscale)
-# default(titlefont=fntlg, guidefont=fntlg, tickfont=fntsm, legendfont=fntsm)
-# default(size=(600*upscale,400*upscale)) #Plot canvas size
-# default(dpi=300) #Only for PyPlot - presently broken
-
-const PopTimeseries1D{ValueT<:Real} = Array{ValueT, 3} # 1 spatial dimension
-const Timeseries1D{ValueT<:Real} = Array{ValueT,2}
-
-# * Plotting
-
-@userplot struct WCMPlot
-    soln::DESolution
-    analyses::Array{Symbol}
+struct Animate <: AbstractFigure
+    fps::Int
+    kwargs::Dict
 end
-@recipe function f(w::WCMPlot)
-    plot_fns = Dict(
-            :nonlinearity => nonlinearityplot,
-            :heatmap => popactivityheatmap
-        )
-    [plot_fns[plt_sym](w.soln) for plt_sym in w.plot_syms]
+Animate(; fps=20, kwargs...) = Animate(fps, kwargs)
+function Analysis.plot_and_save(plot_type::Animate, results::AbstractResults, output::Output)
+    save_fn(name, anim) = mp4(plt, name; fps=plot_type.fps)
+    output(save_fn, "animation.mp4", plot(plot_type, results; plot_type.kwargs...))
 end
+# TODO: Implement animation (using RecipesBase being the challenge...)
+# NOTE: Probably requires PR to Plots.jl
 
-# # ** Plot gif of solution
-# function plot_activity_gif(t, x, timeseries::PopTimeseries1D, output::Output; file_name="solution.gif",
-# 		      disable=0, fps=15, pop_peak_timeseries=[])
-#     @assert size(timeseries, 2) == 2
-#     if disable != 0
-# 	   return
-#     end
-#     gr()
-#     max_activity = maximum(timeseries, (1,2,3))[1] # I don't know why this index is here.
-#     min_activity = minimum(timeseries, (1,2,3))[1]
-#     anim = @animate for i in 1:length(t)
-# 	Plots.plot(x, timeseries[:,1,i], lab="E",
-# 	     ylim=(min_activity, max_activity), title="t=$(t[i])",
-#              xlab="Space", ylab="Proportion pop. active")
-#         Plots.plot!(x, timeseries[:,2,i], lab="I")
-# 	for peak_timeseries in pop_peak_timeseries
-# 	    Plots.scatter!(peak_timeseries[i][1], peak_timeseries[i][2], markercolor=peak_timeseries[i][3])
-# 	end
-#     end
-#     write_fn(output)((path) -> gif(anim, path, fps=floor(Int,fps)), "activity.gif")
-# end
-
-const PopActivity1D = Array{Float64, 3}
-@userplot struct PopActivityPlot
-    v_time::Array{Float64,1}
-    v_space::Array{Float64,1}
-    timeseries::PopActivity1D
+struct SpaceTimePlot <: AbstractFigure
+    kwargs::Dict
 end
-@recipe function f(h::PopActivityPlot)
-    v_time, v_space, timeseries = h.v_time, h.v_space, h.timeseries
+SpaceTimePlot(; kwargs...) = SpaceTimePlot(kwargs)
+@recipe function f(plot_type::SpaceTimePlot, results::Results)
+    v_time, v_space, timeseries = spatiotemporal_data(results)
+    timeseries = cat(timeseries..., dims=3)
     @assert size(timeseries, 2) == 2      # only defined for 2 pops
     clims := (minimum(timeseries), maximum(timeseries))
     grid := false
@@ -76,65 +45,58 @@ end
         end
     end
 end
+Analysis.output_name(plt::SpaceTimePlot) = "spacetimeplot"
+
+export SpaceTimePlot
 
 # ** Plot nonlinearity
-@userplot struct NonlinearityPlot
-    soln::DESolution
+struct NonlinearityPlot <: AbstractFigure
+    kwargs::Dict
 end
-@recipe function f(n::NonlinearityPlot; resolution=100, fn_bounds=(-1,15))
-    pop_names = n.soln.pop_names
-    nonlinearity_fn = n.nonlinearity_fn
+NonlinearityPlot(; kwargs...) = NonlinearityPlot(kwargs)
+@recipe function f(plot_type::NonlinearityPlot, results::Results; resolution=100, fn_bounds=(-1,15))
+    pop_names = results.model.pop_names
+    nonlinearity_fns = get_value.(Calculated(results.model).nonlinearity)
     n_pops = length(pop_names)
 
-    one_pop_x = linspace(fn_bounds..., resolution)
+    one_pop_x = range(fn_bounds[1], stop=fn_bounds[2], length=resolution)
     delete!.(plotattributes,[:resolution,:fn_bounds])
 
-    x_range = repeat(one_pop_x, outer=(n_pops))
-    y_output = reshape(nonlinearity_fn(x_range), (:, n_pops))
-
-    lab --> pop_names
     xlab := "Input current"
     ylab := "Proportion pop. reaching at least threshold"
-    x := one_pop_x
-    y := y_output
-    ()
-end
 
-"Subsample timeseries that was solved with fixed dt; no interpolation."
-function sample_timeseries(soln::DESolution, model::Model,
-        spatial_stride::Int, temporal_stride::Int)
-    t = soln.t
-    x = Calculated(model.space).value
-    u = cat(3, soln.u...)
-    t_dx = 1:temporal_stride:length(t)
-    x_dx = 1:spatial_stride:length(x)
-    return t[t_dx], x[x_dx], u[x_dx, :, t_dx]
-end
-
-"Sample timeseries through interpolation of given timepoints"
-function sample_timeseries(soln::DESolution, model::Model,
-        spatial_stride::Int, timepoints::AbstractRange)
-    x = Calculated(model.space).value
-    u = cat(3, soln(timepoints)...)
-    x_dx = 1:spatial_stride:length(x)
-    return timepoints, x[x_dx], u[x_dx, :, :]
-end
-
-function sample_timeseries(soln::DESolution, model::Model;
-        spatial_stride::Int=1, temporal_stride::Int=1,
-        n_time_samples::Int=-1, dt::Float64=0)
-    @assert sum([(temporal_stride == 1),
-        (n_time_samples == 0),
-        (dt == 0)]) == 1 # Only one sampling spec allowed
-    if temporal_stride != 1
-        sample_timeseries(soln, model, spatial_stride, temporal_stride)
-    elseif n_time_samples > 0
-        timepoints = linspace(0,maximum(soln.t),n=n_time_samples)
-        sample_timeseries(soln, model, spatial_stride, timepoints)
-    else
-        timepoints = 0:dt:maximum(soln.t)
-        sample_timeseries(soln, model, spatial_stride, timepoints)
+    for i_pop in 1:length(pop_names)
+        @series begin
+            lab --> pop_names[i_pop]
+            seriestype := :line
+            x := one_pop_x
+            y := nonlinearity_fns[i_pop](one_pop_x)
+            ()
+        end
     end
+end
+Analysis.output_name(plt::NonlinearityPlot) = "nonlinearityplot"
+
+export NonlinearityPlot
+
+function Analysis.SubSampler(dt::Float64, spatial_stride::Int) where WCMSpatial1D
+    @assert dt > 0
+    SubSampler{WCMSpatial1D}(dt, [spatial_stride])
+end
+
+@memoize function Analysis.sample(subsampler::SubSampler{WCMSpatial1D}, soln::DESolution, model::WCMSpatial1D)
+    println("Sampling WCMSpatial1D")
+    timepoints = minimum(soln.t):subsampler.dt:maximum(soln.t)
+    # Assuming densely sampled.
+    timesampled_u = soln(timepoints)
+
+    space = space(model)
+    space_stride = subsampler.space_strides[1]
+    sampled_space = space[1:space_stride:end]
+
+    sampled_u = timesampled_u[1:space_stride:end,:,:]
+
+    return timepoints, sampled_space, sampled_u
 end
 
 end

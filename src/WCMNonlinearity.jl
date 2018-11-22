@@ -49,14 +49,15 @@ end
 function make_sigmoid_fn(a, θ)
     return (x) -> sigmoid_fn(x, a, θ)
 end
-doc"""
+"""
 The sigmoid function is defined
+
 ```math
-\begin{align}
-\mathcal{S}(x) = \frac{1}{1 + \exp(-a(x - \theta))}
-\end{align}
+\\begin{align}
+\\mathcal{S}(x) = \\frac{1}{1 + \\exp(-a(x - θ))}
+\\end{align}
 ```
-where $a$ describes the slope's steepness and $\theta$ describes translation of the slope's center away from zero.
+where ``a`` describes the slope's steepness and ``θ`` describes translation of the slope's center away from zero.
 
 This is "simple" because in practice we use the rectified sigmoid.
 """
@@ -64,7 +65,7 @@ function simple_sigmoid_fn(x, a, theta)
     return @. (1.0 / (1 + exp(-a * (x - theta))))
 end
 
-doc"""
+"""
 A rectified version of `simple_sigmoid_fn`.
 
 In practice, we use rectified sigmoid functions because firing rates cannot be negative.
