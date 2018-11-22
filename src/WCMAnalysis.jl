@@ -7,6 +7,7 @@ import DifferentialEquations: DESolution
 using Meshes
 using Colors
 using RecipesBase
+using Plots; pyplot()
 using Parameters
 using Memoize
 using WCM
@@ -18,20 +19,22 @@ struct Animate <: AbstractFigure
 end
 Animate(; fps=20, kwargs...) = Animate(fps, kwargs)
 function Analysis.plot_and_save(plot_type::Animate, results::AbstractResults, output::Output)
-    save_fn(name, anim) = mp4(plt, name; fps=plot_type.fps)
-    output(save_fn, "animation.mp4", plot(plot_type, results; plot_type.kwargs...))
+    save_fn(name, anim) = mp4(anim, name; fps=plot_type.fps)
+    output(save_fn, "animation.mp4", animate(results; plot_type.kwargs...))
 end
 # TODO: Implement animation (using RecipesBase being the challenge...)
 # NOTE: Probably requires PR to Plots.jl
+
+export Animate
 
 struct SpaceTimePlot <: AbstractFigure
     kwargs::Dict
 end
 SpaceTimePlot(; kwargs...) = SpaceTimePlot(kwargs)
-@recipe function f(plot_type::SpaceTimePlot, results::Results)
+@recipe function f(plot_type::SpaceTimePlot, results::AbstractResults)
     v_time, v_space, timeseries = spatiotemporal_data(results)
     timeseries = cat(timeseries..., dims=3)
-    @assert size(timeseries, 2) == 2      # only defined for 2 pops
+    @assert (size(timeseries, 2) == 2) size(timeseries)   # only defined for 2 pops
     clims := (minimum(timeseries), maximum(timeseries))
     grid := false
     layout := (2,1)
@@ -54,7 +57,7 @@ struct NonlinearityPlot <: AbstractFigure
     kwargs::Dict
 end
 NonlinearityPlot(; kwargs...) = NonlinearityPlot(kwargs)
-@recipe function f(plot_type::NonlinearityPlot, results::Results; resolution=100, fn_bounds=(-1,15))
+@recipe function f(plot_type::NonlinearityPlot, results::AbstractResults; resolution=100, fn_bounds=(-1,15))
     pop_names = results.model.pop_names
     nonlinearity_fns = get_value.(Calculated(results.model).nonlinearity)
     n_pops = length(pop_names)
@@ -90,13 +93,35 @@ end
     # Assuming densely sampled.
     timesampled_u = soln(timepoints)
 
-    space = space(model)
+    space = space_array(model)
     space_stride = subsampler.space_strides[1]
     sampled_space = space[1:space_stride:end]
 
     sampled_u = timesampled_u[1:space_stride:end,:,:]
+    @show size(sampled_u)
 
     return timepoints, sampled_space, sampled_u
+end
+
+function Analysis.spatiotemporal_data(soln::DESolution, model::WCMSpatial1D)
+    t = soln.t
+    x = space_array(model)
+    u = soln.u
+    return (t,x,u)
+end
+
+function RecipesBase.animate(results::AbstractResults{WCMSpatial1D}; kwargs...)
+    t, x, data = spatiotemporal_data(results)
+    pop_names = results.model.pop_names
+    @assert length(x) == size(data,1)
+    @animate for i_time in 1:length(t)
+        plot(x, data[:, 1, i_time]; label=pop_names[1], kwargs...)
+        for i_pop in 2:size(data,2)
+            plot!(x, data[:, 1, i_time]; label=pop_names[i_pop], kwargs...)
+        end
+
+    end
+    # Not using animate(results.solution) to use subsampling
 end
 
 end

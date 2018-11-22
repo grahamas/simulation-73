@@ -7,7 +7,7 @@ using Dates
 
 abstract type Output end
 
-@with_kw struct SingleOutput <: Output
+@with_kw mutable struct SingleOutput <: Output
     root::String
     simulation_name::String
 end

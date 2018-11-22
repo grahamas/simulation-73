@@ -44,9 +44,9 @@ simulation = Simulation{M}(
                dt = 0.05
                ),
           plots = [
-              # Animate(;
-              #   fps = 20
-              #   ),
+              Animate(;
+                fps = 20
+                ),
               NonlinearityPlot(;
                 fn_bounds = (-1,15)),
               SpaceTimePlot()

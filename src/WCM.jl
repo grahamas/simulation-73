@@ -38,7 +38,9 @@ import Records: required_modules
     end
 end
 
-export WCMSpatial1D
+space_array(model::WCMSpatial1D) = Calculated(model.space).value
+
+export WCMSpatial1D, space_array
 
 import Exploration: base_type
 function base_type(::Type{WCMSpatial1D{T1,T2,T3,T4}}) where {T1,T2,T3,T4}
@@ -72,9 +74,9 @@ function CalculatedWCMSpatial1D(wc::WCMSpatial1D{T,C,L,S}) where {T<:Real,
                                                   C<:Connectivity{T},
                                                   L<:Nonlinearity{T},
                                                   S<:Stimulus{T}}
-    connectivity = Calculated.(wc.connectivity, wc.space)
+    connectivity = Calculated.(wc.connectivity, Ref(wc.space))
     nonlinearity = Calculated.(wc.nonlinearity)
-    stimulus = Calculated.(wc.stimulus,wc.space)
+    stimulus = Calculated.(wc.stimulus,Ref(wc.space))
     CC = eltype(connectivity)
     CL = eltype(nonlinearity)
     CS = eltype(stimulus)

@@ -36,30 +36,30 @@ end
 
 @with_kw struct Results{M} <: AbstractResults{M}
 	model::M
-	soln::DESolution
+	solution::DESolution
 end
 @with_kw struct SubSampledResults{M} <: AbstractResults{M}
 	model::M
-	soln::DESolution
+	solution::DESolution
 	subsampler::SubSampler{M}
 end
 
+function Results(model::M, solution::DESolution, subsampler::Nothing) where {M <: Model}
+	Results(model, solution)
+end
+function Results(model::M, solution::DESolution, subsampler::SubSampler{M}) where {M <: Model}
+	SubSampledResults(model, solution, subsampler)
+end
+
 function spatiotemporal_data(r::Results)
-	return spatiotemporal_data(r.soln, r.model)
+	return spatiotemporal_data(r.solution, r.model)
 end
 
 function spatiotemporal_data(r::SubSampledResults)
-	return sample(r.subsampler, r.soln, r.model)
+	return sample(r.subsampler, r.solution, r.model)
 end
 
-function spatiotemporal_data(soln::DESolution, model::Model)
-	t = soln.t
-	x = space(model)
-	u = soln.u
-	return (t,x,u)
-end
-
-function analyse(a::Analyses{M}, results::Results{<:M}, output::Output) where {M <: Model}
+function analyse(a::Analyses{M}, results::AbstractResults{<:M}, output::Output) where {M <: Model}
     a.plots .|> (plot_type) -> plot_and_save(plot_type, results, output)
 end
 

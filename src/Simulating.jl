@@ -5,6 +5,7 @@ using Analysis
 using Records
 using Parameters
 using JLD2
+import DifferentialEquations: DESolution, solve
 
 
 @with_kw struct Solver
@@ -28,8 +29,6 @@ function write_params(sim::Simulation)
 	write_object(sim.output, "parameters.jld2", "sim", sim)
 end
 
-import DifferentialEquations: solve
-
 function solve(simulation::Simulation)
     problem = generate_problem(simulation)
     params = solver_params(simulation)
@@ -45,11 +44,13 @@ end
 
 function simulate(simulation::Simulation)
 	solution = solve(simulation)
-	results = Results(simulation.model, solution)
-    @assert typeof(results) <: Results{<:Model}
-    @assert typeof(simulation.output) <: Output
-    println("passed assertions")
-	analyse(simulation.analyses, results, simulation.output)
+	analyse(simulation, solution)
+end
+
+function Analysis.analyse(simulation::Simulation, solution::DESolution)
+    analyses = simulation.analyses
+    results = Results(simulation.model, solution, analyses.subsampler)
+    analyse(analyses, results, simulation.output)
 end
 
 export simulate, Simulation, write_params, Solver,
