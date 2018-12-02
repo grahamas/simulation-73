@@ -9,7 +9,7 @@ if !(@isdefined UV)
   const varying{T} = Union{T,BV{T}}
   const v = Float64
 end
-T= 2.5
+T= 2.81
 M = WCMSpatial1D
 simulation = Simulation{M}(
         model = M(;
@@ -17,13 +17,17 @@ simulation = Simulation{M}(
             α = [1.1, 1.0],
             β = [1.1, 1.1],
             τ = [0.1, 0.18],
-            P = [0.0, 0.0],
-            space = Segment{v}(; n_points=281, extent=100),
+            space = Segment{v}(; n_points=101, extent=100),
             nonlinearity = pops(SigmoidNonlinearity{v}; a=[1.2, 1.0],
                                                         θ=[2.6, 8.0]),
-            stimulus = pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
-                                                  duration=[0.55, 0.55],
-                                                  width=[2.81, 2.81]),
+            # stimulus = pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
+            #                                       duration=[0.55, 0.55],
+            #                                       width=[2.81, 2.81]),
+            stimulus = add([
+                            pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
+                                                   duration=[0.55, 0.55],
+                                                   width=[2.81, 2.81]),
+                            pops(GaussianNoiseStimulus{v}; SNR=[80.0, 80.0])]),
             connectivity = pops(ShollConnectivity{v};
                 amplitude = [16.0 -18.2;
                              27.0 -4.0],
@@ -33,16 +37,16 @@ simulation = Simulation{M}(
         solver = Solver(;
             T = T,
             params = Dict(
-                :dt => 0.01,
+                :dt => 0.001,
                 #:dense => true
                 #:alg_hints => [:stiff]
                 )
             ),
         analyses = Analyses{M}(;
-          subsampler = SubSampler{M}(;
-               space_strides = [4],
-               dt = 0.05
-               ),
+          # subsampler = SubSampler{M}(;
+          #      space_strides = [4],
+          #      dt = 0.05
+          #      ),
           plots = [
               Animate(;
                 fps = 20

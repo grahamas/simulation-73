@@ -38,10 +38,12 @@ function update!(cs::CalculatedSegment, segment::Segment)
 end
 
 
-import Base: step, zeros, length
+import Base: step, zeros, length, size
 step(cs::CalculatedSegment) = step(cs.value)
 length(cs::CalculatedSegment) = length(cs.value)
 
+size(s::Segment) = (s.n_points,)
+size(cs::CalculatedSegment) = size(cs.value)
 zeros(seg::Segment{T}) where T = zeros(T,seg.n_points)
 
 export step, zeros, length

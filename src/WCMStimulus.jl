@@ -8,6 +8,83 @@ import CalculatedParameters: Calculated, update!
 
 abstract type Stimulus{T} <: Parameter{T} end
 
+#---------- CompoundStimulus ------------#
+
+@with_kw struct AddedStimuli{T} <: Stimulus{T}
+    stimuli::Array{Stimulus{T}} # Sadly can't specify all must be subtype of Stimulus
+end
+
+stim_param(stim::Stimulus{T}) where T = T
+
+function AddedStimuli(stims...)
+    T = stim_param(stims[1])
+    stims = Union{map(typeof,stims)...}[stims...]
+    AddedStimuli{T}(stims)
+end
+
+function add(arr::Array{Stimulus{T}}) where T
+    AddedStimuli{T}(arr)
+end
+
+function add(arr::Array)
+    pop_stims = zip(arr...)
+    T = stim_param(collect(pop_stims)[1][1])
+    return AddedStimuli{T}[AddedStimuli(stims...) for stims in pop_stims]
+end
+
+function calculate(as::AddedStimuli, space::Segment)
+    calculated_stimuli = map((stim) -> Calculated(stim, space), as.stimuli)
+    (args) -> sum(map((calculated_stimulus) -> get_value(calculated_stimulus)(args...), calculated_stimuli))
+end
+
+mutable struct CalculatedAddedStimuli{T} <: CalculatedParam{AddedStimuli{T}}
+    stimulus::AddedStimuli{T}
+    space::Segment{T}
+    value::Function
+    CalculatedAddedStimuli{TT}(s::AddedStimuli{TT}, space::Segment{TT}) where TT = new(s, space, calculate(s,space))
+end
+
+function Calculated(as::AddedStimuli{T}, space::Segment{T}) where T
+    CalculatedAddedStimuli{T}(as, space)
+end
+
+export AddedStimuli, CalculatedAddedStimuli, add
+
+# ------------- GaussianNoiseStimulus ----------- #
+
+function gaussian_noise(space, mean, sd) # assumes signal power is 0db
+    return mean .+ sd .* randn(size(space))
+end
+
+struct GaussianNoiseStimulus{T} <: Stimulus{T}
+    mean::T
+    sd::T
+end
+
+function GaussianNoiseStimulus{T}(; SNR::T=0.0, mean::T=0.0) where T
+    sd = sqrt(1/10 ^ (SNR / 10))
+    GaussianNoiseStimulus{T}(mean, sd)
+end
+
+function calculate(wns::GaussianNoiseStimulus, space::Segment)
+    (t) -> gaussian_noise(space, wns.mean, wns.sd) # Not actually time dependent
+end
+
+mutable struct CalculatedGaussianNoiseStimulus{T} <: CalculatedParam{GaussianNoiseStimulus{T}}
+    stimulus::GaussianNoiseStimulus{T}
+    space::Segment{T}
+    value::Function
+    CalculatedGaussianNoiseStimulus{TT}(s::GaussianNoiseStimulus{TT}, space::Segment{TT}) where TT = new(s, space, calculate(s,space))
+end
+
+function Calculated(wns::GaussianNoiseStimulus{T}, space::Segment{T}) where T
+    CalculatedGaussianNoiseStimulus{T}(wns, space)
+end
+
+export GaussianNoiseStimulus, CalculatedGaussianNoiseStimulus
+
+# ----------- SharpBumpStimulus ------------ #
+
 @with_kw struct SharpBumpStimulus{T} <: Stimulus{T}
     width::T
     strength::T

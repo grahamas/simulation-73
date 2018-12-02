@@ -39,6 +39,7 @@ end
 function simulate(jl_filename::AbstractString)
 	include(jl_filename)
 	@load "parameters.jld2" simulation
+    @debug "DEBUGGING WORKS"
 	simulate(simulation)
 end
 

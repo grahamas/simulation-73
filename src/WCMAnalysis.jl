@@ -7,7 +7,7 @@ import DifferentialEquations: DESolution
 using Meshes
 using Colors
 using RecipesBase
-using Plots; pyplot()
+using Plots
 using Parameters
 using Memoize
 using WCM
@@ -62,7 +62,7 @@ NonlinearityPlot(; kwargs...) = NonlinearityPlot(kwargs)
     n_pops = length(pop_names)
 
     one_pop_x = range(fn_bounds[1], stop=fn_bounds[2], length=resolution)
-    delete!.(plotattributes,[:resolution,:fn_bounds])
+    #delete!.(Ref(plotattributes),[:resolution,:fn_bounds])
 
     xlab := "Input current"
     ylab := "Proportion pop. reaching at least threshold"
@@ -106,17 +106,19 @@ function Analysis.spatiotemporal_data(soln::DESolution, model::WCMSpatial1D)
     t = soln.t
     x = space_array(model)
     u = soln.u
-    return (t,x,u)
+    return (t,x,cat(u...,dims=3))
 end
 
-function RecipesBase.animate(results::AbstractResults{WCMSpatial1D}; kwargs...)
+function RecipesBase.animate(results::AbstractResults{WCMSpatial1D{T,C,N,S}}; kwargs...) where {T,C,N,S}
     t, x, data = spatiotemporal_data(results)
+    max_val = maximum(data)
     pop_names = results.model.pop_names
     @assert length(x) == size(data,1)
     @animate for i_time in 1:length(t)
-        plot(x, data[:, 1, i_time]; label=pop_names[1], kwargs...)
+        plot(x, data[:, 1, i_time]; label=pop_names[1],
+            ylim=(0,max_val), kwargs...)
         for i_pop in 2:size(data,2)
-            plot!(x, data[:, 1, i_time]; label=pop_names[i_pop], kwargs...)
+            plot!(x, data[:, i_pop, i_time]; label=pop_names[i_pop], kwargs...)
         end
 
     end

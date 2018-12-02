@@ -22,7 +22,7 @@ bounds(var::V) where V <: Variable = var.bounds
 abstract type Parameter{T<:Union{S,Variable{S}} where S<:Real} end
 
 "Map a type over kwargs"
-function pops(t; kwargs...)
+function pops(t::Type{T}; kwargs...)::Array{T} where T
     syms = keys(kwargs)
     args = zip(values(kwargs)...)
     new_kwargs = (zip(syms, arg) for arg in args)

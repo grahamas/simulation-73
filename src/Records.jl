@@ -4,6 +4,7 @@ using Parameters
 using JLD2
 using Memoize
 using Dates
+using Logging
 
 abstract type Output end
 
@@ -48,6 +49,7 @@ function make_writer(dir_name::AbstractString)
     function safe_write_fn(write_fn::Function, base_name, args...; kwargs...)
         fp = full_path(dir_name, base_name)
         if !(isfile(fp))
+            @info "Writing $fp"
             write_fn(fp, args...; kwargs...)
         else
             warn("Tried to write existing file: $fp")

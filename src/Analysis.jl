@@ -30,7 +30,7 @@ end
 function sample end
 
 @with_kw struct Analyses{M <: Model}
-	subsampler::V where {V <: Union{SubSampler{M},Nothing}}
+	subsampler::Union{SubSampler{M},Nothing} = nothing
 	plots::Array{AbstractFigure}
 end
 
@@ -60,6 +60,7 @@ function spatiotemporal_data(r::SubSampledResults)
 end
 
 function analyse(a::Analyses{M}, results::AbstractResults{<:M}, output::Output) where {M <: Model}
+	@debug "Analysing"
     a.plots .|> (plot_type) -> plot_and_save(plot_type, results, output)
 end
 
