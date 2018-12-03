@@ -43,7 +43,7 @@ simulation = Simulation{M}(
                 )
             ),
         analyses = Analyses{M}(;
-          subsampler = SubSampler{M}(;
+          subsampler = SubSampler(;
                space_strides = [4],
                dt = 0.05
                ),

@@ -2,6 +2,7 @@ using Modeling, WCM, Meshes, Records, Simulating,
   CalculatedParameters, Analysis, WCMAnalysis,
   WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
 using WCM: WCMSpatial1D
+using DifferentialEquations: Euler
 
 if !(@isdefined UV)
   const UV = UnboundedVariable
@@ -9,7 +10,7 @@ if !(@isdefined UV)
   const varying{T} = Union{T,BV{T}}
   const v = Float64
 end
-T= 2.81
+T= 4
 M = WCMSpatial1D
 simulation = Simulation{M}(
         model = M(;
@@ -17,12 +18,9 @@ simulation = Simulation{M}(
             α = [1.1, 1.0],
             β = [1.1, 1.1],
             τ = [0.1, 0.18],
-            space = Segment{v}(; n_points=401, extent=100),
+            space = Segment{v}(; n_points=101, extent=100),
             nonlinearity = pops(SigmoidNonlinearity{v}; a=[1.2, 1.0],
                                                         θ=[2.6, 8.0]),
-            # stimulus = pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
-            #                                       duration=[0.55, 0.55],
-            #                                       width=[2.81, 2.81]),
             stimulus = add([
                             pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
                                                    duration=[0.55, 0.55],
@@ -36,10 +34,11 @@ simulation = Simulation{M}(
             ),
         solver = Solver(;
             T = T,
+            solution_method=Euler(),
             params = Dict(
-                :dt => 0.0001,
+                :dt => 0.1,
                 #:dense => true
-                :alg_hints => [:stiff]
+                #:alg_hints => [:stiff]
                 )
             ),
         analyses = Analyses{M}(;

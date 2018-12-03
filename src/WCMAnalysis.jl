@@ -111,8 +111,26 @@ end
 
 function RecipesBase.animate(results::AbstractResults{WCMSpatial1D{T,C,N,S}}; kwargs...) where {T,C,N,S}
     t, x, data = spatiotemporal_data(results)
-    max_val = maximum(data)
     pop_names = results.model.pop_names
+    wcmanimate(t,x,data,pop_names;kwargs...)
+end
+
+function wcmanimate(t, x, data::Array{<:Array}, pop_names; kwargs...)
+    max_val = maximum(map(maximum, data))
+    @assert length(x) == size(data[1],1)
+    @animate for i_time in 1:length(t)
+        plot(x, data[i_time][:, 1]; label=pop_names[1],
+            ylim=(0,max_val), title="t = $(round(t[i_time], digits=4))", kwargs...)
+        for i_pop in 2:size(data,2)
+            plot!(x, data[i_time][:, i_pop]; label=pop_names[i_pop], kwargs...)
+        end
+
+    end
+    # Not using animate(results.solution) to use subsampling
+end
+
+function wcmanimate(t, x, data::Array{T,3}, pop_names; kwargs...) where T
+    max_val = maximum(data)
     @assert length(x) == size(data,1)
     @animate for i_time in 1:length(t)
         plot(x, data[:, 1, i_time]; label=pop_names[1],
@@ -124,5 +142,6 @@ function RecipesBase.animate(results::AbstractResults{WCMSpatial1D{T,C,N,S}}; kw
     end
     # Not using animate(results.solution) to use subsampling
 end
+
 
 end

@@ -5,12 +5,13 @@ using Analysis
 using Records
 using Parameters
 using JLD2
-import DifferentialEquations: DESolution, solve
+import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve
 
 
 @with_kw struct Solver
     T::Float64
     params::Dict
+    solution_method::Union{OrdinaryDiffEqAlgorithm,Nothing}=nothing
 end
 time_span(solver::Solver) = (0.0, solver.T)
 
@@ -24,6 +25,7 @@ end
 Modeling.initial_value(sim::Simulation) = initial_value(sim.model)
 time_span(sim::Simulation) = time_span(sim.solver)
 solver_params(sim::Simulation) = sim.solver.params
+solution_method(sim::Simulation) = sim.solver.solution_method
 
 function write_params(sim::Simulation)
 	write_object(sim.output, "parameters.jld2", "sim", sim)
@@ -32,7 +34,11 @@ end
 function solve(simulation::Simulation)
     problem = generate_problem(simulation)
     params = solver_params(simulation)
-    soln = solve(problem; params...)
+    if solution_method(simulation) != nothing
+        soln = solve(problem, solution_method(simulation); params...)
+    else
+        soln = solve(problem; params...)
+    end
     return soln
 end
 

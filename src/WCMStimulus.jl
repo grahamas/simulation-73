@@ -85,19 +85,29 @@ export GaussianNoiseStimulus, CalculatedGaussianNoiseStimulus
 
 # ----------- SharpBumpStimulus ------------ #
 
-@with_kw struct SharpBumpStimulus{T} <: Stimulus{T}
+struct SharpBumpStimulus{T} <: Stimulus{T}
     width::T
     strength::T
-    duration::T
+    window::Tuple{T,T}
+end
+
+function SharpBumpStimulus{T}(; strength=nothing, width=nothing,
+        duration=nothing, window=nothing) where T
+    if window == nothing
+        return SharpBumpStimulus{T}(width, strength, (zero(T), duration))
+    else
+        @assert duration == nothing
+        return SharpBumpStimulus{T}(width, strength, window)
+    end
 end
 
 function SharpBumpStimulus(p)
     T = typeof(p[:(Stimulus.width)])
-    SharpBumpStimulus{T}(p[:(Stimulus.width)], p[:(Stimulus.strength)], p[:(Stimulus.duration)])
+    SharpBumpStimulus{T}(p[:(Stimulus.width)], p[:(Stimulus.strength)], p[:(Stimulus.window)])
 end
 
 function calculate(sbs::SharpBumpStimulus, space::Segment)
-    sharp_bump_factory(Calculated(space), sbs.width, sbs.strength, sbs.duration)
+    sharp_bump_factory(Calculated(space), sbs.width, sbs.strength, sbs.window)
 end
 
 mutable struct CalculatedSharpBumpStimulus{T} <: CalculatedParam{SharpBumpStimulus{T}}
@@ -146,11 +156,11 @@ end
 The "sharp bump" is the usual theoretical impulse: Binary in both time and
 space. On, then off.
 """
-function sharp_bump_factory(segment::CalculatedParam{Segment{DistT}}, width, strength, duration) where {DistT <: Real}
+function sharp_bump_factory(segment::CalculatedParam{Segment{DistT}}, width, strength, (onset, offset)) where {DistT <: Real}
         # WARNING: Defaults are ugly; Remove when possible.
     on_frame = make_sharp_bump_frame(segment, width, strength)
     off_frame = zero(on_frame)
-    return (t) -> (t <= duration) ? on_frame : off_frame
+    return (t) -> (onset <= t < offset) ? on_frame : off_frame
 end
 
 end
