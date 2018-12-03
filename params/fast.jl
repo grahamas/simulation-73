@@ -27,7 +27,7 @@ simulation = Simulation{M}(
                             pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
                                                    duration=[0.55, 0.55],
                                                    width=[2.81, 2.81]),
-                            pops(GaussianNoiseStimulus{v}; SNR=[80.0, 80.0])]),
+                            pops(GaussianNoiseStimulus{v}; SNR=[0.0, 0.0])]),
             connectivity = pops(ShollConnectivity{v};
                 amplitude = [16.0 -18.2;
                              27.0 -4.0],

@@ -17,7 +17,7 @@ simulation = Simulation{M}(
             α = [1.1, 1.0],
             β = [1.1, 1.1],
             τ = [0.1, 0.18],
-            space = Segment{v}(; n_points=101, extent=100),
+            space = Segment{v}(; n_points=401, extent=100),
             nonlinearity = pops(SigmoidNonlinearity{v}; a=[1.2, 1.0],
                                                         θ=[2.6, 8.0]),
             # stimulus = pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
@@ -37,13 +37,13 @@ simulation = Simulation{M}(
         solver = Solver(;
             T = T,
             params = Dict(
-                :dt => 0.001,
+                :dt => 0.0001,
                 #:dense => true
-                #:alg_hints => [:stiff]
+                :alg_hints => [:stiff]
                 )
             ),
         analyses = Analyses{M}(;
-          # subsampler = SubSampler{M}(;
+          # subsampler = SubSampler(;
           #      space_strides = [4],
           #      dt = 0.05
           #      ),

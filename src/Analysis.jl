@@ -41,13 +41,13 @@ end
 @with_kw struct SubSampledResults{M} <: AbstractResults{M}
 	model::M
 	solution::DESolution
-	subsampler::SubSampler{M}
+	subsampler::SubSampler
 end
 
 function Results(model::M, solution::DESolution, subsampler::Nothing) where {M <: Model}
 	Results(model, solution)
 end
-function Results(model::M, solution::DESolution, subsampler::SubSampler{M}) where {M <: Model}
+function Results(model::M, solution::DESolution, subsampler::SubSampler) where {M <: Model}
 	SubSampledResults(model, solution, subsampler)
 end
 
@@ -60,7 +60,6 @@ function spatiotemporal_data(r::SubSampledResults)
 end
 
 function analyse(a::Analyses{M}, results::AbstractResults{<:M}, output::Output) where {M <: Model}
-	@debug "Analysing"
     a.plots .|> (plot_type) -> plot_and_save(plot_type, results, output)
 end
 

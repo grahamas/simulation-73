@@ -81,12 +81,12 @@ Analysis.output_name(plt::NonlinearityPlot) = "nonlinearityplot"
 
 export NonlinearityPlot
 
-function Analysis.SubSampler(dt::Float64, spatial_stride::Int) where WCMSpatial1D
+function Analysis.SubSampler(dt::Float64, spatial_stride::Int)
     @assert dt > 0
-    SubSampler{WCMSpatial1D}(dt, [spatial_stride])
+    SubSampler(dt, [spatial_stride])
 end
 
-@memoize function Analysis.sample(subsampler::SubSampler{WCMSpatial1D}, soln::DESolution, model::WCMSpatial1D)
+function Analysis.sample(subsampler::SubSampler, soln::DESolution, model::M) where {M <: WCMSpatial1D}
     println("Sampling WCMSpatial1D")
     timepoints = minimum(soln.t):subsampler.dt:maximum(soln.t)
     # Assuming densely sampled.
@@ -116,7 +116,7 @@ function RecipesBase.animate(results::AbstractResults{WCMSpatial1D{T,C,N,S}}; kw
     @assert length(x) == size(data,1)
     @animate for i_time in 1:length(t)
         plot(x, data[:, 1, i_time]; label=pop_names[1],
-            ylim=(0,max_val), kwargs...)
+            ylim=(0,max_val), title="t = $(round(t[i_time], digits=4))", kwargs...)
         for i_pop in 2:size(data,2)
             plot!(x, data[:, i_pop, i_time]; label=pop_names[i_pop], kwargs...)
         end
