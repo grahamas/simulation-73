@@ -18,7 +18,7 @@ time_span(solver::Solver) = (0.0, solver.T)
 @with_kw struct Simulation{M<:Model}
     model::M
     solver::Solver
-    analyses::Analyses{M}
+    analyses::Analyses
     output::Output
 end
 
@@ -56,6 +56,7 @@ end
 function Analysis.analyse(simulation::Simulation, solution::DESolution)
     analyses = simulation.analyses
     results = Results(simulation.model, solution, analyses.subsampler)
+    return results
     analyse(analyses, results, simulation.output)
 end
 

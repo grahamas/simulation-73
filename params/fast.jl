@@ -42,7 +42,7 @@ simulation = Simulation{M}(
                 #:alg_hints => [:stiff]
                 )
             ),
-        analyses = Analyses{M}(;
+        analyses = Analyses(;
           subsampler = SubSampler(;
                space_strides = [4],
                dt = 0.05

@@ -22,15 +22,15 @@ function plot_and_save(plot_obj::AF, results::AbstractResults, output::Output) w
 end
 
 
-@with_kw struct SubSampler{M <: Model}
+@with_kw struct SubSampler
 	dt::Float64
 	space_strides::Array{Integer}
 end
 
 function sample end
 
-@with_kw struct Analyses{M <: Model}
-	subsampler::Union{SubSampler{M},Nothing} = nothing
+@with_kw struct Analyses
+	subsampler::Union{SubSampler,Nothing} = nothing
 	plots::Array{AbstractFigure}
 end
 
@@ -59,8 +59,9 @@ function spatiotemporal_data(r::SubSampledResults)
 	return sample(r.subsampler, r.solution, r.model)
 end
 
-function analyse(a::Analyses{M}, results::AbstractResults{<:M}, output::Output) where {M <: Model}
+function analyse(a::Analyses, results::AbstractResults{<:M}, output::Output) where {M <: Model}
     a.plots .|> (plot_type) -> plot_and_save(plot_type, results, output)
+    #return results
 end
 
 export AbstractResults, AbstractFigure, output_name
