@@ -2,18 +2,19 @@ module Exploration
 
 using Parameters
 using Modeling
+using Simulating
 using Analysis
 using Records
 using CalculatedParameters
 using Targets
-using DifferentialEquations
+using DifferentialEquations, DiffEqParamEstim
 using BlackBoxOptim
 import Records: required_modules
 
 import BlackBoxOptim: OptimizationResults
 required_modules(::Type{OptimizationResults}) = [BlackBoxOptim]
 
-doc"A model with variable parameters, and a target."
+"A model with variable parameters, and a target."
 struct ParameterSearch{M<: Model}
     model::M
     solver::Solver
@@ -39,8 +40,9 @@ end
 
 export ParameterSearch, required_modules
 
+"""Takes model with variable parameters,
+and returns default variable values and indices to those variables."""
 function init_variables(variable_model::M) where {M <: Model}
-    doc"Takes model with variable parameters, and returns default variable values and indices to those variables."
     deconstructed = var_deconstruct(variable_model)
     initial_p, variable_dxs, p_bounds = init_variables(deconstructed)
     return initial_p, variable_dxs, p_bounds
@@ -50,7 +52,7 @@ function init_variables(deconstructed::Tuple{Type,<:AbstractArray})
     variable_dxs = []
     initial_p = []
     p_bounds = Tuple{Float64,Float64}[]
-    for dx in CartesianRange(size(deconstructed[2]))
+    for dx in CartesianIndices(size(deconstructed[2]))
         (typ, val) = deconstructed[2][dx]
         if typ <: Variable
             push!(variable_dxs, [dx])
@@ -71,12 +73,21 @@ function initial_model(p_search::ParameterSearch)
     model_from_p(p_search, p_search.initial_p)
 end
 
-import Modeling: time_span
-function time_span(p_search::ParameterSearch)
+function Simulating.time_span(p_search::ParameterSearch)
     time_span(p_search.solver)
 end
 
 export initial_model, time_span
+
+
+#########################################################
+######### MODEL DECONSTRUCTION & RECONSTRUCTION #########
+# Deconstruct a model (which is naturally hierarchical)
+# into a flat representation.
+# Alter flat representation.
+# Reconstruct hierarchical model.
+#########################################################
+
 
 function set_deep_dx!(model_deconstruction::Tuple{Type,Array}, dxs, val)
     tmp = model_deconstruction
@@ -114,9 +125,8 @@ function var_deconstruct(val::Variable)
     return (typeof(val), val)
 end
 
-function var_deconstruct(val::Number)
+function var_deconstruct(val::Union{AbstractString,Number})
     return (typeof(val), val)
-
 end
 
 function var_deconstruct(m::M) where {M <: Parameter}
@@ -165,6 +175,16 @@ function reconstruct(tup::Tuple{Type,Array})
     end
 end
 
+#############################################
+
+"""
+    model_from_p(p_seach::ParameterSearch, p)
+
+Deconstructs the "variable model" stored by p_search into a flat representation.
+Indexes into the flat representation using p_search's variable_map, which was
+created to relate the locations of varying parameters in p_search's variable
+model to the parameters in the parameter vector p.
+"""
 function model_from_p(p_search::ParameterSearch, p)
     var_model = p_search.model
     variable_map = p_search.variable_map
@@ -181,6 +201,8 @@ function simulation_from_p(p_search::ParameterSearch, p)
     return Simulation(model, p_search.solver,
         p_search.analyses, p_search.output)
 end
+
+
 # * Run the search
 
 function loss(factory::TargetFactory, model::Model)
@@ -208,6 +230,7 @@ end
 
 function run_search(p_search::ParameterSearch)
     write_params(p_search)
+
     initial_problem, problem_generator = make_problem_generator(p_search)
     loss_fn = loss(p_search.target, initial_model(p_search))
     loss_obj = build_loss_objective(initial_problem, Tsit5(), loss_fn;
@@ -217,20 +240,10 @@ function run_search(p_search::ParameterSearch)
     write_results(p_search, result)
     result_sim = simulation_from_p(p_search, best_candidate(result))
     result_problem = problem_generator(nothing, best_candidate(result))
-    result_sol = solve(result_problem, p_search.solver)
-    analyse(result_sim, result_sol)
-    return result
+    result_soln = solve(result_problem, p_search.solver)
+    return (result_sim, result_soln)
 end
 
-import DifferentialEquations: solve
-
-function solve(simulation::Simulation)
-    initial_problem, problem_generator = make_problem_generator(simulation)
-    params = solver_params(simulation)
-    soln = solve(initial_problem; params...)
-    return soln
-end
-
-export solve, run_search, model_from_p
+export run_search, model_from_p
 
 end

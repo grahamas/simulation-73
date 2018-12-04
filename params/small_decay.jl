@@ -1,7 +1,9 @@
-using Modeling, Exploration, WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
+using Modeling, Exploration, WCM, Meshes, Records, Simulating,
+  CalculatedParameters, Analysis, WCMAnalysis,
+  WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
 using WC73: WCMSpatial1D
 
-if !isdefined(:UV)
+if !(@isdefined UV)
   const UV = UnboundedVariable
   const BV = BoundedVariable
   const varying{T} = Union{T,BV{T}}
@@ -10,6 +12,7 @@ end
 T= 2.0
 p_search = ParameterSearch(
         variable_model = WCMSpatial1D(;#{varying{Float64}}(;
+            pop_names = ["E", "I"],
             α = v[BV(1.1, (0.8, 1.3)), BV(1.0, (0.8, 1.3))],
             β = v[1.1, 1.1],
             τ = v[BV(0.1, (0.05,0.25)), 0.18],
@@ -34,18 +37,20 @@ p_search = ParameterSearch(
                 #:alg_hints => [:stiff]
                 )
             ),
-        analyses =  Dict(
-           :pop_names => ["E", "I"],
-           :sampling => Dict(
-               :spatial_stride => 4,
-               :dt => 0.05
+        analyses = Analyses{WCMSpatial1D}(;
+           subsampler = SubSampler{WCMSpatial1D}(;
+               space_strides = [4],
+               dt = 0.05
                ),
-           :activity_gif => Dict(
-               :file_name => "activity.gif",
-               :disable => 0,
-               :fps => 20
-               )
-           ),
+           plots = [
+              # Animate(;
+              #   fps = 20
+              #   ),
+              NonlinearityPlot(;
+                kwargs = Dict(:fn_bounds => (-1,15))),
+              SpaceTimePlot()
+              ]
+            ),
         output = SingleOutput(;
             root = "/home/grahams/Dropbox/Research/simulation-73/results/",
             simulation_name = ""
@@ -57,9 +62,6 @@ p_search = ParameterSearch(
             )
         )
 
-using JLD
+using JLD2
 
-jldopen("parameters.jld", "w") do file
-  addrequire.(file, [WC73, Meshes, Records, CalculatedParameters, WCMConnectivity, WCMNonlinearity, WCMStimulus])
-  write(file, "p_search", p_search)
-end
+@save "parameters.jld2" p_search

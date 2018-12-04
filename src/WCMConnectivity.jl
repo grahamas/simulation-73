@@ -27,6 +27,8 @@ mutable struct CalculatedShollConnectivity{T} <: CalculatedParam{ShollConnectivi
     end
 end
 
+# Uhhhh why is this function not just inside Calculated???
+# ShollConnectivity is specified by the argument; no need for name
 function CalculatedShollConnectivity(connectivity::ShollConnectivity{T}, segment::Segment{T}) where T
     calc_dist_mx = Calculated(DistanceMatrix(segment))
     return CalculatedShollConnectivity{T}(connectivity, calc_dist_mx)
@@ -65,9 +67,11 @@ function sholl_matrix(connectivity::ShollConnectivity, calc_dist_mx::CalculatedD
     dist_mx = calc_dist_mx.value
     step_size = step(calc_dist_mx)
     return sholl_matrix(A, σ, dist_mx, step_size)
+    # In comparing to Neuman, there is no division by 2 on the edges
+    # but the edges are very small, so there's no difference
 end
 
-doc"""
+"""
 We use an exponential connectivity function, inspired both by Sholl's
 experimental work, and by certain theoretical considerations.
 
