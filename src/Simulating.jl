@@ -19,7 +19,7 @@ time_span(solver::Solver) = (0.0, solver.T)
     model::M
     solver::Solver
     analyses::Analyses
-    output::Output
+    output::AbstractOutput
 end
 
 Modeling.initial_value(sim::Simulation) = initial_value(sim.model)
@@ -45,6 +45,7 @@ end
 function simulate(jl_filename::AbstractString)
 	include(jl_filename)
 	@load "parameters.jld2" simulation
+    filecopy(simulation.output, jl_filename, basename(jl_filename))
 	simulate(simulation)
 end
 

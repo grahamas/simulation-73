@@ -19,7 +19,7 @@ struct ParameterSearch{M<: Model}
     model::M
     solver::Solver
     analyses::Analyses
-    output::Output
+    output::AbstractOutput
     target::Target
     initial_p
     variable_map
@@ -31,7 +31,7 @@ function required_modules(::Type{ParameterSearch{M}}) where {M <: Model}
 end
 
 function ParameterSearch(;variable_model::M=nothing, solver::Solver=nothing,
-                     analyses::Analyses=nothing, output::Output=nothing,
+                     analyses::Analyses=nothing, output::AbstractOutput=nothing,
                      target::Target=nothing) where {M<:Model}
     initial_p, variable_dxs, p_bounds = init_variables(variable_model)
     ParameterSearch{M}(variable_model, solver, analyses, output, target,
