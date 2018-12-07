@@ -27,13 +27,16 @@ end
 
 @with_kw struct SubSampler
 	dt::Float64
-	space_strides::Array{Integer}
+	space_strides::Array{Int}
 end
 function SubSampler(dt::Float64, spatial_stride::Int)
     SubSampler(dt, [spatial_stride])
 end
 
-subinds(steps, inds) = (first(inds)[1:first(steps):end], subinds(tail(steps), tail(inds))...)
+tail_args(_, rest...) = rest
+tail(tup::Tuple) = tail_args(tup...)
+tail(arr::Array{T,1}) where T = tail_args(arr...)
+subinds(steps::AbstractArray{T,1}, inds::Tuple{R}) where {T,S,R <: Base.OneTo{S}} = (first(inds)[1:first(steps):end], subinds(tail(steps), tail(inds))...)
 subinds(::Tuple{}, ::Tuple{}) = ()
 subinds(::Tuple{}, ::Any) = error("Too many spatial strides in subsampling.")
 subinds(::Any, ::Tuple{}) = error("Too few spatial strides in subsampling.")
@@ -55,22 +58,35 @@ end
 	subsampler::SubSampler
 end
 
+function resample(r::AbstractResults{M}, s::SubSampler) where M
+	Results(r.model, r.solution, s)
+end
+function resample(r::SubSampledResults{M}; dt=nothing, space_strides=nothing) where M
+	if dt == nothing
+		dt = r.subsampler.dt
+	end
+	if space_strides == nothing
+		space_strides = r.subsampler.space_strides
+	end
+	resample(r, SubSampler(dt, space_strides))
+end
+
 function get_space_dx(results::Results)
 	Colon()
 end
 function get_space_dx(results::SubSampledResults)
-	frame = results.solution.x
-	subinds(results.subsampler.space_strides, indices(frame))
+	frame = get_space(results.model)
+	subinds(results.subsampler.space_strides, axes(frame))[1] # ASSUMES D = 1!!!
 end
-function sample_space(frame::Array{T}, results::SubSampledResults) where {T,M}
-	getindex(frame, get_space_dx(results))
+function sample_space(frame::AbstractArray{T}, results::SubSampledResults) where {T,M}
+	getindex(frame, get_space_dx(results), Colon()) # Assumes 1 trailing pop D
 end
 
-function get_space(results::Results)
-	results.solution.x
+function Modeling.get_space(results::Results)
+	get_space(results.model)
 end
-function get_space(results::SubSampledResults)
-	sample_space(results.solution.x, results)
+function Modeling.get_space(results::SubSampledResults)
+	sample_space(get_space(results.model), results)
 end
 
 function get_time(results::Results)
@@ -86,33 +102,32 @@ function get_pop(results::AbstractResults, pop_num::Int)
 	results.solution(t_dx, idxs=CartesianIndex.(get_space_dx(results), pop_num))
 end
 
-export get_space_dx, get_space, get_time, get_pop
-
 function Results(model::M, solution::DESolution, subsampler::Nothing) where {M <: Model}
-	Results(model, solution)
+	Results{M}(model, solution)
 end
 function Results(model::M, solution::DESolution, subsampler::SubSampler) where {M <: Model}
-	SubSampledResults(model, solution, subsampler)
+	SubSampledResults{M}(model, solution, subsampler)
 end
 
 Base.iterate(r::Results, state...) = iterate(tuples(r.solution), state...)
 function Base.iterate(r::SR) where {T, M <: Model{T}, SR <: SubSampledResults{M}}
-	sampled = sample_space(r.solution(0), r.subsampler)
+	sampled = sample_space(r.solution(0), r)
 	((sampled, 0), 0)
 end
-function Base.iterate(r::SR, (prev_val, prev_t)) where {T, M <: Model{T}, SR <: SubSampledResults{M}}
+function Base.iterate(r::SR, prev_t) where {T, M <: Model{T}, SR <: SubSampledResults{M}}
 	new_t = prev_t + r.subsampler.dt
 	if new_t > r.solution.t[end]
 		return nothing
 	else
-		sampled = sample_space(r.solution(new_t), r.subsampler)
+		sampled = sample_space(r.solution(new_t), r)
 		return ((sampled, new_t), new_t)
 	end
 end
 
 function analyse(a::Analyses, results::AbstractResults{<:M}, output::AbstractOutput) where {M <: Model}
-    a.plots .|> (plot_type) -> plot_and_save(plot_type, results, output)
+    @info "Begin analysis."
     #return results
+    a.plots .|> (plot_type) -> plot_and_save(plot_type, results, output)
 end
 
 export AbstractResults, AbstractPlotSpecification, output_name
@@ -120,5 +135,6 @@ export plot_and_save
 export SubSampler, sample, Analyses, Results, SubSampledResults
 export spatiotemporal_data
 export analyse
+export get_space_dx, get_space, get_time, resample, get_pop
 
 end
