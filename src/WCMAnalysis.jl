@@ -29,29 +29,29 @@ end
 
 export Animate
 
-struct SpaceTimePlot <: AbstractPlotSpecification
-    output_name::String
-    kwargs::Dict
-end
-SpaceTimePlot(; output_name = "spacetime.png", kwargs...) = SpaceTimePlot(output_name, kwargs)
-@recipe function f(plot_spec::SpaceTimePlot, results::AbstractResults)
-    v_space = get_space(results)
-    v_time = get_time(results)
-    clims := (unsampled_minimum(results), unsampled_maximum(results))
-    grid := false
-    layout := (2,1)
-    for i_pop in 1:size(timeseries,2)
-        @series begin
-            seriestype --> :heatmap
-            subplot := i_pop
-            x := v_time
-            y := v_space
-            get_pop(results, i_pop)
-        end
-    end
-end
+# struct SpaceTimePlot <: AbstractPlotSpecification
+#     output_name::String
+#     kwargs::Dict
+# end
+# SpaceTimePlot(; output_name = "spacetime.png", kwargs...) = SpaceTimePlot(output_name, kwargs)
+# @recipe function f(plot_spec::SpaceTimePlot, results::AbstractResults; kwargs...)
+#     v_space = get_space(results)
+#     v_time = get_time(results)
+#     clims := (unsampled_minimum(results), unsampled_maximum(results))
+#     grid := false
+#     layout := (2,1)
+#     for i_pop in 1:size(timeseries,2)
+#         @series begin
+#             seriestype --> :heatmap
+#             subplot := i_pop
+#             x := v_time
+#             y := v_space
+#             get_pop(results, i_pop)
+#         end
+#     end
+# end
 
-export SpaceTimePlot
+# export SpaceTimePlot
 
 # ** Plot nonlinearity
 struct NonlinearityPlot <: AbstractPlotSpecification
@@ -97,7 +97,45 @@ function RecipesBase.animate(results::AbstractResults{WCMSpatial1D{T,C,N,S}}; kw
     end
 end
 
-# struct TravelingWavePlot <: AbstractPlotSpecification
+# struct TravelingWavePlot{T} <: AbstractPlotSpecification
 #     output_name::String
+#     dt::T
+#     kwargs::Dict
+# end
+# TravelingWavePlot{T}(; output_name="traveling_wave.png", dt=nothing, kwargs...) where T = TravelingWavePlot{T}(output_name, dt, kwargs)
+# @recipe function f(plot_spec::TravelingWavePlot, results::AbstractResults{WCMSpatial1D{T,C,N,S}}; kwargs...) where {T,C,N,S}
+#     sampled_results = resample(results, dt=plot_spec.dt)
+#     space = get_space(results)
+#     for (frame, t) in sampled_results
+#         @series begin
+#             seriestype := :line
+#             x := space
+#             y := frame
+#             ()  # TOOOOOOOOOOODOOOOOOOOOOOOOOOOOOOOOOOO
+#         end
+#     end
+# end
+
+struct NeumanTravelingWavePlot{T} <: AbstractPlotSpecification
+    output_name::String
+    dt::T
+    kwargs::Dict
+end
+NeumanTravelingWavePlot{T}(; output_name="traveling_wave.png", dt=nothing, kwargs...) where T = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
+@recipe function f(plot_spec::NeumanTravelingWavePlot, results::AbstractResults{WCMSpatial1D{T,C,N,S}}) where {T,C,N,S}
+    sampled_results = resample(results, dt=plot_spec.dt)
+    space = get_space(results)
+    for (frame, t) in sampled_results
+        @series begin
+            seriestype := :line
+            x := space
+            y := frame * [1.0, -1.0] # Subtract inhibitory activity...
+            ()
+              # ),
+        end
+    end
+end
+
+export NeumanTravelingWavePlot#, TravelingWavePlot
 
 end
