@@ -57,8 +57,14 @@ end
 function Analysis.analyse(simulation::Simulation, solution::DESolution)
     analyses = simulation.analyses
     results = Results(simulation.model, solution, analyses.subsampler)
-    return results
     analyse(analyses, results, simulation.output)
+end
+
+function results_only(jl_filename::AbstractString)
+    include(jl_filename)
+    @load "parameters.jld2" simulation
+    solution = solve(simulation)
+    return (simulation, Results(simulation.model, solution, simulation.analyses.subsampler))
 end
 
 export simulate, Simulation, write_params, Solver,
