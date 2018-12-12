@@ -11,19 +11,14 @@ abstract type Stimulus{T} <: Parameter{T} end
 #---------- CompoundStimulus ------------#
 
 @with_kw struct AddedStimuli{T} <: Stimulus{T}
-    stimuli::Array{Stimulus{T}} # Sadly can't specify all must be subtype of Stimulus
+    stimuli::Array{Any} # Sadly can't specify all must be subtype of Stimulus
 end
 
 stim_param(stim::Stimulus{T}) where T = T
 
 function AddedStimuli(stims...)
     T = stim_param(stims[1])
-    stims = Union{map(typeof,stims)...}[stims...]
-    AddedStimuli{T}(stims)
-end
-
-function add(arr::Array{Stimulus{T}}) where T
-    AddedStimuli{T}(arr)
+    AddedStimuli{T}([stims...])
 end
 
 function add(arr::Array)
@@ -32,20 +27,19 @@ function add(arr::Array)
     return AddedStimuli{T}[AddedStimuli(stims...) for stims in pop_stims]
 end
 
-function calculate(as::AddedStimuli, space::Segment)
-    calculated_stimuli = map((stim) -> Calculated(stim, space), as.stimuli)
-    (args) -> sum(map((calculated_stimulus) -> get_value(calculated_stimulus)(args...), calculated_stimuli))
-end
-
 mutable struct CalculatedAddedStimuli{T} <: CalculatedParam{AddedStimuli{T}}
     stimulus::AddedStimuli{T}
     space::Segment{T}
-    value::Function
-    CalculatedAddedStimuli{TT}(s::AddedStimuli{TT}, space::Segment{TT}) where TT = new(s, space, calculate(s,space))
+    calculated_stimuli::Array{Any}
 end
 
 function Calculated(as::AddedStimuli{T}, space::Segment{T}) where T
-    CalculatedAddedStimuli{T}(as, space)
+    calculated_stimuli = [Calculated(stim, space) for stim in as.stimuli]
+    CalculatedAddedStimuli{T}(as, space, calculated_stimuli)
+end
+
+function stimulus(added_stims::CalculatedAddedStimuli{T}, t::T) where T
+    sum(map((s) -> stimulus(s,t), added_stims.calculated_stimuli))
 end
 
 export AddedStimuli, CalculatedAddedStimuli, add
@@ -58,27 +52,28 @@ end
 
 struct GaussianNoiseStimulus{T} <: Stimulus{T}
     mean::T
-    sd::T
+    SNR::T
 end
 
 function GaussianNoiseStimulus{T}(; SNR::T=0.0, mean::T=0.0) where T
-    sd = sqrt(1/10 ^ (SNR / 10))
-    GaussianNoiseStimulus{T}(mean, sd)
-end
-
-function calculate(wns::GaussianNoiseStimulus, space::Segment)
-    (t) -> gaussian_noise(space, wns.mean, wns.sd) # Not actually time dependent
+    GaussianNoiseStimulus{T}(mean, SNR)
 end
 
 mutable struct CalculatedGaussianNoiseStimulus{T} <: CalculatedParam{GaussianNoiseStimulus{T}}
     stimulus::GaussianNoiseStimulus{T}
     space::Segment{T}
-    value::Function
-    CalculatedGaussianNoiseStimulus{TT}(s::GaussianNoiseStimulus{TT}, space::Segment{TT}) where TT = new(s, space, calculate(s,space))
+    mean::T
+    sd::T
 end
 
+
 function Calculated(wns::GaussianNoiseStimulus{T}, space::Segment{T}) where T
-    CalculatedGaussianNoiseStimulus{T}(wns, space)
+    sd = sqrt(1/10 ^ (wns.SNR / 10))
+    CalculatedGaussianNoiseStimulus{T}(wns, space, wns.mean, sd)
+end
+
+function stimulus(wns::CalculatedGaussianNoiseStimulus{T}, t::T) where T
+    gaussian_noise(wns.space, wns.mean, wns.sd) # Not actually time dependent
 end
 
 export GaussianNoiseStimulus, CalculatedGaussianNoiseStimulus
@@ -102,46 +97,43 @@ function SharpBumpStimulus{T}(; strength=nothing, width=nothing,
 end
 
 function SharpBumpStimulus(p)
-    T = typeof(p[:(Stimulus.width)])
-    SharpBumpStimulus{T}(p[:(Stimulus.width)], p[:(Stimulus.strength)], p[:(Stimulus.window)])
+    SharpBumpStimulus(p[:(Stimulus.width)], p[:(Stimulus.strength)], p[:(Stimulus.window)])
 end
 
-function calculate(sbs::SharpBumpStimulus, space::Segment)
-    sharp_bump_factory(Calculated(space), sbs.width, sbs.strength, sbs.window)
+function Calculated(sbs::SharpBumpStimulus{T}, space::Segment{T}) where T
+    calculated_space = Calculated(space)
+    on_frame = make_sharp_bump_frame(calculated_space.value, sbs.width, sbs.strength)
+    off_frame = zero(on_frame)
+    onset = sbs.window[1]
+    offset = sbs.window[2]
+    return CalculatedSharpBumpStimulus{T}(sbs, space, onset, offset, on_frame, off_frame)
 end
 
 mutable struct CalculatedSharpBumpStimulus{T} <: CalculatedParam{SharpBumpStimulus{T}}
     stimulus::SharpBumpStimulus{T}
     space::Segment{T}
-    value::Function
-    CalculatedSharpBumpStimulus{S}(s::SharpBumpStimulus{S}, space::Segment{S}) where S = new(s, space, calculate(s, space))
-end
-
-function Calculated(sbs::SharpBumpStimulus{T}, space::Segment{T}) where T
-    CalculatedSharpBumpStimulus{T}(sbs, space)
+    onset::T
+    offset::T
+    on_frame::Array{T,1}
+    off_frame::Array{T,1}
 end
 
 function update!(csbs::CalculatedSharpBumpStimulus, sbs::SharpBumpStimulus)
     if csbs.stimulus == sbs
         return false
     else
-        csbs.stimulus = sbs
-        csbs.value = calculate(sbs, csbs.space)
+        new_csbs = Calculated(csbs.sbs, csbs.space)
+        csbs.stimulus = sbs # I don't remember why I updated in place,
+        csbs.space = space  # so I'm not "fixing" it
+        csbs.onset = new_csbs.onset
+        csbs.offset = new_csbs.offset
+        csbs.on_frame = new_csbs.on_frame
+        csbs.off_frame = new_csbs.off_frame
         return true
     end
 end
-export Stimulus, SharpBumpStimulus, Calculated, update!
 
-# * Stimulus functions
-
-# ** Sharp bump
-# TODO Understand these functions again.....
-"Implementation of sharp_bump_frame used in sharp_bump_factory"
-function make_sharp_bump_frame(segment::CalculatedParam{Segment{DistT}}, width::DistT, strength) where {DistT <: Real}
-    make_sharp_bump_frame(segment.value, width, strength)
-end
-
-function make_sharp_bump_frame(mesh_coords::AbstractArray{DistT}, width::DistT, strength) where {DistT <: Real}
+function make_sharp_bump_frame(mesh_coords::AbstractArray{DistT}, width::DistT, strength::T) where {DistT,T}
     mid_dx = floor(Int, size(mesh_coords, 1) / 2)
     mid_point = mesh_coords[mid_dx,1]
     frame = zero(mesh_coords)
@@ -152,15 +144,17 @@ function make_sharp_bump_frame(mesh_coords::AbstractArray{DistT}, width::DistT, 
     frame[start_dx:stop_dx,:] .= strength
     return frame
 end
-"""
-The "sharp bump" is the usual theoretical impulse: Binary in both time and
-space. On, then off.
-"""
-function sharp_bump_factory(segment::CalculatedParam{Segment{DistT}}, width, strength, (onset, offset)) where {DistT <: Real}
-        # WARNING: Defaults are ugly; Remove when possible.
-    on_frame = make_sharp_bump_frame(segment, width, strength)
-    off_frame = zero(on_frame)
-    return (t) -> (onset <= t < offset) ? on_frame : off_frame
+
+function stimulus(sharp_bump::CalculatedSharpBumpStimulus, t::T) where T
+    if sharp_bump.onset <= t < sharp_bump.offset
+        return sharp_bump.on_frame
+    else
+        return sharp_bump.off_frame
+    end
 end
+CalculatedParameters.get_value(c::CalculatedGaussianNoiseStimulus{T}) where T = c
+CalculatedParameters.get_value(c::CalculatedAddedStimuli{T}) where T = c
+CalculatedParameters.get_value(c::CalculatedSharpBumpStimulus{T}) where T = c
+export Stimulus, SharpBumpStimulus, Calculated, update!, stimulus
 
 end

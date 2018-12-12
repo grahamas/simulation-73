@@ -123,9 +123,13 @@ struct NeumanTravelingWavePlot{T} <: AbstractPlotSpecification
 end
 NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where T = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
 @recipe function f(plot_spec::NeumanTravelingWavePlot{T}, results::AbstractResults{T,N,WCMSpatial1D{T,C,L,S,SP}}) where {T,N,C,L,S,SP}
+    @info "entered plot"
     sampled_results = resample(results, dt=plot_spec.dt, space_window=(0.0,Inf))
+    @info "sampled."
     space = get_space(sampled_results)
+    @info "looping"
     for (frame, t) in sampled_results
+        @info "loop $t"
         @series begin
             seriestype := :line
             x := space

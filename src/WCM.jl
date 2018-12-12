@@ -115,7 +115,6 @@ update!(cwc::CalculatedWCMSpatial1D, n::Array{<:Nonlinearity}) = update!(cwc.non
 update!(cwc::CalculatedWCMSpatial1D, s::Array{<:Stimulus}) = update!(cwc.stimulus, s)
 
 function get_values(cwc::CalculatedWCMSpatial1D)
-    get_value = (el) -> el.value
     (cwc.α, cwc.β, cwc.τ, get_value.(cwc.connectivity), get_value.(cwc.nonlinearity), get_value.(cwc.stimulus))
 end
 
@@ -152,10 +151,10 @@ function generate_problem(simulation::Simulation{T,<:WCMSpatial1D}) where T
     u0 = initial_value(model)
     n_pops = length(model.pop_names)
     cwc = CalculatedWCMSpatial1D(model)
-    α, β, τ, connectivity_mx, nonlinearity_fn, stimulus_fn = get_values(cwc)
+    α, β, τ, connectivity_mx, nonlinearity_fn, stimulus_objs = get_values(cwc)
     function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Union{Array{T,1},Nothing}, t::T)::Nothing where {T<:Float64}
         for i in 1:n_pops
-            stim_val::Array{T,1} = stimulus_fn[i](t)
+            stim_val::Array{T,1} = stimulus(stimulus_objs[i], t) # I'll bet it goes faster if we pull this out of the loop
             nonl_val::Array{T,1} = nonlinearity_fn[i](sum(connectivity_mx[i,j]::Array{T,2} * A[:,j] for j in 1:n_pops) .+ stim_val)
             dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.0 .- A[:,i]) .*  nonl_val) ./ τ[i]
         end
