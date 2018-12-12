@@ -15,27 +15,34 @@ using Targets
 using Records
 import Records: required_modules
 
-@with_kw struct WCMSpatial1D{T,C<:Connectivity{T},
-                            L<:Nonlinearity{T},S<:Stimulus{T}} <: Model{T}
-    α::Array{T}
-    β::Array{T}
-    τ::Array{T}
-    space::Space{T}
-    connectivity::Array{C}
-    nonlinearity::Array{L}
-    stimulus::Array{S}
+struct WCMSpatial1D{T,C<:Connectivity{T},
+                            L<:Nonlinearity{T},S<:Stimulus{T},SP<:Space{T}} <: Model{T}
+    α::Array{T,1}
+    β::Array{T,1}
+    τ::Array{T,1}
+    space::SP
+    connectivity::Array{C,2}
+    nonlinearity::Array{L,1}
+    stimulus::Array{S,1}
     pop_names::Array{<:AbstractString}
-    function WCMSpatial1D{T,C,L,S}(α::Array{T},
-        β::Array{T}, τ::Array{T},
-        s::Space{T}, c::Array{C},
-        n::Array{L}, t::Array{S},
-        pn::Array{<:AbstractString}) where {T,
-                                         C<:Connectivity{T},
-                                         L<:Nonlinearity{T},
-                                         S<:Stimulus{T}}
-        new(α, β, τ, s, c, n, t, pn)
-    end
+    # function WCMSpatial1D{T,C,L,S,SP}(α::Array{T,1},
+    #     β::Array{T,1}, τ::Array{T,1},
+    #     s::SP, c::Array{C,2},
+    #     n::Array{L,1}, t::Array{S,1},
+    #     pn::Array{<:AbstractString,1}) where {T,
+    #                                      C<:Connectivity{T},
+    #                                      L<:Nonlinearity{T},
+    #                                      S<:Stimulus{T},
+    #                                      SP<:Space{T}}
+    #     new(α, β, τ, s, c, n, t, pn)
+    # end
 end
+
+function WCMSpatial1D(; pop_names::Array{<:AbstractString,1}, α::Array{T,1}, β::Array{T,1}, τ::Array{T,1},
+        space::SP, connectivity::Array{C,2}, nonlinearity::Array{L,1}, stimulus::Array{S,1}) where {T,C<:Connectivity{T},L<:Nonlinearity{T},S<:Stimulus{T},SP<:Space{T}}
+    WCMSpatial1D{T,C,L,S,SP}(α,β,τ,space,connectivity,nonlinearity,stimulus,pop_names)
+end
+
 
 space_array(model::WCMSpatial1D) = Calculated(model.space).value
 
@@ -51,12 +58,12 @@ export base_type
 
 # * Calculated WC73 Simulation Type
 mutable struct CalculatedWCMSpatial1D{T,C,L,S,CC<:CalculatedParam{C},CL <: CalculatedParam{L},CS <: CalculatedParam{S}} <: CalculatedParam{WCMSpatial1D{T,C,L,S}}
-    α::Array{T}
-    β::Array{T}
-    τ::Array{T}
-    connectivity::Array{CC}
-    nonlinearity::Array{CL}
-    stimulus::Array{CS}
+    α::Array{T,1}
+    β::Array{T,1}
+    τ::Array{T,1}
+    connectivity::Array{CC,2}
+    nonlinearity::Array{CL,1}
+    stimulus::Array{CS,1}
     function CalculatedWCMSpatial1D{T,C,L,S,CC,CL,CS}(α::Array{T},
                                                 β::Array{T},
                                                 τ::Array{T},
@@ -80,6 +87,11 @@ function CalculatedWCMSpatial1D(wc::WCMSpatial1D{T,C,L,S}) where {T<:Real,
     CalculatedWCMSpatial1D{T,C,L,S,CC,CL,CS}(
         wc.α, wc.β, wc.τ,
         connectivity, nonlinearity, stimulus)
+end
+
+function Calculated(α::Array{T}, β::Array{T}, τ::Array{T},
+    connectivity::Array{CC}, nonlinearity::Array{CL}, stimulus::Array{CS}) where {T,C<:Connectivity{T},L<:Nonlinearity{T},S<:Stimulus{T},CC<:CalculatedParam{C},CL<:CalculatedParam{L},CS<:CalculatedParam{S}}
+    CalculatedWCMSpatial1D{T,C,L,S,CC,CL,CS}(α, β, τ, connectivity, nonlinearity, stimulus)
 end
 
 function Calculated(wc::WCMSpatial1D)
@@ -134,7 +146,7 @@ function make_problem_generator(p_search::ParameterSearch{<:WCMSpatial1D})
 end
 export make_problem_generator
 
-function generate_problem(simulation::Simulation{<:WCMSpatial1D})
+function generate_problem(simulation::Simulation{T,<:WCMSpatial1D}) where T
     tspan = time_span(simulation)
     model = simulation.model
     u0 = initial_value(model)

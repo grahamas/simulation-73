@@ -13,8 +13,8 @@ using Memoize
 using WCM
 using CalculatedParameters
 
-unsampled_maximum(r::AbstractResults{<:WCMSpatial1D}) = maximum(map(maximum, r.solution.u))
-unsampled_minimum(r::AbstractResults{<:WCMSpatial1D}) = minimum(map(minimum, r.solution.u))
+unsampled_maximum(r::AbstractResults{T,N,<:WCMSpatial1D}) where {T,N} = maximum(map(maximum, r.solution.u))
+unsampled_minimum(r::AbstractResults{T,N,<:WCMSpatial1D}) where {T,N} = minimum(map(minimum, r.solution.u))
 
 struct Animate <: AbstractPlotSpecification
     fps::Int
@@ -83,7 +83,7 @@ end
 
 export NonlinearityPlot
 
-function RecipesBase.animate(results::AbstractResults{WCMSpatial1D{T,C,N,S}}; kwargs...) where {T,C,N,S}
+function RecipesBase.animate(results::AbstractResults{T,N,WCMSpatial1D{T,C,L,S,SP}}; kwargs...) where {T,N,C,L,S,SP}
     pop_names = results.model.pop_names
     max_val = unsampled_maximum(results)
     x = get_space(results)
@@ -121,21 +121,20 @@ struct NeumanTravelingWavePlot{T} <: AbstractPlotSpecification
     dt::T
     kwargs::Dict
 end
-NeumanTravelingWavePlot{T}(; output_name="traveling_wave.png", dt=nothing, kwargs...) where T = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
-@recipe function f(plot_spec::NeumanTravelingWavePlot, results::AbstractResults{WCMSpatial1D{T,C,N,S}}) where {T,C,N,S}
-    sampled_results = resample(results, dt=plot_spec.dt)
-    space = get_space(results)
+NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where T = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
+@recipe function f(plot_spec::NeumanTravelingWavePlot{T}, results::AbstractResults{T,N,WCMSpatial1D{T,C,L,S,SP}}) where {T,N,C,L,S,SP}
+    sampled_results = resample(results, dt=plot_spec.dt, space_window=(0.0,Inf))
+    space = get_space(sampled_results)
     for (frame, t) in sampled_results
         @series begin
             seriestype := :line
             x := space
             y := frame * [1.0, -1.0] # Subtract inhibitory activity...
             ()
-              # ),
         end
     end
 end
 
-export NeumanTravelingWavePlot#, TravelingWavePlot
+export NeumanTravelingWavePlot #, TravelingWavePlot
 
 end

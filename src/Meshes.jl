@@ -13,13 +13,13 @@ abstract type Space{T} <: Parameter{T} end
     n_points::Int
 end
 
-function calculate(segment::Segment)
-    return range(-(segment.extent/2), stop=(segment.extent/2), length=segment.n_points)
+function calculate(segment::Segment{T}) where T
+    return LinRange{T}(-(segment.extent/2), (segment.extent/2), segment.n_points)
 end
 
 mutable struct CalculatedSegment{DistT<:Number} <: CalculatedParam{Segment{DistT}}
     segment::Segment{DistT}
-    value::StepRangeLen{DistT}
+    value::LinRange{DistT}
     CalculatedSegment{DistT}(segment::Segment{DistT}) where DistT = new(segment, calculate(segment))
 end
 

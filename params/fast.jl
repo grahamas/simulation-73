@@ -11,9 +11,9 @@ if !(@isdefined UV)
   const varying{T} = Union{T,BV{T}}
   const v = NUM
 end
-T= 3
+T= 3.0
 M = WCMSpatial1D
-simulation = Simulation{M}(
+simulation = Simulation{v,M{v}}(
         model = M(;
             pop_names = ["E", "I"],
             α = [1.1, 1.0],
@@ -36,13 +36,13 @@ simulation = Simulation{M}(
         solver = Solver(;
             T = T,
             #solution_method=Euler(),
-            params = Dict(
+            kwargs = Dict(
                 #:dt => 0.02#,
                 :dense => true,
                 #:alg_hints => [:stiff]
                 )
             ),
-        analyses = Analyses(;
+        analyses = Analyses{v}(;
           subsampler = SubSampler(;
                space_strides = [2],
                dt = 0.01
@@ -50,12 +50,12 @@ simulation = Simulation{M}(
           plots = [
               # Animate(;
               #   fps = 20
-              # ),
+              # )#,
               # NonlinearityPlot(;
               #   fn_bounds = (-1,15)
               # ),
               #SpaceTimePlot(),
-              NeumanTravelingWavePlot{NUM}(;
+              NeumanTravelingWavePlot(;
                 dt = 0.1
               )
               ]

@@ -5,27 +5,34 @@ using Analysis
 using Records
 using Parameters
 using JLD2
-import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve
+import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler
 
 
-@with_kw struct Solver
-    T::Float64
-    params::Dict
-    solution_method::Union{OrdinaryDiffEqAlgorithm,Nothing}=nothing
+@with_kw struct Solver{S,ODEA<:Union{OrdinaryDiffEqAlgorithm,Nothing}}
+    T::S
+    kwargs::Dict
+    solution_method::ODEA=nothing
 end
-time_span(solver::Solver) = (0.0, solver.T)
+time_span(solver::Solver{T}) where T = (zero(T), solver.T)
 
-@with_kw struct Simulation{M<:Model}
+@with_kw struct Simulation{T,M<:Model{T}}
     model::M
-    solver::Solver
-    analyses::Analyses
+    solver::Solver{T}
+    analyses::Analyses{T}
     output::AbstractOutput
 end
 
 Modeling.initial_value(sim::Simulation) = initial_value(sim.model)
 time_span(sim::Simulation) = time_span(sim.solver)
 solver_params(sim::Simulation) = sim.solver.params
-solution_method(sim::Simulation) = sim.solver.solution_method
+
+function solver_args(solver::Solver{S,Nothing}) where S
+    return ((), solver.kwargs)
+end
+
+function solver_args(solver::Solver{S,Euler}) where S
+    return ((solver.solution_method,), solver.kwargs)
+end
 
 function write_params(sim::Simulation)
 	write_object(sim.output, "parameters.jld2", "sim", sim)
@@ -33,12 +40,8 @@ end
 
 function solve(simulation::Simulation)
     problem = generate_problem(simulation)
-    params = solver_params(simulation)
-    if solution_method(simulation) != nothing
-        soln = solve(problem, solution_method(simulation); params...)
-    else
-        soln = solve(problem; params...)
-    end
+    args, kwargs = solver_args(simulation.solver)
+    soln = solve(problem, args...; kwargs...)
     return soln
 end
 
