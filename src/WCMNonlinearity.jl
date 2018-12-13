@@ -12,18 +12,14 @@ abstract type Nonlinearity{T} <: Parameter{T} end
     θ::T
 end
 
-function calculate(sn::SigmoidNonlinearity)
-    make_sigmoid_fn(sn.a, sn.θ)
-end
-
 mutable struct CalculatedSigmoidNonlinearity{T} <: CalculatedParam{SigmoidNonlinearity{T}}
     sigmoid::SigmoidNonlinearity{T}
-    value::Function
-    CalculatedSigmoidNonlinearity{T}(s::SigmoidNonlinearity{T}) where T<:Number = new(s, calculate(s))
+    a::T
+    θ::T # This is nonsense, but fits with Calculated pattern
 end
 
 function Calculated(sigmoid::SigmoidNonlinearity{T}) where T
-    CalculatedSigmoidNonlinearity{T}(sigmoid)
+    CalculatedSigmoidNonlinearity{T}(sigmoid, sigmoid.a, sigmoid.θ)
 end
 
 function update!(csn::CalculatedSigmoidNonlinearity, sn::SigmoidNonlinearity)
@@ -31,10 +27,17 @@ function update!(csn::CalculatedSigmoidNonlinearity, sn::SigmoidNonlinearity)
         return false
     else
         csn.sigmoid = sn
-        csn.value = calculate(sn)
+        csn.a = sn.a
+        csn.θ = θ
         return true
     end
 end
+
+function nonlinearity(csn::CalculatedSigmoidNonlinearity{T}, x::T) where T
+    sigmoid_fn(x,csn.a,csn.θ)
+end
+
+CalculatedParameters.get_value(csn::CalculatedSigmoidNonlinearity{T}) where T = csn
 
 # * Sech2
 function make_sech2_fn(; a=error("Missing arg"), θ=error("Missing arg"))
@@ -109,7 +112,7 @@ function neg_domain_sigmoid_diff_fn(input, a, θ, width)
     return max.(0,simple_sigmoid_fn(input, a, θ) - simple_sigmoid_fn(input, a, θ + width))
 end
 
-export Nonlinearity, SigmoidNonlinearity, CalculatedSigmoidNonlinearity, Calculated, update!
+export Nonlinearity, SigmoidNonlinearity, CalculatedSigmoidNonlinearity, Calculated, update!, nonlinearity
 
 # * end
 end
