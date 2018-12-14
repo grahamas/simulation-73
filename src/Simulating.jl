@@ -47,7 +47,7 @@ end
 
 function simulate(jl_filename::AbstractString)
 	include(jl_filename)
-	@load "parameters.jld2" simulation
+	#@load "parameters.jld2" simulation
     filecopy(simulation.output, jl_filename, basename(jl_filename))
 	simulate(simulation)
 end
@@ -65,7 +65,7 @@ end
 
 function results_only(jl_filename::AbstractString)
     include(jl_filename)
-    @load "parameters.jld2" simulation
+    #load "parameters.jld2" simulation
     solution = solve(simulation)
     return (simulation, Results(simulation.model, solution, simulation.analyses.subsampler))
 end

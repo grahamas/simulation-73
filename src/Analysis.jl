@@ -19,7 +19,7 @@ function output_name(af::AbstractPlotSpecification)
 	af.output_name
 end
 
-function plot_and_save(plot_spec::APS, results::AbstractResults, output::AbstractOutput) where {APS <: AbstractPlotSpecification}
+function plot_and_save(plot_spec::AbstractPlotSpecification, results::AbstractResults, output::AbstractOutput)
 	@info "Entered plot and save"
 	save_fn(fn, plt) = savefig(plt, fn)
 	@info "Calling output plot"
@@ -51,28 +51,28 @@ function sample end
 	plots::Array{AbstractPlotSpecification}
 end
 
-@with_kw struct Results{T,N,M,uType} <: AbstractResults{T,N,M}
+@with_kw struct Results{T,N,M} <: AbstractResults{T,N,M}
 	model::M
-	solution::ODES where {ODES <: Union{ODESolution{T,N,uType}, ODECompositeSolution{T,N,uType}}}
+	solution#::ODES where {ODES <: Union{ODESolution{T,N,uType}, ODECompositeSolution{T,N,uType}}}
 end
 # @with_kw struct SubSampledResults{T,N,M} <: AbstractResults{T,N,M}
 # 	model::M
 # 	solution::DESolution
 # 	subsampler::SubSampler
 # end
-@with_kw struct SubSampledResults{T,N,M,uType} <: AbstractResults{T,N,M}
+@with_kw struct SubSampledResults{T,N,M} <: AbstractResults{T,N,M}
 	model::M
-	solution::ODES where {ODES <: Union{ODESolution{T,N,uType}, ODECompositeSolution{T,N,uType}}}
+	solution#::ODES where {ODES <: Union{ODESolution{T,N,uType}, ODECompositeSolution{T,N,uType}}}
 	subsampler::SubSampler{T}
 end
 
-function SubSampledResults(model::M, solution::Union{ODESolution{T,N,uType}, ODECompositeSolution{T,N,uType}}, subsampler::SubSampler{T}) where {T,N,M<:Model{T},uType}
+function SubSampledResults(model::M, solution::Union{ODESolution{T,N}, ODECompositeSolution{T,N}}, subsampler::SubSampler{T}) where {T,N,M<:Model{T}}
 	@info "Unparametrized SubSampledResults constructor"
-	SubSampledResults{T,N,M,uType}(model, solution, subsampler)
+	SubSampledResults{T,N,M}(model, solution, subsampler)
 end
 
-function Results(model::M, solution::Union{ODESolution{T,N,uType}, ODECompositeSolution{T,N,uType}}, subsampler::Nothing) where {T,N,M<:Model{T},uType}
-	Results{T,N,M,uType}(model, solution)
+function Results(model::M, solution::Union{ODESolution{T,N}, ODECompositeSolution{T,N}}, subsampler::Nothing) where {T,N,M<:Model{T}}
+	Results{T,N,M}(model, solution)
 end
 function Results(model::M, solution::AbstractODESolution{T,N}, subsampler::SubSampler) where {T,N,M <: Model{T}}
 	@info "General results constructor"
@@ -83,8 +83,8 @@ function resample(r::AbstractResults{T,N,M}, s::SubSampler{T}) where {T,N,M<:Mod
 	@info "Resampling abstract with subsampler"
 	Results(r.model, r.solution, s)
 end
-function resample(r::SubSampledResults{T,N,M,uType}; dt=nothing, space_strides=nothing,
-		time_window=nothing, space_window=nothing) where {T,N,M<:Model{T},uType}
+function resample(r::SubSampledResults{T,N,M}; dt=nothing, space_strides=nothing,
+		time_window=nothing, space_window=nothing) where {T,N,M<:Model{T}}
 	@info "Resampling kw"
 	if time_window == nothing
 		time_window = r.subsampler.time_window
@@ -105,13 +105,13 @@ end
 function get_space_dx(results::Results)
 	Colon()
 end
-function get_space_dx(results::SubSampledResults{T,N,M,uType}) where {T,N,M,uType}
+function get_space_dx(results::SubSampledResults{T,N,M}) where {T,N,M}
 	frame = get_space(results.model)
 	windowed_indices = axes(frame)[1][results.subsampler.space_window[1] .<= frame .<= results.subsampler.space_window[end]]
 	subinds(results.subsampler.space_strides, (windowed_indices,))[1] # ASSUMES D = 1!!!
 end
 
-function sample_space(frame::AbstractArray{T}, results::SubSampledResults{T,N,M,uType}) where {T,N,M,uType}
+function sample_space(frame::AbstractArray{T}, results::SubSampledResults{T,N,M}) where {T,N,M}
 	getindex(frame, get_space_dx(results), Colon()) # Assumes 1 trailing pop D
 end
 function sample_space(frame, results::Results)
@@ -136,12 +136,12 @@ function get_pop(results::AbstractResults, pop_num::Int)
 end
 
 Base.iterate(r::Results, state...) = iterate(tuples(r.solution), state...)
-function Base.iterate(r::SR) where {T, N, M <: Model{T}, uType, SR <: SubSampledResults{T,N,M,uType}}
+function Base.iterate(r::SubSampledResults)# where {T, N, M <: Model{T}, SR <: SubSampledResults{T,N,M}}
 	start = r.subsampler.time_window[1]
 	sampled = sample_space(r.solution(start), r)
 	((sampled, start), start)
 end
-function Base.iterate(r::SR, prev_t) where {T, N, M <: Model{T}, uType, SR <: SubSampledResults{T,N,M,uType}}
+function Base.iterate(r::SubSampledResults, prev_t)# where {T, N, M <: Model{T}, SR <: SubSampledResults{T,N,M}}
 	new_t = prev_t + r.subsampler.dt
 	if new_t > r.solution.t[end] || new_t > r.subsampler.time_window[end]
 		return nothing
@@ -153,7 +153,7 @@ end
 
 function analyse(a::Analyses, results::AbstractResults, output::AbstractOutput)
     @info "Begin analysis."
-    a.plots .|> (plot_spec) -> plot_and_save(plot_spec, results, output)
+    map((plot_spec) -> plot_and_save(plot_spec, results, output), a.plots)
 end
 
 export AbstractResults, AbstractPlotSpecification, output_name

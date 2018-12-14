@@ -83,7 +83,7 @@ end
 
 export NonlinearityPlot
 
-function RecipesBase.animate(results::AbstractResults{T,N,WCMSpatial1D{T,C,L,S,SP}}; kwargs...) where {T,N,C,L,S,SP}
+function RecipesBase.animate(results::AbstractResults{T,N,<:WCMSpatial1D}; kwargs...) where {T,N}
     pop_names = results.model.pop_names
     max_val = unsampled_maximum(results)
     x = get_space(results)
@@ -116,13 +116,13 @@ end
 #     end
 # end
 
-struct NeumanTravelingWavePlot{T} <: AbstractPlotSpecification
+struct NeumanTravelingWavePlot <: AbstractPlotSpecification
     output_name::String
-    dt::T
+    dt::Float64
     kwargs::Dict
 end
-NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where T = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
-@recipe function f(plot_spec::NeumanTravelingWavePlot{T}, results::AbstractResults{T,N,WCMSpatial1D{T,C,L,S,SP}}) where {T,N,C,L,S,SP}
+NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where {T<:Float64} = NeumanTravelingWavePlot(output_name, dt, kwargs)
+@recipe function f(plot_spec::NeumanTravelingWavePlot, results::AbstractResults{T,N,<:WCMSpatial1D}) where {T,N}
     @info "entered plot"
     sampled_results = resample(results, dt=plot_spec.dt, space_window=(0.0,Inf))
     @info "sampled."
