@@ -59,7 +59,7 @@ struct NonlinearityPlot <: AbstractPlotSpecification
     kwargs::Dict
 end
 NonlinearityPlot(; output_name = "nonlinearity.png", kwargs...) = NonlinearityPlot(output_name, kwargs)
-@recipe function f(plot_spec::NonlinearityPlot, results::AbstractResults; resolution=100, fn_bounds=(-1,15))
+@recipe function f(plot_spec::NonlinearityPlot, results::AbstractResults{T,N,<:WCMSpatial1D,uType}; resolution=100, fn_bounds=(-1.0,15.0)) where {T,N,uType}
     pop_names = results.model.pop_names
     nonlinearity_fns = get_value.(Calculated(results.model).nonlinearity)
     n_pops = length(pop_names)
@@ -83,7 +83,7 @@ end
 
 export NonlinearityPlot
 
-function RecipesBase.animate(results::AbstractResults{T,N,<:WCMSpatial1D}; kwargs...) where {T,N}
+function RecipesBase.animate(results::AbstractResults{T,N,<:WCMSpatial1D,uType}; kwargs...) where {T,N,uType}
     pop_names = results.model.pop_names
     max_val = unsampled_maximum(results)
     x = get_space(results)
