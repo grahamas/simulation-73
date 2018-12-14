@@ -51,29 +51,21 @@ function sample end
 	plots::Array{AbstractPlotSpecification}
 end
 
-@with_kw struct Results{T,N,M,uType} <: AbstractResults{T,N,M,uType}
+struct Results{T,N,M,uType} <: AbstractResults{T,N,M,uType}
 	model::M
-	solution::ODES where {ODES <: Union{ODESolution{T,N,uType}, ODECompositeSolution{T,N,uType}}}
+	solution::ODES where {F,uType2,tType<:Array{T,1},DType,kType,cacheType,rateType,P,A,IType <: Union{InterpolationData{F,uType,tType,kType,cacheType},CompositeInterpolationData{F,uType,tType,kType,cacheType}}, ODES <: Union{ODESolution{T,N,uType,uType2,DType,tType,rateType,P,A,IType},ODECompositeSolution{T,N,uType,uType2,DType,tType,rateType,P,A,IType}}}
 end
 # @with_kw struct SubSampledResults{T,N,M} <: AbstractResults{T,N,M}
 # 	model::M
 # 	solution::DESolution
 # 	subsampler::SubSampler
 # end
-@with_kw struct SubSampledResults{T,N,M,uType} <: AbstractResults{T,N,M,uType}
+struct SubSampledResults{T,N,M,uType} <: AbstractResults{T,N,M,uType}
 	model::M
-	solution::ODES where {ODES <: Union{ODESolution{T,N,uType}, ODECompositeSolution{T,N,uType}}}
+	solution::ODES where {F,uType2,tType<:Array{T,1},DType,kType,cacheType,rateType,P,A,IType <: Union{InterpolationData{F,uType,tType,kType,cacheType},CompositeInterpolationData{F,uType,tType,kType,cacheType}}, ODES <: Union{ODESolution{T,N,uType,uType2,DType,tType,rateType,P,A,IType},ODECompositeSolution{T,N,uType,uType2,DType,tType,rateType,P,A,IType}}}
 	subsampler::SubSampler{T}
 end
 
-function SubSampledResults(model::M, solution::Union{ODESolution{T,N,uType}, ODECompositeSolution{T,N,uType}}, subsampler::SubSampler{T}) where {T,N,M<:Model{T},uType}
-	@info "Unparametrized SubSampledResults constructor"
-	SubSampledResults{T,N,M,uType}(model, solution, subsampler)
-end
-
-function Results(model::M, solution::Union{ODESolution{T,N,uType}, ODECompositeSolution{T,N,uType}}, subsampler::Nothing) where {T,N,M<:Model{T},uType}
-	Results{T,N,M,uType}(model, solution)
-end
 function Results(model::M, solution::AbstractODESolution{T,N}, subsampler::SubSampler) where {T,N,M <: Model{T}}
 	@info "General results constructor"
 	SubSampledResults(model, solution, subsampler)
@@ -111,7 +103,7 @@ function get_space_dx(results::SubSampledResults{T,N,M,uType}) where {T,N,M,uTyp
 	subinds(results.subsampler.space_strides, (windowed_indices,))[1] # ASSUMES D = 1!!!
 end
 
-function sample_space(frame::AbstractArray{T}, results::SubSampledResults{T,N,M,uType}) where {T,N,M,uType}
+function sample_space(frame::AbstractArray{T}, results::SubSampledResults{T,N,M,uType})::frameType where {T,N,M,frameType,uType<:Array{frameType,1}}
 	getindex(frame, get_space_dx(results), Colon()) # Assumes 1 trailing pop D
 end
 function sample_space(frame, results::Results)
