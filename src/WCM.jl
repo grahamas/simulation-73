@@ -25,17 +25,6 @@ struct WCMSpatial1D{T,C<:Connectivity{T},
     nonlinearity::Array{L,1}
     stimulus::Array{S,1}
     pop_names::Array{<:AbstractString}
-    # function WCMSpatial1D{T,C,L,S,SP}(α::Array{T,1},
-    #     β::Array{T,1}, τ::Array{T,1},
-    #     s::SP, c::Array{C,2},
-    #     n::Array{L,1}, t::Array{S,1},
-    #     pn::Array{<:AbstractString,1}) where {T,
-    #                                      C<:Connectivity{T},
-    #                                      L<:Nonlinearity{T},
-    #                                      S<:Stimulus{T},
-    #                                      SP<:Space{T}}
-    #     new(α, β, τ, s, c, n, t, pn)
-    # end
 end
 
 function WCMSpatial1D(; pop_names::Array{<:AbstractString,1}, α::Array{T,1}, β::Array{T,1}, τ::Array{T,1},
@@ -57,7 +46,7 @@ end
 export base_type
 
 # * Calculated WC73 Simulation Type
-mutable struct CalculatedWCMSpatial1D{T,C,L,S,CC<:CalculatedParam{C},CL <: CalculatedParam{L},CS <: CalculatedParam{S}} <: CalculatedParam{WCMSpatial1D{T,C,L,S}}
+struct CalculatedWCMSpatial1D{T,C,L,S,CC<:CalculatedParam{C},CL <: CalculatedParam{L},CS <: CalculatedParam{S}} <: CalculatedParam{WCMSpatial1D{T,C,L,S}}
     α::Array{T,1}
     β::Array{T,1}
     τ::Array{T,1}
@@ -106,13 +95,10 @@ function update_from_p!(cwc::CalculatedWCMSpatial1D{<:Real}, new_p, p_search::Pa
     cwc.α = new_model.α
     cwc.β = new_model.β
     cwc.τ = new_model.τ
-    update!(cwc, new_model.connectivity)
-    update!(cwc, new_model.nonlinearity)
-    update!(cwc, new_model.stimulus)
+    update!(cwc.connectivity, new_model.connectivity, space)
+    update!(cwc.nonlinearity, new_model.nonlinearity)
+    update!(cwc.stimulus, new_model.stimulus, space)
 end
-update!(cwc::CalculatedWCMSpatial1D, c::Array{<:Connectivity}) = update!(cwc.connectivity, c)
-update!(cwc::CalculatedWCMSpatial1D, n::Array{<:Nonlinearity}) = update!(cwc.nonlinearity, n)
-update!(cwc::CalculatedWCMSpatial1D, s::Array{<:Stimulus}) = update!(cwc.stimulus, s)
 
 function get_values(cwc::CalculatedWCMSpatial1D)
     (cwc.α, cwc.β, cwc.τ, get_value.(cwc.connectivity), get_value.(cwc.nonlinearity), get_value.(cwc.stimulus))

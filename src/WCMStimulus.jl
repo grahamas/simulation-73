@@ -8,6 +8,14 @@ import CalculatedParameters: Calculated, update!
 
 abstract type Stimulus{T} <: Parameter{T} end
 
+function update!(calc_stims::Array{CS,1}, new_stims::Array{S,1}, space::Space{T}) where {T,S <: Stimulus{T}, CS<:CalculatedParam{S}}
+    for i in 1:length(calc_stims)
+        if calc_stims[i].stimulus != new_stims[i].stimulus
+            calc_stims[i] = Calculated(new_stims[i], space)
+        end
+    end
+end
+
 #---------- CompoundStimulus ------------#
 
 @with_kw struct AddedStimuli{T} <: Stimulus{T}
@@ -59,7 +67,7 @@ function GaussianNoiseStimulus{T}(; SNR::T=0.0, mean::T=0.0) where T
     GaussianNoiseStimulus{T}(mean, SNR)
 end
 
-mutable struct CalculatedGaussianNoiseStimulus{T} <: CalculatedParam{GaussianNoiseStimulus{T}}
+struct CalculatedGaussianNoiseStimulus{T} <: CalculatedParam{GaussianNoiseStimulus{T}}
     stimulus::GaussianNoiseStimulus{T}
     space::Segment{T}
     mean::T
@@ -109,28 +117,13 @@ function Calculated(sbs::SharpBumpStimulus{T}, space::Segment{T}) where T
     return CalculatedSharpBumpStimulus{T}(sbs, space, onset, offset, on_frame, off_frame)
 end
 
-mutable struct CalculatedSharpBumpStimulus{T} <: CalculatedParam{SharpBumpStimulus{T}}
+struct CalculatedSharpBumpStimulus{T} <: CalculatedParam{SharpBumpStimulus{T}}
     stimulus::SharpBumpStimulus{T}
     space::Segment{T}
     onset::T
     offset::T
     on_frame::Array{T,1}
     off_frame::Array{T,1}
-end
-
-function update!(csbs::CalculatedSharpBumpStimulus, sbs::SharpBumpStimulus)
-    if csbs.stimulus == sbs
-        return false
-    else
-        new_csbs = Calculated(csbs.sbs, csbs.space)
-        csbs.stimulus = sbs # I don't remember why I updated in place,
-        csbs.space = space  # so I'm not "fixing" it
-        csbs.onset = new_csbs.onset
-        csbs.offset = new_csbs.offset
-        csbs.on_frame = new_csbs.on_frame
-        csbs.off_frame = new_csbs.off_frame
-        return true
-    end
 end
 
 function make_sharp_bump_frame(mesh_coords::AbstractArray{DistT}, width::DistT, strength::T) where {DistT,T}

@@ -17,7 +17,7 @@ function calculate(segment::Segment{T}) where T
     return LinRange{T}(-(segment.extent/2), (segment.extent/2), segment.n_points)
 end
 
-mutable struct CalculatedSegment{DistT<:Number} <: CalculatedParam{Segment{DistT}}
+struct CalculatedSegment{DistT<:Number} <: CalculatedParam{Segment{DistT}}
     segment::Segment{DistT}
     value::LinRange{DistT}
     CalculatedSegment{DistT}(segment::Segment{DistT}) where DistT = new(segment, calculate(segment))
@@ -72,7 +72,7 @@ function distance_matrix(dm::DistanceMatrix{T}) where {T <: Real}
     return distance_mx'
 end
 
-mutable struct CalculatedDistanceMatrix{T} <: CalculatedParam{DistanceMatrix{T}}
+struct CalculatedDistanceMatrix{T} <: CalculatedParam{DistanceMatrix{T}}
     distance_matrix::DistanceMatrix{T}
     value::Matrix{T}
     CalculatedDistanceMatrix{T}(dm::DistanceMatrix{T}) where T = new(dm, distance_matrix(dm))

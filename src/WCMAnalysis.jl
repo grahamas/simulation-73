@@ -116,13 +116,13 @@ end
 #     end
 # end
 
-struct NeumanTravelingWavePlot <: AbstractPlotSpecification
+struct NeumanTravelingWavePlot{T} <: AbstractPlotSpecification
     output_name::String
-    dt::Float64
+    dt::T
     kwargs::Dict
 end
-NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where {T<:Float64} = NeumanTravelingWavePlot(output_name, dt, kwargs)
-@recipe function f(plot_spec::NeumanTravelingWavePlot, results::AbstractResults{T,N,<:WCMSpatial1D}) where {T,N}
+NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where {T<:Float64} = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
+@recipe function f(plot_spec::NeumanTravelingWavePlot{T}, results::AbstractResults{T,N,<:WCMSpatial1D}) where {T,N}
     @info "entered plot"
     sampled_results = resample(results, dt=plot_spec.dt, space_window=(0.0,Inf))
     @info "sampled."

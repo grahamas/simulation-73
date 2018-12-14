@@ -8,7 +8,7 @@ using Logging
 
 abstract type AbstractOutput end
 
-mutable struct SingleOutput <: AbstractOutput
+struct SingleOutput <: AbstractOutput
     root::String
     simulation_name::String
     dir_path::String

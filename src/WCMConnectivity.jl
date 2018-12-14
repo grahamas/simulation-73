@@ -9,6 +9,14 @@ using Parameters
 
 abstract type Connectivity{T} <: Parameter{T} end
 
+function update!(calc_arr::Array{CC,1}, new_arr::Array{C,1}, space::Space{T}) where {T, C <: Connectivity{T}, CC <: CalculatedParam{C}}
+    for i in 1:length(calc_arr)
+        if calc_arr[i].connectivity != new_arr[i]
+            calc_arr[i] = Calculated(new_arr[i], space)
+        end
+    end
+end
+
 @with_kw struct ShollConnectivity{T} <: Connectivity{T}
     amplitude::T
     spread::T
@@ -18,7 +26,7 @@ function ShollConnectivity(p)
     ShollConnectivity(p[:("Connectivity.amplitude")], p[:("Connectivity.spread")])
 end
 
-mutable struct CalculatedShollConnectivity{T} <: CalculatedParam{ShollConnectivity{T}}
+struct CalculatedShollConnectivity{T} <: CalculatedParam{ShollConnectivity{T}}
     connectivity::ShollConnectivity{T}
     calc_dist_mx::CalculatedDistanceMatrix{T}
     value::Matrix{T}
@@ -36,26 +44,6 @@ end
 
 function Calculated(connectivity::ShollConnectivity, segment::Segment)
     CalculatedShollConnectivity(connectivity, segment)
-end
-
-function update!(csc::CalculatedShollConnectivity, connectivity::ShollConnectivity)
-    if csc.connectivity == connectivity
-        return false
-    else
-        csc.connectivity = connectivity
-        csc.value = sholl_matrix(connectivity, csc.calc_dist_mx)
-        return true
-    end
-end
-
-function update!(csc::CalculatedShollConnectivity, connectivity::ShollConnectivity, space::Segment)
-    if update!(csc.calc_dist_mx, space)
-        csc.connectivity = connectivity
-        csc.value = sholl_matrix(csc.connectivity, csc.calc_dist_mx)
-        return true
-    else
-        return update!(csc, connectivity)
-    end
 end
 
 
