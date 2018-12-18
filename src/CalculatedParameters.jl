@@ -26,7 +26,6 @@ function pops(t::Type{T}; kwargs...)::Array{T} where T
     syms = keys(kwargs)
     args = zip(values(kwargs)...)
     new_kwargs = (zip(syms, arg) for arg in args)
-    @info "type: $t, syms: $syms"
     return map((single_kwargs) -> t(;single_kwargs...), new_kwargs)
 end
 

@@ -12,9 +12,8 @@ if !(@isdefined UV)
   const v = NUM
 end
 T= 3.0
-M = WCMSpatial1D
-simulation = Simulation{v,M{v}}(
-        model = M(;
+simulation = Simulation(
+        model = WCMSpatial1D(;
             pop_names = ["E", "I"],
             α = [1.1, 1.0],
             β = [1.1, 1.1],
@@ -26,21 +25,16 @@ simulation = Simulation{v,M{v}}(
                             pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
                                                    window=[(0.5,0.65), (0.5,0.65)],
                                                    width=[2.81, 2.81]),
-                            pops(GaussianNoiseStimulus{v}; SNR=[80.0, 80.0])]),
+                            pops(GaussianNoiseStimulus{v,1}; SNR=[80.0, 80.0])]),
             connectivity = pops(ShollConnectivity{v};
                 amplitude = [16.0 -18.2;
                              27.0 -4.0],
                 spread = v[2.5 2.7;
                            2.7 2.5])
             ),
-        solver = Solver(;
-            T = T,
-            #solution_method=Euler(),
-            kwargs = Dict(
-                #:dt => 0.02#,
-                :dense => true,
-                #:alg_hints => [:stiff]
-                )
+        solver = AutoSolver(;
+            T = T
+            #:dt => 0.02,
             ),
         analyses = Analyses{v}(;
           subsampler = SubSampler(;

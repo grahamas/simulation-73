@@ -5,44 +5,46 @@ using Analysis
 using Records
 using Parameters
 using JLD2
-import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler
+import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
 
 
-@with_kw struct Solver{S,ODEA<:Union{OrdinaryDiffEqAlgorithm,Nothing}}
+abstract type AbstractSolver{T} end
+
+
+@with_kw struct AutoSolver{S} <: AbstractSolver{S}
     T::S
-    kwargs::Dict
-    solution_method::ODEA=nothing
 end
-time_span(solver::Solver{T}) where T = (zero(T), solver.T)
+@with_kw struct EulerSolver{S} <: AbstractSolver{S}
+    T::S
+    dt::S
+end
 
-@with_kw struct Simulation{T,M<:Model{T}}
+time_span(solver::AbstractSolver{S}) where S = (zero(S), solver.T)
+
+struct Simulation{T,M<:Model{T},S<:AbstractSolver{T}}
     model::M
-    solver::Solver{T}
+    solver::S
     analyses::Analyses{T}
     output::AbstractOutput
+end
+
+function Simulation(; model::M, solver::S, analyses::Analyses{T}, output::AbstractOutput) where {T, M<:Model{T}, S<:AbstractSolver{T}}
+    Simulation{T,M,S}(model,solver,analyses,output)
 end
 
 Modeling.initial_value(sim::Simulation) = initial_value(sim.model)
 time_span(sim::Simulation) = time_span(sim.solver)
 solver_params(sim::Simulation) = sim.solver.params
 
-function solver_args(solver::Solver{S,Nothing}) where S
-    return ((), solver.kwargs)
-end
-
-function solver_args(solver::Solver{S,Euler}) where S
-    return ((solver.solution_method,), solver.kwargs)
-end
-
 function write_params(sim::Simulation)
 	write_object(sim.output, "parameters.jld2", "sim", sim)
 end
 
-function solve(simulation::Simulation)
-    problem = generate_problem(simulation)
-    args, kwargs = solver_args(simulation.solver)
-    soln = solve(problem, args...; kwargs...)
-    return soln
+function solve(problem::ODEProblem, solver::EulerSolver)
+    solve(problem, Euler(), dt=solver.dt)
+end
+function solve(problem::ODEProblem, solver::AutoSolver)
+    solve(problem)
 end
 
 function simulate(jl_filename::AbstractString)
@@ -53,7 +55,8 @@ function simulate(jl_filename::AbstractString)
 end
 
 function simulate(simulation::Simulation)
-	solution = solve(simulation)
+    problem = generate_problem(simulation)
+	solution = solve(problem, simulation.solver)
 	analyse(simulation, solution)
 end
 
@@ -65,12 +68,12 @@ end
 
 function results_only(jl_filename::AbstractString)
     include(jl_filename)
-    #load "parameters.jld2" simulation
-    solution = solve(simulation)
+    problem = generate_problem(simulation)
+    solution = solve(problem, simulation.solver)
     return (simulation, Results(simulation.model, solution, simulation.analyses.subsampler))
 end
 
 export simulate, Simulation, write_params, Solver,
-    time_span, solve
+    time_span, solve, AbstractSolver
 
 end

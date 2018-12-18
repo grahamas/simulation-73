@@ -5,7 +5,7 @@ using Analysis
 using Records
 import DifferentialEquations: DESolution
 using Meshes
-using Colors
+#using Colors
 using RecipesBase
 using Plots
 using Parameters

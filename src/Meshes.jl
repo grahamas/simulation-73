@@ -5,10 +5,10 @@ using Parameters
 using CalculatedParameters
 import CalculatedParameters: Calculated, update!
 
-abstract type Space{T} <: Parameter{T} end
+abstract type Space{T,N} <: Parameter{T} end
 
 # * Segment
-@with_kw struct Segment{DistT} <: Space{DistT}
+@with_kw struct Segment{DistT} <: Space{DistT,1}
     extent::DistT
     n_points::Int
 end
@@ -38,13 +38,15 @@ function update!(cs::CalculatedSegment, segment::Segment)
 end
 
 
-import Base: step, zeros, length, size
+import Base: step, zeros, length, size, ndims
 step(cs::CalculatedSegment) = step(cs.value)
 length(cs::CalculatedSegment) = length(cs.value)
 
 size(s::Segment) = (s.n_points,)
 size(cs::CalculatedSegment) = size(cs.value)
 zeros(seg::Segment{T}) where T = zeros(T,seg.n_points)
+
+ndims(space::Space{T,N}) where {T,N} = N
 
 export step, zeros, length
 

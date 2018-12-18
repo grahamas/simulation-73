@@ -13,7 +13,7 @@ using Plots
 
 # * Analysis types
 # TODO: DANGER AbstractFigure is implemented in Recipes(Base?)
-abstract type AbstractResults{T,N,M<:Model,uType} end
+abstract type AbstractResults{T,N,M<:Model{T,N},uType} end # TODO specify uType in terms of T and N
 abstract type AbstractPlotSpecification end
 function output_name(af::AbstractPlotSpecification)
 	af.output_name
@@ -51,21 +51,20 @@ function sample end
 	plots::Array{AbstractPlotSpecification}
 end
 
-struct Results{T,N,M,uType} <: AbstractResults{T,N,M,uType}
+struct Results{T,N,M,uType,O} <: AbstractResults{T,N,M,uType}
 	model::M
-	solution::ODES where {F,uType2,tType<:Array{T,1},DType,kType,cacheType,rateType,P,A,IType <: Union{InterpolationData{F,uType,tType,kType,cacheType},CompositeInterpolationData{F,uType,tType,kType,cacheType}}, ODES <: Union{ODESolution{T,N,uType,uType2,DType,tType,rateType,P,A,IType},ODECompositeSolution{T,N,uType,uType2,DType,tType,rateType,P,A,IType}}}
+	solution::O# where {F,uType2,tType<:Array{T,1},DType,kType,cacheType,rateType,P,A,IType <: Union{InterpolationData{F,uType,tType,kType,cacheType},CompositeInterpolationData{F,uType,tType,kType,cacheType}}, O <: Union{ODESolution{T,N,uType,uType2,DType,tType,rateType,P,A,IType},ODECompositeSolution{T,N,uType,uType2,DType,tType,rateType,P,A,IType}}}
 end
-# @with_kw struct SubSampledResults{T,N,M} <: AbstractResults{T,N,M}
-# 	model::M
-# 	solution::DESolution
-# 	subsampler::SubSampler
-# end
-struct SubSampledResults{T,N,M,uType} <: AbstractResults{T,N,M,uType}
+
+struct SubSampledResults{T,N,M,uType,ODES} <: AbstractResults{T,N,M,uType}
 	model::M
-	solution::ODES where {F,uType2,tType<:Array{T,1},DType,kType,cacheType,rateType,P,A,IType <: Union{InterpolationData{F,uType,tType,kType,cacheType},CompositeInterpolationData{F,uType,tType,kType,cacheType}}, ODES <: Union{ODESolution{T,N,uType,uType2,DType,tType,rateType,P,A,IType},ODECompositeSolution{T,N,uType,uType2,DType,tType,rateType,P,A,IType}}}
+	solution::ODES
 	subsampler::SubSampler{T}
 end
 
+function SubSampledResults(model::M, solution::O, subsampler::SubSampler{T}) where {T,N,NSol,M<:Model{T,N},uType,F,uType2,tType<:Array{T,1},DType,kType,cacheType,rateType,P,A,IType <: Union{InterpolationData{F,uType,tType,kType,cacheType},CompositeInterpolationData{F,uType,tType,kType,cacheType}}, O <: Union{ODESolution{T,NSol,uType,uType2,DType,tType,rateType,P,A,IType},ODECompositeSolution{T,NSol,uType,uType2,DType,tType,rateType,P,A,IType}}}
+	SubSampledResults{T,N,M,uType,O}(model, solution, subsampler)
+end
 function Results(model::M, solution::AbstractODESolution{T,N}, subsampler::SubSampler) where {T,N,M <: Model{T}}
 	@info "General results constructor"
 	SubSampledResults(model, solution, subsampler)
@@ -76,7 +75,7 @@ function resample(r::AbstractResults{T,N,M,uType}, s::SubSampler{T}) where {T,N,
 	Results(r.model, r.solution, s)
 end
 function resample(r::SubSampledResults{T,N,M,uType}; dt=nothing, space_strides=nothing,
-		time_window=nothing, space_window=nothing) where {T,N,M<:Model{T},uType}
+		time_window=nothing, space_window=nothing) where {T,N,M<:Model{T,N},uType}
 	@info "Resampling kw"
 	if time_window == nothing
 		time_window = r.subsampler.time_window
@@ -103,7 +102,7 @@ function get_space_dx(results::SubSampledResults{T,N,M,uType}) where {T,N,M,uTyp
 	subinds(results.subsampler.space_strides, (windowed_indices,))[1] # ASSUMES D = 1!!!
 end
 
-function sample_space(frame::AbstractArray{T}, results::SubSampledResults{T,N,M,uType})::frameType where {T,N,M,frameType,uType<:Array{frameType,1}}
+function sample_space(frame::AbstractArray{T}, results::SubSampledResults{T,N,M,uType,ODES})::frameType where {T,N,M,frameType,uType<:Array{frameType,1},ODES}
 	getindex(frame, get_space_dx(results), Colon()) # Assumes 1 trailing pop D
 end
 function sample_space(frame, results::Results)
@@ -128,12 +127,12 @@ function get_pop(results::AbstractResults, pop_num::Int)
 end
 
 Base.iterate(r::Results{T,N,M,uType}, state...) where {T,N,M,uType} = iterate(tuples(r.solution), state...)
-function Base.iterate(r::SR) where {T, N, M <: Model{T}, uType, SR <: SubSampledResults{T,N,M,uType}}
+function Base.iterate(r::SR) where {T, N, M <: Model{T,N}, uType, SR <: SubSampledResults{T,N,M,uType}}
 	start = r.subsampler.time_window[1]
 	sampled = sample_space(r.solution(start), r)
 	((sampled, start), start)
 end
-function Base.iterate(r::SR, prev_t) where {T, N, M <: Model{T}, uType, SR <: SubSampledResults{T,N,M,uType}}
+function Base.iterate(r::SR, prev_t) where {T, N, M <: Model{T,N}, uType, SR <: SubSampledResults{T,N,M,uType}}
 	new_t = prev_t + r.subsampler.dt
 	if new_t > r.solution.t[end] || new_t > r.subsampler.time_window[end]
 		return nothing

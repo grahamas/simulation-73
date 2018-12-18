@@ -6,7 +6,7 @@ using Meshes
 using CalculatedParameters
 import CalculatedParameters: Calculated, update!
 
-abstract type Stimulus{T} <: Parameter{T} end
+abstract type Stimulus{T,uType} <: Parameter{T} end
 
 function update!(calc_stims::Array{CS,1}, new_stims::Array{S,1}, space::Space{T}) where {T,S <: Stimulus{T}, CS<:CalculatedParam{S}}
     for i in 1:length(calc_stims)
@@ -18,35 +18,35 @@ end
 
 #---------- CompoundStimulus ------------#
 
-@with_kw struct AddedStimuli{T} <: Stimulus{T}
+@with_kw struct AddedStimuli{T,N} <: Stimulus{T,N}
     stimuli::Array{Any} # Sadly can't specify all must be subtype of Stimulus
 end
 
-stim_param(stim::Stimulus{T}) where T = T
+stim_param(stim::Stimulus{T,N}) where {T,N} = (T,N)
 
 function AddedStimuli(stims...)
-    T = stim_param(stims[1])
-    AddedStimuli{T}([stims...])
+    T,N = stim_param(stims[1])
+    AddedStimuli{T,N}([stims...])
 end
 
 function add(arr::Array)
     pop_stims = zip(arr...)
-    T = stim_param(collect(pop_stims)[1][1])
-    return AddedStimuli{T}[AddedStimuli(stims...) for stims in pop_stims]
+    T,N = stim_param(collect(pop_stims)[1][1])
+    return AddedStimuli{T,N}[AddedStimuli(stims...) for stims in pop_stims]
 end
 
-mutable struct CalculatedAddedStimuli{T} <: CalculatedParam{AddedStimuli{T}}
-    stimulus::AddedStimuli{T}
-    space::Segment{T}
+mutable struct CalculatedAddedStimuli{T,N} <: CalculatedParam{AddedStimuli{T,N}}
+    stimulus::AddedStimuli{T,N}
+    space::Space{T,N}
     calculated_stimuli::Array{Any}
 end
 
-function Calculated(as::AddedStimuli{T}, space::Segment{T}) where T
+function Calculated(as::AddedStimuli{T,N}, space::Space{T,N}) where {T,N}
     calculated_stimuli = [Calculated(stim, space) for stim in as.stimuli]
-    CalculatedAddedStimuli{T}(as, space, calculated_stimuli)
+    CalculatedAddedStimuli{T,N}(as, space, calculated_stimuli)
 end
 
-function stimulus(added_stims::CalculatedAddedStimuli{T}, t::T) where T
+function stimulus(added_stims::CalculatedAddedStimuli{T,N}, t::T)::Array{T,N} where {T,N}
     sum(map((s) -> stimulus(s,t), added_stims.calculated_stimuli))
 end
 
@@ -58,29 +58,29 @@ function gaussian_noise(space, mean, sd) # assumes signal power is 0db
     return mean .+ sd .* randn(size(space))
 end
 
-struct GaussianNoiseStimulus{T} <: Stimulus{T}
+struct GaussianNoiseStimulus{T,N} <: Stimulus{T,N}
     mean::T
     SNR::T
 end
 
-function GaussianNoiseStimulus{T}(; SNR::T=0.0, mean::T=0.0) where T
-    GaussianNoiseStimulus{T}(mean, SNR)
+function GaussianNoiseStimulus{T,N}(; SNR::T=0.0, mean::T=0.0) where {T,N}
+    GaussianNoiseStimulus{T,N}(mean, SNR)
 end
 
-struct CalculatedGaussianNoiseStimulus{T} <: CalculatedParam{GaussianNoiseStimulus{T}}
+struct CalculatedGaussianNoiseStimulus{T,N} <: CalculatedParam{GaussianNoiseStimulus{T,N}}
     stimulus::GaussianNoiseStimulus{T}
-    space::Segment{T}
+    space::Space{T,N}
     mean::T
     sd::T
 end
 
 
-function Calculated(wns::GaussianNoiseStimulus{T}, space::Segment{T}) where T
+function Calculated(wns::GaussianNoiseStimulus{T,N}, space::Space{T,N}) where {T,N}
     sd = sqrt(1/10 ^ (wns.SNR / 10))
-    CalculatedGaussianNoiseStimulus{T}(wns, space, wns.mean, sd)
+    CalculatedGaussianNoiseStimulus{T,N}(wns, space, wns.mean, sd)
 end
 
-function stimulus(wns::CalculatedGaussianNoiseStimulus{T}, t::T) where T
+function stimulus(wns::CalculatedGaussianNoiseStimulus{T,N}, t::T)::Array{T,N} where {T,N}
     gaussian_noise(wns.space, wns.mean, wns.sd) # Not actually time dependent
 end
 
@@ -88,14 +88,14 @@ export GaussianNoiseStimulus, CalculatedGaussianNoiseStimulus
 
 # ----------- SharpBumpStimulus ------------ #
 
-struct SharpBumpStimulus{T} <: Stimulus{T}
+struct SharpBumpStimulus{T} <: Stimulus{T,1}
     width::T
     strength::T
     window::Tuple{T,T}
 end
 
 function SharpBumpStimulus{T}(; strength=nothing, width=nothing,
-        duration=nothing, window=nothing) where T
+        duration=nothing, window=nothing) where {T}
     if window == nothing
         return SharpBumpStimulus{T}(width, strength, (zero(T), duration))
     else
@@ -138,7 +138,7 @@ function make_sharp_bump_frame(mesh_coords::AbstractArray{DistT}, width::DistT, 
     return frame
 end
 
-function stimulus(sharp_bump::CalculatedSharpBumpStimulus, t::T) where T
+function stimulus(sharp_bump::CalculatedSharpBumpStimulus, t::T)::Array{T,1} where T
     if sharp_bump.onset <= t < sharp_bump.offset
         return sharp_bump.on_frame
     else
