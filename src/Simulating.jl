@@ -74,6 +74,6 @@ function results_only(jl_filename::AbstractString)
 end
 
 export simulate, Simulation, write_params, Solver,
-    time_span, solve, AbstractSolver
+    time_span, solve, AbstractSolver, AutoSolver
 
 end

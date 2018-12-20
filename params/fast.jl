@@ -12,8 +12,10 @@ if !(@isdefined UV)
   const v = NUM
 end
 T= 3.0
+N= 1
+P= 2
 simulation = Simulation(
-        model = WCMSpatial1D(;
+        model = WCMSpatial1D{v,N,P}(;
             pop_names = ["E", "I"],
             α = [1.1, 1.0],
             β = [1.1, 1.1],
@@ -21,11 +23,10 @@ simulation = Simulation(
             space = Segment{v}(; n_points=201, extent=100),
             nonlinearity = pops(SigmoidNonlinearity{v}; a=[1.2, 1.0],
                                                         θ=[2.6, 8.0]),
-            stimulus = add([
-                            pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
+            stimulus = pops(NoisySharpBumpStimulus{v}; strength=[1.2, 1.2],
                                                    window=[(0.5,0.65), (0.5,0.65)],
-                                                   width=[2.81, 2.81]),
-                            pops(GaussianNoiseStimulus{v,1}; SNR=[80.0, 80.0])]),
+                                                   width=[2.81, 2.81],
+                                                   SNR=[80.0, 80.0]),
             connectivity = pops(ShollConnectivity{v};
                 amplitude = [16.0 -18.2;
                              27.0 -4.0],

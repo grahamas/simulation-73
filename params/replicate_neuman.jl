@@ -10,10 +10,11 @@ if !(@isdefined UV)
   const varying{T} = Union{T,BV{T}}
   const v = Float64
 end
-T= 4
-M = WCMSpatial1D
-simulation = Simulation{M}(
-        model = M(;
+T= 4.0
+N=1
+P=2
+simulation = Simulation(
+        model = WCMSpatial1D{v,N,P}(;
             pop_names = ["E", "I"],
             α = [1.1, 1.0],
             β = [1.1, 1.1],
@@ -21,38 +22,35 @@ simulation = Simulation{M}(
             space = Segment{v}(; n_points=101, extent=100),
             nonlinearity = pops(SigmoidNonlinearity{v}; a=[1.2, 1.0],
                                                         θ=[2.6, 8.0]),
-            stimulus = add([
-                            pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
-                                                   duration=[0.55, 0.55],
-                                                   width=[2.81, 2.81]),
-                            pops(GaussianNoiseStimulus{v}; SNR=[80.0, 80.0])]),
+            stimulus = pops(NoisySharpBumpStimulus{v}; strength=[1.2, 1.2],
+                                                   window=[(0.0,0.55), (0.0,0.55)],
+                                                   width=[2.81, 2.81],
+                                                   SNR=[80.0, 80.0]),
             connectivity = pops(ShollConnectivity{v};
                 amplitude = [16.0 -18.2;
                              27.0 -4.0],
                 spread = v[2.5 2.7;
                            2.7 2.5])
             ),
-        solver = Solver(;
+        solver = EulerSolver(;
             T = T,
-            solution_method=Euler(),
-            params = Dict(
-                :dt => 0.1,
-                #:dense => true
-                #:alg_hints => [:stiff]
-                )
+            dt = 0.01
             ),
-        analyses = Analyses{T}(;
-          # subsampler = SubSampler(;
-          #      space_strides = [4],
-          #      dt = 0.05
-          #      ),
+        analyses = Analyses{v}(;
+          subsampler = SubSampler(;
+               space_strides = [4],
+               dt = 0.05
+               ),
           plots = [
+              NeumanTravelingWavePlot(;
+                dt = 0.1
+              ),
               Animate(;
                 fps = 20
-                ),
-              NonlinearityPlot(;
-                fn_bounds = (-1,15)),
-              SpaceTimePlot()
+                )
+              # NonlinearityPlot(;
+              #   fn_bounds = (-1,15)),
+              # SpaceTimePlot()
               ]
             ),
         output = SingleOutput(;
