@@ -18,7 +18,7 @@ using StaticArrays
 
 # Rename to remove N redundancy
 struct WCMSpatial1D{T,N,P,C<:Connectivity{T},
-                            L<:Nonlinearity{T},S<:Stimulus{T},SP<:Space{T}} <: Model{T,N,P}
+                            L<:Nonlinearity{T},S<:Stimulus{T},SP<:PopSpace{T,N,P}} <: Model{T,N,P}
     α::SVector{P,T}
     β::SVector{P,T}
     τ::SVector{P,T}
@@ -151,7 +151,7 @@ function make_calculated_function(cwc::CalculatedWCMSpatial1D{T,1,P,C,L,S,CC,CL,
     end
 end
 
-function generate_problem(simulation::Simulation{T,M,SV}) where {T,M<:WCMSpatial1D{T},SV<:AbstractSolver{T}}
+function generate_problem(simulation::Simulation{T,M,SV}) where {T,M<:WCMSpatial1D{T},SV<:Solver{T}}
     tspan = time_span(simulation)
     model = simulation.model
     u0 = initial_value(model)

@@ -35,17 +35,9 @@ struct CalculatedShollConnectivity{T} <: CalculatedParam{ShollConnectivity{T}}
     end
 end
 
-# Uhhhh why is this function not just inside Calculated???
-# ShollConnectivity is specified by the argument; no need for name
-function CalculatedShollConnectivity(connectivity::ShollConnectivity{T}, segment::Segment{T}) where T
-    calc_dist_mx = Calculated(DistanceMatrix(segment))
-    return CalculatedShollConnectivity{T}(connectivity, calc_dist_mx)
+function Calculated(connectivity::ShollConnectivity{T}, segment::PopSegment{T}) where T
+    CalculatedShollConnectivity{T}(connectivity, Calculated(DistanceMatrix(segment)))
 end
-
-function Calculated(connectivity::ShollConnectivity, segment::Segment)
-    CalculatedShollConnectivity(connectivity, segment)
-end
-
 
 # * Sholl connectivity
 

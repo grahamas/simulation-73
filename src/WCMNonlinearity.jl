@@ -31,7 +31,7 @@ function Calculated(sigmoid::SigmoidNonlinearity{T}) where T
 end
 
 function nonlinearity!(output::AT, csn::CalculatedSigmoidNonlinearity{T}) where {T, AT<:AbstractArray{T}}
-    output .= rectified_sigmoid_fn(output,csn.a,csn.θ)
+    output .= rectified_sigmoid_fn.(output,csn.a,csn.θ)
 end
 
 CalculatedParameters.get_value(csn::CalculatedSigmoidNonlinearity{T}) where T = csn

@@ -17,7 +17,7 @@ required_modules(::Type{OptimizationResults}) = [BlackBoxOptim]
 "A model with variable parameters, and a target."
 struct ParameterSearch{M<: Model}
     model::M
-    solver::AbstractSolver
+    solver::Solver
     analyses::Analyses
     output::AbstractOutput
     target::Target
@@ -30,7 +30,7 @@ function required_modules(::Type{ParameterSearch{M}}) where {M <: Model}
     union([Exploration, Records, Analysis, Targets], required_modules(M))
 end
 
-function ParameterSearch(;variable_model::M=nothing, solver::AbstractSolver=nothing,
+function ParameterSearch(;variable_model::M=nothing, solver::Solver=nothing,
                      analyses::Analyses=nothing, output::AbstractOutput=nothing,
                      target::Target=nothing) where {M<:Model}
     initial_p, variable_dxs, p_bounds = init_variables(variable_model)

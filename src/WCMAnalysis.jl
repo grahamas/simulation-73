@@ -5,7 +5,6 @@ using Analysis
 using Records
 import DifferentialEquations: DESolution
 using Meshes
-#using Colors
 using RecipesBase
 using Plots
 using Parameters
@@ -28,6 +27,21 @@ function Analysis.plot_and_save(plot_spec::Animate, results::AbstractResults, ou
 end
 
 export Animate
+
+function RecipesBase.animate(results::AbstractResults{T,N,<:WCMSpatial1D,uType}; kwargs...) where {T,N,uType}
+    pop_names = results.model.pop_names
+    max_val = unsampled_maximum(results)
+    x = get_space(results)
+    @animate for (frame, t) in results # TODO @views
+        plot(x, frame[:, 1]; label=pop_names[1],
+            ylim=(0,max_val), title="t = $(round(t, digits=4))", kwargs...)
+        for i_pop in 2:size(frame,2)
+            plot!(x, frame[:, i_pop]; label=pop_names[i_pop], kwargs...)
+        end
+
+    end
+end
+
 
 # struct SpaceTimePlot <: AbstractPlotSpecification
 #     output_name::String
@@ -82,20 +96,6 @@ NonlinearityPlot(; output_name = "nonlinearity.png", kwargs...) = NonlinearityPl
 end
 
 export NonlinearityPlot
-
-function RecipesBase.animate(results::AbstractResults{T,N,<:WCMSpatial1D,uType}; kwargs...) where {T,N,uType}
-    pop_names = results.model.pop_names
-    max_val = unsampled_maximum(results)
-    x = get_space(results)
-    @animate for (frame, t) in results
-        plot(x, frame[:, 1]; label=pop_names[1],
-            ylim=(0,max_val), title="t = $(round(t, digits=4))", kwargs...)
-        for i_pop in 2:size(frame,2)
-            plot!(x, frame[:, i_pop]; label=pop_names[i_pop], kwargs...)
-        end
-
-    end
-end
 
 # struct TravelingWavePlot{T} <: AbstractPlotSpecification
 #     output_name::String

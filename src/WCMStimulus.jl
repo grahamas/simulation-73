@@ -75,9 +75,9 @@ function SharpBumpStimulus(p)
     SharpBumpStimulus(p[:(Stimulus.width)], p[:(Stimulus.strength)], p[:(Stimulus.window)])
 end
 
-function Calculated(sbs::SharpBumpStimulus{T}, space::Segment{T}) where T
+function Calculated(sbs::SharpBumpStimulus{T}, space::PopSegment{T}) where T
     calculated_space = Calculated(space)
-    on_frame = make_sharp_bump_frame(calculated_space.value, sbs.width, sbs.strength)
+    on_frame = make_sharp_bump_frame(calculated_space.value[:,1], sbs.width, sbs.strength)
     off_frame = zero(on_frame)
     onset = sbs.window[1]
     offset = sbs.window[2]
@@ -86,22 +86,21 @@ end
 
 struct CalculatedSharpBumpStimulus{T} <: CalculatedParam{SharpBumpStimulus{T}}
     stimulus::SharpBumpStimulus{T}
-    space::Segment{T}
+    space::PopSegment{T}
     onset::T
     offset::T
     on_frame::Array{T,1}
     off_frame::Array{T,1}
 end
 
-function make_sharp_bump_frame(mesh_coords::AbstractArray{DistT}, width::DistT, strength::T) where {DistT,T}
+function make_sharp_bump_frame(mesh_coords::AbstractArray{DistT,1}, width::DistT, strength::T) where {DistT,T}
     mid_dx = floor(Int, size(mesh_coords, 1) / 2)
     mid_point = mesh_coords[mid_dx,1]
     frame = zero(mesh_coords)
     half_width = width / 2      # using truncated division
-    xs = mesh_coords[:,1]   # Assumes all pops have same mesh_coords
-    start_dx = findfirst(xs .>= mid_point - half_width)
-    stop_dx = findlast(xs .<= mid_point + half_width)
-    frame[start_dx:stop_dx,:] .= strength
+    start_dx = findfirst(mesh_coords .>= mid_point - half_width)
+    stop_dx = findlast(mesh_coords .<= mid_point + half_width)
+    frame[start_dx:stop_dx] .= strength
     return frame
 end
 
@@ -138,7 +137,7 @@ struct CalculatedNoisySharpBumpStimulus{T} <: CalculatedParam{NoisySharpBumpStim
     calc_noise::CalculatedGaussianNoiseStimulus{T,1}
     calc_bump::CalculatedSharpBumpStimulus{T}
 end
-Calculated(nsbs::NoisySharpBumpStimulus{T}, space::Segment{T}) where T = CalculatedNoisySharpBumpStimulus{T}(nsbs, Calculated(nsbs.noise, space), Calculated(nsbs.bump, space))
+Calculated(nsbs::NoisySharpBumpStimulus{T}, space::PopSegment{T}) where T = CalculatedNoisySharpBumpStimulus{T}(nsbs, Calculated(nsbs.noise, space), Calculated(nsbs.bump, space))
 
 function stimulate!(val::AT, stim_obj::CalculatedNoisySharpBumpStimulus{T},t::T) where {T, AT<: AbstractArray{T,1}}
     stimulate!(val, stim_obj.calc_noise,t)
