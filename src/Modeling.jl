@@ -4,7 +4,7 @@ using CalculatedParameters
 
 abstract type Model{T,N,P} <: Parameter{T} end
 
-function get_space(model::Model)::AbstractArray
+function get_space_arr(model::Model)::AbstractArray
     Calculated(model.space).value
 end
 

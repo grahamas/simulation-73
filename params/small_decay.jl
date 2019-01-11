@@ -42,7 +42,7 @@ p_search = ParameterSearch(
                space_strides = [4],
                dt = 0.05
                ),
-           plots = [
+           plot_specs = [
               # Animate(;
               #   fps = 20
               #   ),

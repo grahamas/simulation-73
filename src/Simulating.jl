@@ -32,11 +32,14 @@ function save_idxs(solver::Solver{T}, space::SP)::Union{Nothing,Array{Int,1}} wh
     return indices(space)[1:solver.space_save_every:end,:]
 end
 
+"""A Simulation object runs its own simulation upon initialization."""
 struct Simulation{T,M<:Model{T},S<:Solver{T}}
     model::M
     solver::S
     analyses::Analyses{T}
     output::AbstractOutput
+    solution::DESolution
+    Simulation{T,M,S}(m,s,a,o) = (sim = new(m,s,a,o); sim.solution = solve(sim))
 end
 
 function Simulation(; model::M, solver::S, analyses::Analyses{T}, output::AbstractOutput) where {T, M<:Model{T}, S<:Solver{T}}
@@ -46,39 +49,41 @@ end
 Modeling.initial_value(sim::Simulation) = initial_value(sim.model)
 time_span(s::Solver{T}) where T = s.tspan
 time_span(sim::Simulation) = time_span(sim.solver)
-solver_params(sim::Simulation) = sim.solver.params
+get_space_arr(sim::Simulation) = get_space_arr(model)
+get_time_arr(sim::Simulation) = sim.solution.t
 
 function write_params(sim::Simulation)
 	write_object(sim.output, "parameters.jld2", "sim", sim)
 end
 
-function solve(problem::ODEProblem, solver::Solver{T,Euler}, space::PopSpace{T}) where T
+"""
+    _solve wraps the DifferentialEquations function, solve.
+    Note that the method accepting a Simulation object should take a
+    partially initialized Simulation.
+"""
+function _solve(simulation::Simulation)
+    problem = generate_problem(simulation)
+    _solve(problem, simulation.solver, simulation.model.space)
+end
+function _solve(problem::ODEProblem, solver::Solver{T,Euler}, space::PopSpace{T}) where T
     # TODO: Calculate save_idxs ACCOUNTING FOR pops
     solve(problem, Euler(), dt=solver.simulated_dt,
             timeseries_steps=solver.time_save_every,
             save_idxs=save_idxs(solver, space))
 end
-function solve(problem::ODEProblem, solver::Solver{T,Nothing,Nothing}, space::PopSpace{T}) where T
+function _solve(problem::ODEProblem, solver::Solver{T,Nothing,Nothing}, space::PopSpace{T}) where T
     solve(problem, saveat=save_dt(solver), timeseries_steps=solver.time_save_every,
         save_idxs=save_idxs(solver, space), alg_hints=[solver.stiffness])
 end
 
-function simulate(jl_filename::AbstractString)
+""" run_simulation loads a simulation object defined in a jl script, and saves the parameters. """
+function run_simulation(jl_filename::AbstractString)
 	include(jl_filename)
     filecopy(simulation.output, jl_filename, basename(jl_filename))
-	problem = generate_problem(simulation)
-    solution = solve(problem, simulation.solver)
-    analyse(simulation, solution)
+	return simulation
 end
 
-function simulate_without_analysis(jl_filename::AbstractString)
-    include(jl_filename)
-    problem = generate_problem(simulation)
-    solution = solve(problem, simulation.solver)
-    return (simulation, solution)
-end
-
-export simulate, Simulation, write_params, Solver,
-    time_span, solve
+export run_simulation, Simulation, write_params, Solver,
+    time_span
 
 end

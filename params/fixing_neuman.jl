@@ -47,7 +47,7 @@ simulation = Simulation{v,M{v}}(
                space_strides = [2],
                dt = 0.01
                ),
-          plots = [
+          plot_specs = [
               # Animate(;
               #   fps = 20
               # ),

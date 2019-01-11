@@ -41,7 +41,7 @@ simulation = Simulation(
                space_strides = [4],
                dt = 0.05
                ),
-          plots = [
+          plot_specs = [
               NeumanTravelingWavePlot(;
                 dt = 0.1
               ),

@@ -12,31 +12,29 @@ using Memoize
 using WCM
 using CalculatedParameters
 
-unsampled_maximum(r::AbstractResults{T,N,<:WCMSpatial1D}) where {T,N} = maximum(map(maximum, r.solution.u))
-unsampled_minimum(r::AbstractResults{T,N,<:WCMSpatial1D}) where {T,N} = minimum(map(minimum, r.solution.u))
-
 struct Animate <: AbstractPlotSpecification
     fps::Int
     output_name::String
     kwargs::Dict
 end
 Animate(; fps=20, output_name="animation.mp4", kwargs...) = Animate(fps, output_name, kwargs)
-function Analysis.plot_and_save(plot_spec::Animate, results::AbstractResults, output::AbstractOutput)
+function Analysis.plot_and_save(plot_spec::Animate, simulation::Simulation)
     save_fn(name, anim) = mp4(anim, name; fps=plot_spec.fps)
-    output(save_fn, output_name(plot_spec), animate(results; plot_spec.kwargs...))
+    simulation.output(save_fn, output_name(plot_spec), animate(simulation; plot_spec.kwargs...))
 end
 
 export Animate
 
-function RecipesBase.animate(results::AbstractResults{T,N,<:WCMSpatial1D,uType}; kwargs...) where {T,N,uType}
-    pop_names = results.model.pop_names
-    max_val = unsampled_maximum(results)
-    x = get_space(results)
-    @animate for (frame, t) in results # TODO @views
-        plot(x, frame[:, 1]; label=pop_names[1],
-            ylim=(0,max_val), title="t = $(round(t, digits=4))", kwargs...)
-        for i_pop in 2:size(frame,2)
-            plot!(x, frame[:, i_pop]; label=pop_names[i_pop], kwargs...)
+function RecipesBase.animate(simulation::Simulation{T,M}; kwargs...) where {T,M<:WCMSpatial1D}
+    solution = simulation.solution
+    pop_names = simulation.model.pop_names
+    x = get_space_arr(simulation)
+    t = get_time_arr(simulation)
+    @animate for time_dx in 1:length(t) # TODO @views
+        plot(x, solution[:, 1, time_dx]; label=pop_names[1],
+            ylim=(0,max_val), title="t = $(round(t[time_dx], digits=4))", kwargs...)
+        for i_pop in 2:length(pop_names)
+            plot!(x, solution[:, i_pop, time_dx]; label=pop_names[i_pop], kwargs...)
         end
 
     end
@@ -73,10 +71,11 @@ struct NonlinearityPlot <: AbstractPlotSpecification
     kwargs::Dict
 end
 NonlinearityPlot(; output_name = "nonlinearity.png", kwargs...) = NonlinearityPlot(output_name, kwargs)
-@recipe function f(plot_spec::NonlinearityPlot, results::AbstractResults{T,N,<:WCMSpatial1D,uType}; resolution=100, fn_bounds=(-1.0,15.0)) where {T,N,uType}
-    pop_names = results.model.pop_names
-    nonlinearity_fns = get_value.(Calculated(results.model).nonlinearity)
+@recipe function f(plot_spec::NonlinearityPlot, simulation::Simulation{T,M}; resolution=100, fn_bounds=(-1.0,15.0)) where {T,M<:WCMSpatial1D}
+    pop_names = simulation.model.pop_names
     n_pops = length(pop_names)
+
+    nonlinearity_fns = get_value.(Calculated(simulation.model).nonlinearity)
 
     one_pop_x = range(fn_bounds[1], stop=fn_bounds[2], length=resolution)
     #delete!.(Ref(plotattributes),[:resolution,:fn_bounds])
@@ -122,18 +121,18 @@ struct NeumanTravelingWavePlot{T} <: AbstractPlotSpecification
     kwargs::Dict
 end
 NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where {T<:Float64} = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
-@recipe function f(plot_spec::NeumanTravelingWavePlot{T}, results::AbstractResults{T,N,<:WCMSpatial1D}) where {T,N}
+@recipe function f(plot_spec::NeumanTravelingWavePlot{T}, simulation::Simulation{T,M}) where {T,M<:WCMSpatial1D}
     @info "entered plot"
-    sampled_results = resample(results, dt=plot_spec.dt, space_window=(0.0,Inf))
-    @info "sampled."
-    space = get_space(sampled_results)
+    t = get_time_arr(simulation)
+    space = get_space_arr(simulation)
+    space_origin = findfirst((x) -> x ≈ 0.0, space)
     @info "looping"
-    for (frame, t) in sampled_results
-        @info "loop $t"
+    for time_dx in 1:length(t)
+        @info "loop $(t[time_dx])"
         @series begin
             seriestype := :line
-            x := space
-            y := frame * [1.0, -1.0] # Subtract inhibitory activity...
+            x := spaceF
+            y := frame[space_origin:end,:,time_dx] * [1.0, -1.0] # Subtract inhibitory activity...
             ()
         end
     end
