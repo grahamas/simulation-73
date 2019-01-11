@@ -28,18 +28,16 @@ p_search = ParameterSearch(
             ),
         solver = Solver(;
             T = T,
+            space_save_every=4,
+            dt=0.05,
             params = Dict(
                 #:dt => 0.001,
-                :dense => true
+                #:dense => true
                 #:alg_hints => [:stiff]
                 )
             ),
         analyses =  Dict(
            :pop_names => ["E", "I"],
-           :sampling => Dict(
-               :spatial_stride => 4,
-               :dt => 0.05
-               ),
            :activity_gif => Dict(
                :file_name => "activity.gif",
                :disable => 0,

@@ -31,17 +31,15 @@ p_search = ParameterSearch(
             ),
         solver = Solver(;
             T = T,
+            space_save_every=4,
+            time_save_every=5,
             params = Dict(
                 #:dt => 0.001,
                 :dense => true
                 #:alg_hints => [:stiff]
                 )
             ),
-        analyses = Analyses{WCMSpatial1D}(;
-           subsampler = SubSampler{WCMSpatial1D}(;
-               space_strides = [4],
-               dt = 0.05
-               ),
+        analyses = Analyses{WCMSpatial1D}(
            plots = [
               # Animate(;
               #   fps = 20

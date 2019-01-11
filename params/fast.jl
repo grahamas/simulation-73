@@ -36,17 +36,15 @@ simulation = Simulation{M}(
             ),
         solver = Solver(;
             T = T,
+            space_save_every=4,
+            time_save_every=5,
             params = Dict(
                 :dt => 0.1,
                 #:dense => true
                 #:alg_hints => [:stiff]
                 )
             ),
-        analyses = Analyses(;
-          subsampler = SubSampler(;
-               space_strides = [4],
-               dt = 0.05
-               ),
+        analyses = Analyses(
           plots = [
               Animate(;
                 fps = 20

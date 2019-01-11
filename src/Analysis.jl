@@ -1,7 +1,8 @@
 module Analysis
 using CalculatedParameters, Parameters
 using Parameters
-using DiffEqBase
+using DiffEqBase: AbstractODESolution, ODESolution, DESolution
+using OrdinaryDiffEq: ODECompositeSolution, InterpolationData, CompositeInterpolationData
 using Modeling
 using Records
 
@@ -11,63 +12,31 @@ using Plots
 
 
 # * Analysis types
-# TODO: DANGER AbstractFigure is implemented in Recipes(Base?)
-abstract type AbstractResults{M<:Model} end
-abstract type AbstractFigure end
-function output_name end
+abstract type AbstractPlotSpecification end
+function output_name(af::AbstractPlotSpecification)
+	af.output_name
+end
 
-function plot_and_save(plot_obj::AF, results::AbstractResults, output::Output) where {AF <: AbstractFigure}
+function plot_and_save(plot_spec::APS, simulation::Simulation, output::AbstractOutput) where {APS <: AbstractPlotSpecification}
+	@info "Entered plot and save"
 	save_fn(fn, plt) = savefig(plt, fn)
-	output(save_fn, "$(output_name(plot_obj)).png", plot(plot_obj, results; plot_obj.kwargs...))
+	@info "Calling output plot"
+	simulation.output(save_fn, output_name(plot_spec), plot(plot_spec, solution; plot_spec.kwargs...))
 end
 
-
-@with_kw struct SubSampler
-	dt::Float64
-	space_strides::Array{Integer}
+@with_kw struct Analyses{T}
+	plots::Array{AbstractPlotSpecification}
 end
 
-function sample end
-
-@with_kw struct Analyses
-	subsampler::Union{SubSampler,Nothing} = nothing
-	plots::Array{AbstractFigure}
+function analyse(simulation::simulation)
+    @info "Begin analysis."
+    for plot_spec in simulation.analyses.plot_specs
+    	plot_and_save(plot_spec, simulation)
+    end
 end
 
-@with_kw struct Results{M} <: AbstractResults{M}
-	model::M
-	solution::DESolution
-end
-@with_kw struct SubSampledResults{M} <: AbstractResults{M}
-	model::M
-	solution::DESolution
-	subsampler::SubSampler
-end
-
-function Results(model::M, solution::DESolution, subsampler::Nothing) where {M <: Model}
-	Results(model, solution)
-end
-function Results(model::M, solution::DESolution, subsampler::SubSampler) where {M <: Model}
-	SubSampledResults(model, solution, subsampler)
-end
-
-function spatiotemporal_data(r::Results)
-	return spatiotemporal_data(r.solution, r.model)
-end
-
-function spatiotemporal_data(r::SubSampledResults)
-	return sample(r.subsampler, r.solution, r.model)
-end
-
-function analyse(a::Analyses, results::AbstractResults{<:M}, output::Output) where {M <: Model}
-    a.plots .|> (plot_type) -> plot_and_save(plot_type, results, output)
-    #return results
-end
-
-export AbstractResults, AbstractFigure, output_name
+export AbstractPlotSpecification, output_name
 export plot_and_save
-export SubSampler, sample, Analyses, Results, SubSampledResults
-export spatiotemporal_data
-export analyse
+export Analyses, analyse
 
 end

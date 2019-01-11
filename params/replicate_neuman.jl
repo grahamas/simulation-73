@@ -34,6 +34,8 @@ simulation = Simulation{M}(
             ),
         solver = Solver(;
             T = T,
+            space_save_every=4,
+            time_save_every=1,
             solution_method=Euler(),
             params = Dict(
                 :dt => 0.1,
@@ -42,10 +44,6 @@ simulation = Simulation{M}(
                 )
             ),
         analyses = Analyses(;
-          # subsampler = SubSampler(;
-          #      space_strides = [4],
-          #      dt = 0.05
-          #      ),
           plots = [
               Animate(;
                 fps = 20
