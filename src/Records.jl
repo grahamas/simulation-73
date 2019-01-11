@@ -6,31 +6,12 @@ using Memoize
 using Dates
 using Logging
 
-abstract type Output end
+abstract type AbstractOutput end
 
-@with_kw mutable struct SingleOutput <: Output
+@with_kw mutable struct SingleOutput <:AbstractOutput
     root::String
     simulation_name::String
 end
-
-
-# @with_kw struct ExperimentOutput <: Output
-#     root::String
-#     simulation_name::String
-#     mod_name::String
-#     experiment_name::String
-# end
-
-# * File ops
-
-# function make_experiment_output_folder(root, simulation_name, mod_name, experiment_name)
-#     @assert length(mod_name) > 0
-#     #nowstr = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS.s")
-#     #experiment_dir_name = join([experiment_name, nowstr], "_")
-#     dir_name = joinpath(root, experiment_name)
-#     mkpath(dir_name)
-#     return (dir_name, if (length(simulation_name) > 0) join([simulation_name, mod_name], "_") else mod_name end)
-# end
 
 @memoize function directory(output::SingleOutput)
     nowstr = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS.s")
@@ -75,6 +56,6 @@ function required_modules()
     error("undefined.")
 end
 
-export Output, SingleOutput, ExperimentOutput
+export AbstractOutput, SingleOutput, ExperimentOutput
 
 end

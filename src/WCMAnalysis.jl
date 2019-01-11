@@ -5,61 +5,78 @@ using Analysis
 using Records
 import DifferentialEquations: DESolution
 using Meshes
-using Colors
 using RecipesBase
 using Plots
 using Parameters
 using Memoize
 using WCM
 using CalculatedParameters
+using Simulating
 
-struct Animate <: AbstractFigure
+struct Animate <: AbstractPlotSpecification
     fps::Int
+    output_name::String
     kwargs::Dict
 end
-Animate(; fps=20, kwargs...) = Animate(fps, kwargs)
-function Analysis.plot_and_save(plot_type::Animate, results::AbstractResults, output::Output)
-    save_fn(name, anim) = mp4(anim, name; fps=plot_type.fps)
-    output(save_fn, "animation.mp4", animate(results; plot_type.kwargs...))
+Animate(; fps=20, output_name="animation.mp4", kwargs...) = Animate(fps, output_name, kwargs)
+function Analysis.plot_and_save(plot_spec::Animate, simulation::Simulation)
+    save_fn(name, anim) = mp4(anim, name; fps=plot_spec.fps)
+    simulation.output(save_fn, output_name(plot_spec), animate(simulation; plot_spec.kwargs...))
 end
-# TODO: Implement animation (using RecipesBase being the challenge...)
-# NOTE: Probably requires PR to Plots.jl
 
 export Animate
 
-struct SpaceTimePlot <: AbstractFigure
-    kwargs::Dict
-end
-SpaceTimePlot(; kwargs...) = SpaceTimePlot(kwargs)
-@recipe function f(plot_type::SpaceTimePlot, results::AbstractResults)
-    v_time, v_space, timeseries = spatiotemporal_data(results)
-    @assert (size(timeseries, 2) == 2) size(timeseries)   # only defined for 2 pops
-    clims := (minimum(timeseries), maximum(timeseries))
-    grid := false
-    layout := (2,1)
-    for i_pop in 1:size(timeseries,2)
-        @series begin
-            seriestype --> :heatmap
-            subplot := i_pop
-            x := v_time
-            y := v_space
-            timeseries[:,i_pop,:]
+function RecipesBase.animate(simulation::Simulation{M}; kwargs...) where {T,M<:WCMSpatial1D}
+    solution = simulation.solution
+    pop_names = simulation.model.pop_names
+    x = get_space_arr(simulation)
+    t = get_time_arr(simulation)
+    @animate for time_dx in 1:length(t) # TODO @views
+        plot(x, solution[:, 1, time_dx]; label=pop_names[1],
+            ylim=(0,max_val), title="t = $(round(t[time_dx], digits=4))", kwargs...)
+        for i_pop in 2:length(pop_names)
+            plot!(x, solution[:, i_pop, time_dx]; label=pop_names[i_pop], kwargs...)
         end
+
     end
 end
-Analysis.output_name(plt::SpaceTimePlot) = "spacetimeplot"
 
-export SpaceTimePlot
+
+# struct SpaceTimePlot <: AbstractPlotSpecification
+#     output_name::String
+#     kwargs::Dict
+# end
+# SpaceTimePlot(; output_name = "spacetime.png", kwargs...) = SpaceTimePlot(output_name, kwargs)
+# @recipe function f(plot_spec::SpaceTimePlot, results::AbstractResults; kwargs...)
+#     v_space = get_space(results)
+#     v_time = get_time(results)
+#     clims := (unsampled_minimum(results), unsampled_maximum(results))
+#     grid := false
+#     layout := (2,1)
+#     for i_pop in 1:size(timeseries,2)
+#         @series begin
+#             seriestype --> :heatmap
+#             subplot := i_pop
+#             x := v_time
+#             y := v_space
+#             get_pop(results, i_pop)
+#         end
+#     end
+# end
+
+# export SpaceTimePlot
 
 # ** Plot nonlinearity
-struct NonlinearityPlot <: AbstractFigure
+struct NonlinearityPlot <: AbstractPlotSpecification
+    output_name::String
     kwargs::Dict
 end
-NonlinearityPlot(; kwargs...) = NonlinearityPlot(kwargs)
-@recipe function f(plot_type::NonlinearityPlot, results::AbstractResults; resolution=100, fn_bounds=(-1,15))
-    pop_names = results.model.pop_names
-    nonlinearity_fns = get_value.(Calculated(results.model).nonlinearity)
+NonlinearityPlot(; output_name = "nonlinearity.png", kwargs...) = NonlinearityPlot(output_name, kwargs)
+@recipe function f(plot_spec::NonlinearityPlot, simulation::Simulation{M}; resolution=100, fn_bounds=(-1.0,15.0)) where {T,M<:WCMSpatial1D}
+    pop_names = simulation.model.pop_names
     n_pops = length(pop_names)
+
+    nonlinearity_fns = get_value.(Calculated(simulation.model).nonlinearity)
 
     one_pop_x = range(fn_bounds[1], stop=fn_bounds[2], length=resolution)
     #delete!.(Ref(plotattributes),[:resolution,:fn_bounds])
@@ -77,71 +94,51 @@ NonlinearityPlot(; kwargs...) = NonlinearityPlot(kwargs)
         end
     end
 end
-Analysis.output_name(plt::NonlinearityPlot) = "nonlinearityplot"
 
 export NonlinearityPlot
 
-function Analysis.SubSampler(dt::Float64, spatial_stride::Int)
-    @assert dt > 0
-    SubSampler(dt, [spatial_stride])
+# struct TravelingWavePlot{T} <: AbstractPlotSpecification
+#     output_name::String
+#     dt::T
+#     kwargs::Dict
+# end
+# TravelingWavePlot{T}(; output_name="traveling_wave.png", dt=nothing, kwargs...) where T = TravelingWavePlot{T}(output_name, dt, kwargs)
+# @recipe function f(plot_spec::TravelingWavePlot, results::AbstractResults{WCMSpatial1D{T,C,N,S}}; kwargs...) where {T,C,N,S}
+#     sampled_results = resample(results, dt=plot_spec.dt)
+#     space = get_space(results)
+#     for (frame, t) in sampled_results
+#         @series begin
+#             seriestype := :line
+#             x := space
+#             y := frame
+#             ()  # TOOOOOOOOOOODOOOOOOOOOOOOOOOOOOOOOOOO
+#         end
+#     end
+# end
+
+struct NeumanTravelingWavePlot{T} <: AbstractPlotSpecification
+    output_name::String
+    dt::T
+    kwargs::Dict
 end
-
-function Analysis.sample(subsampler::SubSampler, soln::DESolution, model::M) where {M <: WCMSpatial1D}
-    println("Sampling WCMSpatial1D")
-    timepoints = minimum(soln.t):subsampler.dt:maximum(soln.t)
-    # Assuming densely sampled.
-    timesampled_u = soln(timepoints)
-
-    space = space_array(model)
-    space_stride = subsampler.space_strides[1]
-    sampled_space = space[1:space_stride:end]
-
-    sampled_u = timesampled_u[1:space_stride:end,:,:]
-    @show size(sampled_u)
-
-    return timepoints, sampled_space, sampled_u
-end
-
-function Analysis.spatiotemporal_data(soln::DESolution, model::WCMSpatial1D)
-    t = soln.t
-    x = space_array(model)
-    u = soln.u
-    return (t,x,cat(u...,dims=3))
-end
-
-function RecipesBase.animate(results::AbstractResults{WCMSpatial1D{T,C,N,S}}; kwargs...) where {T,C,N,S}
-    t, x, data = spatiotemporal_data(results)
-    pop_names = results.model.pop_names
-    wcmanimate(t,x,data,pop_names;kwargs...)
-end
-
-function wcmanimate(t, x, data::Array{<:Array}, pop_names; kwargs...)
-    max_val = maximum(map(maximum, data))
-    @assert length(x) == size(data[1],1)
-    @animate for i_time in 1:length(t)
-        plot(x, data[i_time][:, 1]; label=pop_names[1],
-            ylim=(0,max_val), title="t = $(round(t[i_time], digits=4))", kwargs...)
-        for i_pop in 2:size(data,2)
-            plot!(x, data[i_time][:, i_pop]; label=pop_names[i_pop], kwargs...)
+NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where {T<:Float64} = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
+@recipe function f(plot_spec::NeumanTravelingWavePlot{T}, simulation::Simulation{M}) where {T,M<:WCMSpatial1D}
+    @info "entered plot"
+    t = get_time_arr(simulation)
+    space = get_space_arr(simulation)
+    space_origin = findfirst((x) -> x ≈ 0.0, space)
+    @info "looping"
+    for time_dx in 1:length(t)
+        @info "loop $(t[time_dx])"
+        @series begin
+            seriestype := :line
+            x := spaceF
+            y := frame[space_origin:end,:,time_dx] * [1.0, -1.0] # Subtract inhibitory activity...
+            ()
         end
-
     end
-    # Not using animate(results.solution) to use subsampling
 end
 
-function wcmanimate(t, x, data::Array{T,3}, pop_names; kwargs...) where T
-    max_val = maximum(data)
-    @assert length(x) == size(data,1)
-    @animate for i_time in 1:length(t)
-        plot(x, data[:, 1, i_time]; label=pop_names[1],
-            ylim=(0,max_val), title="t = $(round(t[i_time], digits=4))", kwargs...)
-        for i_pop in 2:size(data,2)
-            plot!(x, data[:, i_pop, i_time]; label=pop_names[i_pop], kwargs...)
-        end
-
-    end
-    # Not using animate(results.solution) to use subsampling
-end
-
+export NeumanTravelingWavePlot #, TravelingWavePlot
 
 end

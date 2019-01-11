@@ -5,14 +5,14 @@ using DiffEqBase: AbstractODESolution, ODESolution, DESolution
 using OrdinaryDiffEq: ODECompositeSolution, InterpolationData, CompositeInterpolationData
 using Modeling
 using Records
+using Simulating
 
 ENV["GKSwstype"] = "100" # For headless plotting (on server)
 ENV["MPLBACKEND"]="Agg"
 using Plots
 
+# * Analysis types are defined in Simulating.jl
 
-# * Analysis types
-abstract type AbstractPlotSpecification end
 function output_name(af::AbstractPlotSpecification)
 	af.output_name
 end
@@ -24,19 +24,15 @@ function plot_and_save(plot_spec::APS, simulation::Simulation, output::AbstractO
 	simulation.output(save_fn, output_name(plot_spec), plot(plot_spec, solution; plot_spec.kwargs...))
 end
 
-@with_kw struct Analyses{T}
-	plots::Array{AbstractPlotSpecification}
-end
-
-function analyse(simulation::simulation)
+function analyse(simulation::Simulation)
     @info "Begin analysis."
     for plot_spec in simulation.analyses.plot_specs
     	plot_and_save(plot_spec, simulation)
     end
 end
 
-export AbstractPlotSpecification, output_name
+export output_name
 export plot_and_save
-export Analyses, analyse
+export analyse
 
 end
