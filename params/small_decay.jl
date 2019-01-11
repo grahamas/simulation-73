@@ -9,7 +9,7 @@ if !(@isdefined UV)
   const varying{T} = Union{T,BV{T}}
   const v = varying{Float64}
 end
-T= 2.0
+stop_time = 2.0
 p_search = ParameterSearch(
         variable_model = WCMSpatial1D(;#{varying{Float64}}(;
             pop_names = ["E", "I"],
@@ -30,7 +30,8 @@ p_search = ParameterSearch(
                            BV(2.7, (2.0,4.0)) BV(2.5, (2.0,4.0))])
             ),
         solver = Solver(;
-            T = T,
+            stop_time = 3.0
+
             space_save_every=4,
             time_save_every=5,
             params = Dict(
@@ -40,7 +41,7 @@ p_search = ParameterSearch(
                 )
             ),
         analyses = Analyses{WCMSpatial1D}(
-           plots = [
+           plot_specs = [
               # Animate(;
               #   fps = 20
               #   ),

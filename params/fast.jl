@@ -2,32 +2,31 @@ using Modeling, WCM, Meshes, Records, Simulating,
   CalculatedParameters, Analysis, WCMAnalysis,
   WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
 using WCM: WCMSpatial1D
+using DifferentialEquations: Euler
 
+NUM = Float64
 if !(@isdefined UV)
   const UV = UnboundedVariable
   const BV = BoundedVariable
   const varying{T} = Union{T,BV{T}}
-  const v = Float64
+  const v = NUM
 end
-T= 0.5
-M = WCMSpatial1D
-simulation = Simulation{M}(
-        model = M(;
+stop_time = 3.0
+N= 1
+P= 2
+simulation = Simulation(
+        model = WCMSpatial1D{v,N,P}(;
             pop_names = ["E", "I"],
             α = [1.1, 1.0],
             β = [1.1, 1.1],
             τ = [0.1, 0.18],
-            space = Segment{v}(; n_points=101, extent=100),
+            space = PopSegment{v,P}(; n_points=201, extent=100),
             nonlinearity = pops(SigmoidNonlinearity{v}; a=[1.2, 1.0],
                                                         θ=[2.6, 8.0]),
-            # stimulus = pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
-            #                                       duration=[0.55, 0.55],
-            #                                       width=[2.81, 2.81]),
-            stimulus = add([
-                            pops(SharpBumpStimulus{v}; strength=[1.2, 1.2],
-                                                   duration=[0.55, 0.55],
-                                                   width=[2.81, 2.81]),
-                            pops(GaussianNoiseStimulus{v}; SNR=[0.0, 0.0])]),
+            stimulus = pops(NoisySharpBumpStimulus{v}; strength=[1.2, 1.2],
+                                                   window=[(0.5,0.65), (0.5,0.65)],
+                                                   width=[2.81, 2.81],
+                                                   SNR=[80.0, 80.0]),
             connectivity = pops(ShollConnectivity{v};
                 amplitude = [16.0 -18.2;
                              27.0 -4.0],
@@ -35,28 +34,28 @@ simulation = Simulation{M}(
                            2.7 2.5])
             ),
         solver = Solver(;
-            T = T,
-            space_save_every=4,
-            time_save_every=5,
-            params = Dict(
-                :dt => 0.1,
-                #:dense => true
-                #:alg_hints => [:stiff]
-                )
+            stop_time = stop_time,
+            dt = 0.01,
+            time_save_every = 2,
+            space_save_every = 2
             ),
-        analyses = Analyses(
-          plots = [
-              Animate(;
-                fps = 20
-                ),
-              NonlinearityPlot(;
-                fn_bounds = (-1,15)),
-              SpaceTimePlot()
+        analyses = Analyses{v}(;
+          plot_specs = [
+              # Animate(;
+              #   fps = 20
+              # )#,
+              # NonlinearityPlot(;
+              #   fn_bounds = (-1,15)
+              # ),
+              #SpaceTimePlot(),
+              NeumanTravelingWavePlot(;
+                dt = 0.1
+              )
               ]
             ),
         output = SingleOutput(;
             root = "/home/grahams/Dropbox/simulation-73/results/",
-            simulation_name = "ztmp_fast"
+            simulation_name = "fixing_neuman"
             )
         )
 

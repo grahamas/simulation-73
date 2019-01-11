@@ -26,7 +26,7 @@ end
 
 export Animate
 
-function RecipesBase.animate(simulation::Simulation{M}; kwargs...) where {T,M<:WCMSpatial1D}
+function RecipesBase.animate(simulation::Simulation{T,M}; kwargs...) where {T,M<:WCMSpatial1D}
     solution = simulation.solution
     pop_names = simulation.model.pop_names
     x = get_space_arr(simulation)
@@ -72,7 +72,8 @@ struct NonlinearityPlot <: AbstractPlotSpecification
     kwargs::Dict
 end
 NonlinearityPlot(; output_name = "nonlinearity.png", kwargs...) = NonlinearityPlot(output_name, kwargs)
-@recipe function f(plot_spec::NonlinearityPlot, simulation::Simulation{M}; resolution=100, fn_bounds=(-1.0,15.0)) where {T,M<:WCMSpatial1D}
+
+@recipe function f(plot_spec::NonlinearityPlot, simulation::Simulation{T,M}; resolution=100, fn_bounds=(-1.0,15.0)) where {T,M<:WCMSpatial1D}
     pop_names = simulation.model.pop_names
     n_pops = length(pop_names)
 
@@ -122,7 +123,7 @@ struct NeumanTravelingWavePlot{T} <: AbstractPlotSpecification
     kwargs::Dict
 end
 NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where {T<:Float64} = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
-@recipe function f(plot_spec::NeumanTravelingWavePlot{T}, simulation::Simulation{M}) where {T,M<:WCMSpatial1D}
+@recipe function f(plot_spec::NeumanTravelingWavePlot{T}, simulation::Simulation{T,M}) where {T,M<:WCMSpatial1D}
     @info "entered plot"
     t = get_time_arr(simulation)
     space = get_space_arr(simulation)

@@ -8,14 +8,40 @@ using Logging
 
 abstract type AbstractOutput end
 
-@with_kw mutable struct SingleOutput <:AbstractOutput
+
+struct SingleOutput <: AbstractOutput
     root::String
     simulation_name::String
+    dir_path::String
+    safe_writer::Function
+end
+function SingleOutput(; root=nothing, simulation_name=nothing)
+    dir_path = directory(root, simulation_name)
+    writer = make_writer(dir_path)
+    SingleOutput(root, simulation_name, dir_path, writer)
 end
 
-@memoize function directory(output::SingleOutput)
+# @with_kw struct ExperimentOutput <: AbstractOutput
+#     root::String
+#     simulation_name::String
+#     mod_name::String
+#     experiment_name::String
+# end
+
+# * File ops
+
+# function make_experiment_output_folder(root, simulation_name, mod_name, experiment_name)
+#     @assert length(mod_name) > 0
+#     #nowstr = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS.s")
+#     #experiment_dir_name = join([experiment_name, nowstr], "_")
+#     dir_name = joinpath(root, experiment_name)
+#     mkpath(dir_name)
+#     return (dir_name, if (length(simulation_name) > 0) join([simulation_name, mod_name], "_") else mod_name end)
+# end
+
+function directory(root, simulation_name)
     nowstr = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS.s")
-    dir_name = joinpath(output.root, output.simulation_name, nowstr)
+    dir_name = joinpath(root, simulation_name, nowstr)
     mkpath(dir_name)
     return dir_name
 end
@@ -26,9 +52,9 @@ function full_path(dir_name::String, base_name::String, prefix::String="")
     return full_path
 end
 
-function make_writer(dir_name::AbstractString)
+function make_writer(dir_path::String)
     function safe_write_fn(write_fn::Function, base_name, args...; kwargs...)
-        fp = full_path(dir_name, base_name)
+        fp = full_path(dir_path, base_name)
         if !(isfile(fp))
             @info "Writing $fp"
             write_fn(fp, args...; kwargs...)
@@ -39,14 +65,12 @@ function make_writer(dir_name::AbstractString)
     return safe_write_fn
 end
 
-@memoize function make_writer(output::SingleOutput)
-    dir_name = directory(output)
-    make_writer(dir_name)
+function filecopy(output::AbstractOutput, source_path, dest_base_name)
+    cp(source_path, joinpath(output.dir_path, dest_base_name))
 end
 
 function (o::SingleOutput)(write_fn::Function, base_name::AbstractString, args...; kwargs...)
-    output_fn = make_writer(o)
-    output_fn(write_fn, base_name, args...; kwargs...)
+    o.safe_writer(write_fn, base_name, args...; kwargs...)
 end
 
 function (o::SingleOutput)(obj; base_name::AbstractString, write_fn)
@@ -56,6 +80,7 @@ function required_modules()
     error("undefined.")
 end
 
-export AbstractOutput, SingleOutput, ExperimentOutput
+
+export AbstractOutput, SingleOutput, ExperimentOutput, filecopy
 
 end

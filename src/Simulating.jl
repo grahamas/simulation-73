@@ -4,7 +4,7 @@ using Modeling
 using Records
 using Parameters
 using JLD2
-import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve
+import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
 using Meshes
 
 abstract type AbstractPlotSpecification end
@@ -12,7 +12,6 @@ abstract type AbstractPlotSpecification end
     plots::Array{AbstractPlotSpecification}
 end
 export AbstractPlotSpecification, Analyses
-
 
 struct Solver{T,ALG<:Union{OrdinaryDiffEqAlgorithm,Nothing},DT<:Union{T,Nothing}}
     tspan::Tuple{T,T}
