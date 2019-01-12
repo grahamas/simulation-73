@@ -20,7 +20,7 @@ simulation = Simulation(
             α = [1.1, 1.0],
             β = [1.1, 1.1],
             τ = [0.1, 0.18],
-            space = Segment{v}(; n_points=101, extent=100),
+            space = PopSegment{v,P}(; n_points=301, extent=100),
             nonlinearity = pops(SigmoidNonlinearity{v}; a=[1.2, 1.0],
                                                         θ=[2.6, 8.0]),
             stimulus = pops(NoisySharpBumpStimulus{v}; strength=[1.2, 1.2],
@@ -33,25 +33,24 @@ simulation = Simulation(
                 spread = v[2.5 2.7;
                            2.7 2.5])
             ),
-        solver = EulerSolver(;
+        solver = Solver(;
             stop_time = 3.0,
-            space_save_every=4,
-            time_save_every=1,
-            solution_method=Euler(),
-            params = Dict(
-                :dt => 0.1,
-                #:dense => true
-                #:alg_hints => [:stiff]
-                )
+            dt = 0.01,
+            space_save_every=1,
+            time_save_every=10,
+            algorithm=Euler()
             ),
-        analyses = Analyses(;
+        analyses = Analyses{v}(;
           plot_specs = [
-              Animate(;
-                fps = 20
-                )
+              # Animate(;
+              #   fps = 20
+              #   )
               # NonlinearityPlot(;
               #   fn_bounds = (-1,15)),
               # SpaceTimePlot()
+              NeumanTravelingWavePlot(;
+                dt = 0.1
+              )
               ]
             ),
         output = SingleOutput(;

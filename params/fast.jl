@@ -1,6 +1,6 @@
 using Modeling, WCM, Meshes, Records, Simulating,
   CalculatedParameters, Analysis, WCMAnalysis,
-  WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
+  WCMConnectivity, WCMNonlinearity, WCMStimulus#, WCMTarget
 using WCM: WCMSpatial1D
 using DifferentialEquations: Euler
 

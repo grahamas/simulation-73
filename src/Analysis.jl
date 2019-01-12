@@ -17,11 +17,11 @@ function output_name(af::AbstractPlotSpecification)
 	af.output_name
 end
 
-function plot_and_save(plot_spec::APS, simulation::Simulation, output::AbstractOutput) where {APS <: AbstractPlotSpecification}
+function plot_and_save(plot_spec::APS, simulation::Simulation) where {APS <: AbstractPlotSpecification}
 	@info "Entered plot and save"
 	save_fn(fn, plt) = savefig(plt, fn)
 	@info "Calling output plot"
-	simulation.output(save_fn, output_name(plot_spec), plot(plot_spec, solution; plot_spec.kwargs...))
+	simulation.output(save_fn, output_name(plot_spec), plot(plot_spec, simulation; plot_spec.kwargs...))
 end
 
 function analyse(simulation::Simulation)

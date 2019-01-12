@@ -153,9 +153,8 @@ function make_calculated_function(cwc::CalculatedWCMSpatial1D{T,1,P,C,L,S,CC,CL,
     end
 end
 
-function generate_problem(simulation::Simulation{T,M,SV}) where {T,M<:WCMSpatial1D{T},SV<:Solver{T}}
-    tspan = time_span(simulation)
-    model = simulation.model
+function generate_problem(model::M, solver::SV) where {T,M<:WCMSpatial1D{T},SV<:Solver{T}}
+    tspan = time_span(solver)
     u0 = initial_value(model)
 
     cwc = Calculated(model)

@@ -29,8 +29,8 @@ export Animate
 function RecipesBase.animate(simulation::Simulation{T,M}; kwargs...) where {T,M<:WCMSpatial1D}
     solution = simulation.solution
     pop_names = simulation.model.pop_names
-    x = get_space_arr(simulation)
-    t = get_time_arr(simulation)
+    x = space_arr(simulation)
+    t = time_arr(simulation)
     @animate for time_dx in 1:length(t) # TODO @views
         plot(x, solution[:, 1, time_dx]; label=pop_names[1],
             ylim=(0,max_val), title="t = $(round(t[time_dx], digits=4))", kwargs...)
@@ -125,19 +125,21 @@ end
 NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where {T<:Float64} = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
 @recipe function f(plot_spec::NeumanTravelingWavePlot{T}, simulation::Simulation{T,M}) where {T,M<:WCMSpatial1D}
     @info "entered plot"
-    t = get_time_arr(simulation)
-    space = get_space_arr(simulation)
-    space_origin = findfirst((x) -> x ≈ 0.0, space)
+    t = time_arr(simulation)
+    space_origin::Int = get_origin(simulation) # TODO: Remove 1D return assumption
+    di = max(1, round(Int, simulation.solver.simulated_dt / plot_spec.dt))
+    x = space_arr(simulation)[space_origin:di:end] # TODO: Remove 1D return assumption
     @info "looping"
     for time_dx in 1:length(t)
-        @info "loop $(t[time_dx])"
+        @info "loopy $(t[time_dx])"
         @series begin
             seriestype := :line
-            x := spaceF
-            y := frame[space_origin:end,:,time_dx] * [1.0, -1.0] # Subtract inhibitory activity...
+            x := x
+            y := simulation.solution[space_origin:di:end,:,time_dx] * [1.0, -1.0] # Subtract inhibitory activity...
             ()
         end
     end
+    @info "done looping."
 end
 
 export NeumanTravelingWavePlot #, TravelingWavePlot

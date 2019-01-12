@@ -39,6 +39,7 @@ function update!(cs::CalculatedPopSegment, segment::PopSegment)
     end
 end
 
+get_origin(seg::PopSegment) = CartesianIndex(round(Int, seg.n_points / 2), 1)
 
 import Base: step, zeros, length, size, ndims
 step(seg::PopSegment) = seg.extent / (seg.n_points - 1)
@@ -51,7 +52,7 @@ zeros(seg::PopSegment{T,P}) where {T,P} = zeros(T,seg.n_points,P)
 
 ndims(space::PopSpace{T,N}) where {T,N} = N + 1
 
-export step, zeros, length
+export step, zeros, length, get_origin
 
 # * Distance matrix
 
