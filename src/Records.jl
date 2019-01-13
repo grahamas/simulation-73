@@ -59,7 +59,7 @@ function make_writer(dir_path::String)
             @info "Writing $fp"
             write_fn(fp, args...; kwargs...)
         else
-            warn("Tried to write existing file: $fp")
+            @warn("Tried to write existing file: $fp")
         end
     end
     return safe_write_fn

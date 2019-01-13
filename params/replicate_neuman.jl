@@ -1,6 +1,6 @@
 using Modeling, WCM, Meshes, Records, Simulating,
   CalculatedParameters, Analysis, WCMAnalysis,
-  WCMConnectivity, WCMNonlinearity, WCMStimulus, WCMTarget
+  WCMConnectivity, WCMNonlinearity, WCMStimulus
 using WCM: WCMSpatial1D
 using DifferentialEquations: Euler
 
@@ -42,12 +42,13 @@ simulation = Simulation(
             ),
         analyses = Analyses{v}(;
           plot_specs = [
-              # Animate(;
-              #   fps = 20
-              #   )
-              # NonlinearityPlot(;
-              #   fn_bounds = (-1,15)),
-              # SpaceTimePlot()
+              Animate(;
+                fps = 20
+                ),
+              NonlinearityPlot(;
+                fn_bounds = (-1,15)
+                ),
+              SpaceTimePlot(),
               NeumanTravelingWavePlot(;
                 dt = 0.1
               )

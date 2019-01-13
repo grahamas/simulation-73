@@ -33,6 +33,11 @@ end
 function nonlinearity!(output::AT, csn::CalculatedSigmoidNonlinearity{T}) where {T, AT<:AbstractArray{T}}
     output .= rectified_sigmoid_fn.(output,csn.a,csn.θ)
 end
+function nonlinearity(csn::CalculatedSigmoidNonlinearity{T}, input_arr::AT) where {T, AT<:Array{T}}
+    ret_arr = copy(input_arr)
+    nonlinearity!(ret_arr, csn)
+    return ret_arr
+end
 
 CalculatedParameters.get_value(csn::CalculatedSigmoidNonlinearity{T}) where T = csn
 
@@ -75,7 +80,7 @@ function neg_domain_sigmoid_diff_fn(input, a, θ, width)
     return max.(0,simple_sigmoid_fn(input, a, θ) - simple_sigmoid_fn(input, a, θ + width))
 end
 
-export Nonlinearity, SigmoidNonlinearity, CalculatedSigmoidNonlinearity, Calculated, update!, nonlinearity!
+export Nonlinearity, SigmoidNonlinearity, CalculatedSigmoidNonlinearity, Calculated, update!, nonlinearity!, nonlinearity
 
 # * end
 end

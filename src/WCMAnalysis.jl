@@ -12,6 +12,7 @@ using Memoize
 using WCM
 using CalculatedParameters
 using Simulating
+using WCMNonlinearity
 
 struct Animate <: AbstractPlotSpecification
     fps::Int
@@ -31,6 +32,7 @@ function RecipesBase.animate(simulation::Simulation{T,M}; kwargs...) where {T,M<
     pop_names = simulation.model.pop_names
     x = space_arr(simulation)
     t = time_arr(simulation)
+    max_val = maximum(simulation)
     @animate for time_dx in 1:length(t) # TODO @views
         plot(x, solution[:, 1, time_dx]; label=pop_names[1],
             ylim=(0,max_val), title="t = $(round(t[time_dx], digits=4))", kwargs...)
@@ -41,30 +43,29 @@ function RecipesBase.animate(simulation::Simulation{T,M}; kwargs...) where {T,M<
     end
 end
 
+struct SpaceTimePlot <: AbstractPlotSpecification
+    output_name::String
+    kwargs::Dict
+end
+SpaceTimePlot(; output_name = "spacetime.png", kwargs...) = SpaceTimePlot(output_name, kwargs)
+@recipe function f(plot_spec::SpaceTimePlot, simulation::Simulation{T,M}) where {T,M<:WCMSpatial1D}
+    v_space = space_arr(simulation)
+    v_time = time_arr(simulation)
+    clims := (minimum(simulation), maximum(simulation))
+    grid := false
+    layout := (2,1)
+    for i_pop in 1:2 # TODO!!
+        @series begin
+            seriestype --> :heatmap
+            subplot := i_pop
+            x := v_time
+            y := v_space
+            simulation.solution[:,i_pop,:]
+        end
+    end
+end
 
-# struct SpaceTimePlot <: AbstractPlotSpecification
-#     output_name::String
-#     kwargs::Dict
-# end
-# SpaceTimePlot(; output_name = "spacetime.png", kwargs...) = SpaceTimePlot(output_name, kwargs)
-# @recipe function f(plot_spec::SpaceTimePlot, results::AbstractResults; kwargs...)
-#     v_space = get_space(results)
-#     v_time = get_time(results)
-#     clims := (unsampled_minimum(results), unsampled_maximum(results))
-#     grid := false
-#     layout := (2,1)
-#     for i_pop in 1:size(timeseries,2)
-#         @series begin
-#             seriestype --> :heatmap
-#             subplot := i_pop
-#             x := v_time
-#             y := v_space
-#             get_pop(results, i_pop)
-#         end
-#     end
-# end
-
-# export SpaceTimePlot
+export SpaceTimePlot
 
 # ** Plot nonlinearity
 struct NonlinearityPlot <: AbstractPlotSpecification
@@ -79,18 +80,20 @@ NonlinearityPlot(; output_name = "nonlinearity.png", kwargs...) = NonlinearityPl
 
     nonlinearity_fns = get_value.(Calculated(simulation.model).nonlinearity)
 
-    one_pop_x = range(fn_bounds[1], stop=fn_bounds[2], length=resolution)
+    one_pop_x = 
     #delete!.(Ref(plotattributes),[:resolution,:fn_bounds])
 
     xlab := "Input current"
     ylab := "Proportion pop. reaching at least threshold"
+
+    one_pop_x = range(fn_bounds[1], stop=fn_bounds[2], length=resolution)
 
     for i_pop in 1:length(pop_names)
         @series begin
             lab --> pop_names[i_pop]
             seriestype := :line
             x := one_pop_x
-            y := nonlinearity_fns[i_pop](one_pop_x)
+            y := nonlinearity(nonlinearity_fns[i_pop], collect(one_pop_x))
             ()
         end
     end
@@ -98,24 +101,6 @@ end
 
 export NonlinearityPlot
 
-# struct TravelingWavePlot{T} <: AbstractPlotSpecification
-#     output_name::String
-#     dt::T
-#     kwargs::Dict
-# end
-# TravelingWavePlot{T}(; output_name="traveling_wave.png", dt=nothing, kwargs...) where T = TravelingWavePlot{T}(output_name, dt, kwargs)
-# @recipe function f(plot_spec::TravelingWavePlot, results::AbstractResults{WCMSpatial1D{T,C,N,S}}; kwargs...) where {T,C,N,S}
-#     sampled_results = resample(results, dt=plot_spec.dt)
-#     space = get_space(results)
-#     for (frame, t) in sampled_results
-#         @series begin
-#             seriestype := :line
-#             x := space
-#             y := frame
-#             ()  # TOOOOOOOOOOODOOOOOOOOOOOOOOOOOOOOOOOO
-#         end
-#     end
-# end
 
 struct NeumanTravelingWavePlot{T} <: AbstractPlotSpecification
     output_name::String
@@ -124,14 +109,11 @@ struct NeumanTravelingWavePlot{T} <: AbstractPlotSpecification
 end
 NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}=nothing, kwargs...) where {T<:Float64} = NeumanTravelingWavePlot{T}(output_name, dt, kwargs)
 @recipe function f(plot_spec::NeumanTravelingWavePlot{T}, simulation::Simulation{T,M}) where {T,M<:WCMSpatial1D}
-    @info "entered plot"
     t = time_arr(simulation)
     space_origin::Int = get_origin(simulation) # TODO: Remove 1D return assumption
     di = max(1, round(Int, simulation.solver.simulated_dt / plot_spec.dt))
     x = space_arr(simulation)[space_origin:di:end] # TODO: Remove 1D return assumption
-    @info "looping"
     for time_dx in 1:length(t)
-        @info "loopy $(t[time_dx])"
         @series begin
             seriestype := :line
             x := x
@@ -139,7 +121,6 @@ NeumanTravelingWavePlot(; output_name="traveling_wave.png", dt::Union{Nothing,T}
             ()
         end
     end
-    @info "done looping."
 end
 
 export NeumanTravelingWavePlot #, TravelingWavePlot

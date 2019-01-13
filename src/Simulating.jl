@@ -59,6 +59,9 @@ function Meshes.get_origin(sim::Simulation) # TODO: Remove 1D assumption
     round(Int, Meshes.get_origin(sim.model.space)[1] / sim.solver.space_save_every) 
 end
 
+Base.minimum(sim::Simulation) = minimum(map(minimum, sim.solution.u))
+Base.maximum(sim::Simulation) = maximum(map(maximum, sim.solution.u))
+
 function write_params(sim::Simulation)
     write_object(sim.output, "parameters.jld2", "sim", sim)
 end
