@@ -14,6 +14,7 @@ stop_time = 3.0
 T= 4.0
 N=1
 P=2
+@show v
 simulation = Simulation(
         model = WCMSpatial1D{v,N,P}(;
             pop_names = ["E", "I"],
@@ -34,10 +35,10 @@ simulation = Simulation(
                            2.7 2.5])
             ),
         solver = Solver(;
-            stop_time = 3.0,
-            dt = 0.01,
+            stop_time = 2.0,
+            dt = 0.005,
             space_save_every=1,
-            time_save_every=10,
+            time_save_every=1,
             algorithm=Euler()
             ),
         analyses = Analyses{v}(;
@@ -49,17 +50,20 @@ simulation = Simulation(
               #   fn_bounds = (-1,15)
               #   ),
               # SpaceTimePlot(),
-              PeakTravelingWavePlot(;
-                dt = 0.1
+              SubsampledPlot(
+                plot_type=WaveStatsPlot,
+                dt = 0.01,
+                time_window=(1.2,1.8),
+                space_window=(5.0,Inf)
               )
               ]
             ),
         output = SingleOutput(;
             root = "/home/grahams/Dropbox/simulation-73/results/",
-            simulation_name = "replicate_neuman"
+            simulation_name = "plotting_tests"
             )
         )
 
 using JLD2
-
+@show typeof(simulation.model)
 @save "parameters.jld2" simulation

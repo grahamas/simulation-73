@@ -8,10 +8,11 @@ import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler,
 using Meshes
 
 abstract type AbstractPlotSpecification end
+abstract type AbstractSpaceTimePlotSpecification <: AbstractPlotSpecification end
 @with_kw struct Analyses{T}
     plot_specs::Array{AbstractPlotSpecification}
 end
-export AbstractPlotSpecification, Analyses
+export AbstractPlotSpecification, AbstractSpaceTimePlotSpecification, Analyses
 
 struct Solver{T,ALG<:Union{OrdinaryDiffEqAlgorithm,Nothing},DT<:Union{T,Nothing}}
     tspan::Tuple{T,T}
@@ -27,7 +28,7 @@ function Solver(; start_time::T=0.0, stop_time::T, dt::DT, time_save_every::Int=
                     algorithm::ALG=nothing, stiffness=:auto) where {T, ALG, DT<:Union{T,Nothing}}
     Solver{T,ALG,DT}((start_time, stop_time), algorithm, dt, time_save_every, space_save_every, stiffness)
 end
-save_dt(s::Solver{T}) where T = s.simulated_dt / s.time_save_every
+save_dt(s::Solver{T}) where T = s.simulated_dt * s.time_save_every
 
 function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: PopSpace{T,1,P}}#::Union{Nothing,Array{CartesianIndex}} 
     if solver.space_save_every == 1
@@ -58,6 +59,8 @@ time_arr(sim::Simulation) = sim.solution.t
 function Meshes.get_origin(sim::Simulation) # TODO: Remove 1D assumption
     round(Int, Meshes.get_origin(sim.model.space)[1] / sim.solver.space_save_every) 
 end
+save_dt(sim::Simulation{T}) where T = save_dt(sim.solver)
+save_dx(sim::Simulation{T}) where T = step(simulation.model.space) * simulation.solver.space_save_every
 
 Base.minimum(sim::Simulation) = minimum(map(minimum, sim.solution.u))
 Base.maximum(sim::Simulation) = maximum(map(maximum, sim.solution.u))
@@ -94,6 +97,6 @@ function run_simulation(jl_filename::AbstractString)
 end
 
 export run_simulation, Simulation, write_params, Solver,
-    time_span, time_arr
+    time_span, time_arr, save_dt, save_dx
 
 end

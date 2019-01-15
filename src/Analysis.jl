@@ -21,7 +21,8 @@ function plot_and_save(plot_spec::APS, simulation::Simulation) where {APS <: Abs
 	@info "Entered plot and save"
 	save_fn(fn, plt) = savefig(plt, fn)
 	@info "Calling output plot"
-	simulation.output(save_fn, output_name(plot_spec), plot(plot_spec, simulation; plot_spec.kwargs...))
+	plot_obj = plot(plot_spec, simulation; plot_spec.kwargs...)
+	simulation.output(save_fn, output_name(plot_spec), plot_obj)
 end
 
 function analyse(simulation::Simulation)

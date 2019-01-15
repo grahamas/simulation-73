@@ -45,6 +45,7 @@ import Base: step, zeros, length, size, ndims
 step(seg::PopSegment) = seg.extent / (seg.n_points - 1)
 step(cs::CalculatedPopSegment) = step(cs.segment)
 length(cs::CalculatedPopSegment) = length(cs.value)
+length(seg::PopSegment) = seg.n_points
 
 size(s::PopSegment{T,P}) where {T,P} = (s.n_points,P)
 size(cs::CalculatedPopSegment) = size(cs.value)
