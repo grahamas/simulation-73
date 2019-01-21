@@ -7,7 +7,7 @@ import CalculatedParameters: Calculated, update!
 
 abstract type Nonlinearity{T} <: Parameter{T} end
 
-function update!(calc_nln::Array{CL,1}, new_nln::Array{L,1}) where {T, L <: Nonlinearity{T}, CL<:CalculatedParam{L}}
+function update!(calc_nln::AbstractArray{CL,1}, new_nln::AbstractArray{L,1}) where {T, L <: Nonlinearity{T}, CL<:CalculatedParam{L}}
     for i in 1:length(calc_nln)
         if calc_nln[i].nonlinearity != new_nln[i]
             calc_nln[i] = Calculated(new_nln[i])

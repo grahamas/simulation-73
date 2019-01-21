@@ -14,6 +14,7 @@ using WCM
 using CalculatedParameters
 using Simulating
 using WCMNonlinearity
+using Subsampling
 #endregion
 
 #region Animate
@@ -146,35 +147,40 @@ end
 
     Discard first and last movements.
 """
-function calculate_velocity(single_wave_data::AT, dt::T=one(T)) where {T, AT<:AbstractArray{T,2}}
-    # [space, time]
-    naive_velocity = calculate_naive_velocity(single_wave_data, 1.0)'
-    nonzero_vel = naive_velocity .!= zero(T)
-    n_moves = sum(nonzero_vel)
+# function calculate_velocity(single_wave_data::AT, dt::T=one(T)) where {T, AT<:AbstractArray{T,2}}
+#     # [space, time]
+#     naive_velocity = calculate_naive_velocity(single_wave_data, 1.0)'
+#     @show naive_velocity
+#     nonzero_vel = naive_velocity .!= zero(T)
+#     n_moves = sum(nonzero_vel)
+#     if n_moves < 3
+#         return (T[], T[])
+#     end
     
-    first_movement = findfirst(nonzero_vel)[1]
-    second_movement = findfirst(nonzero_vel[first_movement+1:end])
-    prev_leading_window = (second_movement - first_movement) * dt
-    prev_movement = second_movement
+#     first_movement = findfirst(nonzero_vel)[1]
+#     second_movement = findfirst(nonzero_vel[first_movement+1:end])[1]
+#     prev_leading_window = dt * (second_movement - first_movement) / 2.0
+#     prev_movement = second_movement
 
-    t = Array{T,1}(undef, n_moves-1)
-    velocity = similar(t)
-    i_velocity = 1
-    for i_naive in (second_movement+1):length(naive_velocity)
-        vel = naive_velocity[i_naive]
-        if vel != zero(T)
-            this_movement = i_naive
-            leading_window = (this_movement - prev_movement) * dt
-            prev_total_window = prev_leading_window + leading_window
-            velocity[i_velocity] = naive_velocity[i_naive] / prev_total_window
-            t[i_velocity] = prev_movement * dt
+#     t = Array{T,1}(undef, n_moves-2) # Doesn't store the first or last move
+#     velocity = similar(t)
+#     i_velocity = 1
+#     for i_naive in (second_movement+1):length(naive_velocity)
+#         vel = naive_velocity[i_naive]
+#         if vel != zero(T)
+#             this_movement = i_naive
+#             leading_window = dt * (this_movement - prev_movement) / 2.0
+#             prev_total_window = prev_leading_window + leading_window
+#             @show i_velocity, i_naive, n_moves, length(naive_velocity)
+#             velocity[i_velocity] = naive_velocity[i_naive] / prev_total_window
+#             t[i_velocity] = prev_movement * dt
 
-            i_velocity += 1
-            prev_movement = this_movement
-        end
-    end
-    return (t, velocity)
-end
+#             i_velocity += 1
+#             prev_movement = this_movement
+#         end
+#     end
+#     return (t, velocity)
+# end
 
 function calculate_naive_velocity(single_wave_data::AT, dt::T=one(T)) where {T, AT<:AbstractArray{T,2}}
     # [space, time]
@@ -190,33 +196,33 @@ function track_wave_peak(single_wave_data::AT) where {T, AT<:AbstractArray{T,2}}
 end
 
 
-mutable struct SubsampledPlot{T} <: AbstractPlotSpecification
+mutable struct SubsampledPlot <: AbstractPlotSpecification
     plot_type::Type{<:AbstractSpaceTimePlotSpecification}
-    dt::Union{T,Nothing}
-    dx::Union{T,Nothing}
-    time_window::Tuple{T,T}
-    space_window::Tuple{T,T}
+    time_subsampling::Dict
+    space_subsampling::Dict
     output_name::String
     kwargs::Iterators.Pairs
 end
-SubsampledPlot(; plot_type=nothing, dt=-1.0, dx=-1.0, space_window=(-Inf,Inf), time_window=(0.0,Inf), output_name="", kwargs...) = SubsampledPlot(plot_type, dt, dx, time_window, space_window, output_name, kwargs)
-@recipe function f(subsampledplot::SubsampledPlot{T}, simulation::Simulation{T,M}) where {T,M<:WCMSpatial1D}
+SubsampledPlot(; plot_type=nothing, time_subsampling=Dict(), space_subsampling=Dict(), output_name="", kwargs...) = SubsampledPlot(plot_type, time_subsampling, space_subsampling, output_name, kwargs)
+@recipe function f(subsampledplot::SubsampledPlot, simulation::Simulation{T,M}) where {T,M<:WCMSpatial1D}
     space_origin::Int = get_origin(simulation)
     t = time_arr(simulation)
     x = space_arr(simulation)
-    space_window = round.(Int, max.(min.(space_origin .+ subsampledplot.space_window ./ save_dx(simulation), length(x)), 1.0))
-    time_window = round.(Int, max.(min.(1.0 .+ subsampledplot.time_window ./ save_dt(simulation), length(t)), 1.0))
 
-    di_t = max(1, round(Int, subsampledplot.dt / save_dt(simulation)))
-    di_x = max(1, round(Int, subsampledplot.dx / save_dx(simulation)))
-    dt = subsampledplot.dt > 0 ? subsampledplot.dt : save_dt(simulation)
-    dx = subsampledplot.dx > 0 ? subsampledplot.dx : save_dx(simulation)
- 
-    t_dxs = time_window[1]:di_t:time_window[2]
-    x_dxs = space_window[1]:space_window[2]
+    t_dxs = subsampling_idxs(save_dt(simulation), length(t); origin_idx=1, subsampledplot.time_subsampling...)
+    x_dxs = subsampling_idxs(save_dx(simulation), length(x); origin_idx=space_origin, subsampledplot.space_subsampling...)
+    pop_dxs = 1
+
+    dt = get(subsampledplot.time_subsampling, :Δsubsampled) do 
+        save_dt(simulation)
+    end
+    dx = get(subsampledplot.space_subsampling, :Δsubsampled) do 
+        save_dx(simulation)
+    end
+
     t = t[t_dxs]
     x = x[x_dxs] # TODO: Remove 1D return assumption
-    wave = simulation.solution[x_dxs,1,t_dxs]
+    wave = simulation.solution[x_dxs,pop_dxs,t_dxs]
 
     plot_spec = subsampledplot.plot_type(dt=dt, dx=dx, subsampledplot.kwargs...)
     if subsampledplot.output_name == ""
@@ -326,10 +332,10 @@ WaveStatsPlot(; output_name="wave_stats.png", dt::Union{Nothing,T}=nothing, kwar
         subplot := 3
         (PeakTravelingWavePlot(dt=plot_spec.dt), t, x, wave)
     end
-    @series begin
-        subplot := 2
-        (WaveVelocityPlot(dt=plot_spec.dt), t, wave)
-    end
+    # @series begin
+    #     subplot := 2
+    #     (WaveVelocityPlot(dt=plot_spec.dt), t, wave)
+    # end
     @series begin
         subplot := 4
         # title := "Wave log velocity"

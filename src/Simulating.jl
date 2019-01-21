@@ -9,7 +9,7 @@ using Meshes
 
 abstract type AbstractPlotSpecification end
 abstract type AbstractSpaceTimePlotSpecification <: AbstractPlotSpecification end
-@with_kw struct Analyses{T}
+@with_kw struct Analyses
     plot_specs::Array{AbstractPlotSpecification}
 end
 export AbstractPlotSpecification, AbstractSpaceTimePlotSpecification, Analyses
@@ -41,13 +41,13 @@ end
 struct Simulation{T,M<:Model{T},S<:Solver{T}}
     model::M
     solver::S
-    analyses::Analyses{T}
+    analyses::Analyses
     output::AbstractOutput
     solution::DESolution
     Simulation{T,M,S}(m,s,a,o) where {T,M<:Model{T},S<:Solver{T}} = new(m,s,a,o,_solve(m,s))
 end
 
-function Simulation(; model::M, solver::S, analyses::Analyses{T}, output::AbstractOutput) where {T, M<:Model{T}, S<:Solver{T}}
+function Simulation(; model::M, solver::S, analyses::Analyses, output::AbstractOutput) where {T, M<:Model{T}, S<:Solver{T}}
     Simulation{T,M,S}(model,solver,analyses,output)
 end
 
@@ -60,7 +60,7 @@ function Meshes.get_origin(sim::Simulation) # TODO: Remove 1D assumption
     round(Int, Meshes.get_origin(sim.model.space)[1] / sim.solver.space_save_every) 
 end
 save_dt(sim::Simulation{T}) where T = save_dt(sim.solver)
-save_dx(sim::Simulation{T}) where T = step(simulation.model.space) * simulation.solver.space_save_every
+save_dx(sim::Simulation{T}) where T = step(sim.model.space) * sim.solver.space_save_every
 
 Base.minimum(sim::Simulation) = minimum(map(minimum, sim.solution.u))
 Base.maximum(sim::Simulation) = maximum(map(maximum, sim.solution.u))
@@ -74,17 +74,21 @@ end
     Note that the method accepting a Simulation object should take a
     partially initialized Simulation.
 """
+generate_problem() = error("undefined")
 function _solve(model,solver)
     problem = generate_problem(model, solver)
     _solve(problem, solver, model.space)
 end
 function _solve(problem::ODEProblem, solver::Solver{T,Euler}, space::PopSpace{T}) where T
     # TODO: Calculate save_idxs ACCOUNTING FOR pops
+    @show "Solving Euler"
     solve(problem, Euler(), dt=solver.simulated_dt,
+            #saveat=save_dt(solver),
             timeseries_steps=solver.time_save_every,
             save_idxs=save_idxs(solver, space))
 end
 function _solve(problem::ODEProblem, solver::Solver{T,Nothing}, space::PopSpace{T}) where T
+    @show "Solving with default ALG"
     solve(problem, saveat=save_dt(solver), timeseries_steps=solver.time_save_every,
         save_idxs=save_idxs(solver, space), alg_hints=[solver.stiffness])
 end
@@ -97,6 +101,6 @@ function run_simulation(jl_filename::AbstractString)
 end
 
 export run_simulation, Simulation, write_params, Solver,
-    time_span, time_arr, save_dt, save_dx
+    time_span, time_arr, save_dt, save_dx, save_idxs, generate_problem
 
 end

@@ -41,7 +41,7 @@ simulation = Simulation(
             time_save_every=1,
             algorithm=Euler()
             ),
-        analyses = Analyses{v}(;
+        analyses = Analyses(;
           plot_specs = [
               # Animate(;
               #   fps = 20

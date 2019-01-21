@@ -9,7 +9,7 @@ using Parameters
 
 abstract type Connectivity{T} <: Parameter{T} end
 
-function update!(calc_arr::Array{CC,1}, new_arr::Array{C,1}, space::Space{T}) where {T, C <: Connectivity{T}, CC <: CalculatedParam{C}}
+function update!(calc_arr::AbstractArray{CC,2}, new_arr::AbstractArray{C,2}, space::Space{T}) where {T, C <: Connectivity{T}, CC <: CalculatedParam{C}}
     for i in 1:length(calc_arr)
         if calc_arr[i].connectivity != new_arr[i]
             calc_arr[i] = Calculated(new_arr[i], space)

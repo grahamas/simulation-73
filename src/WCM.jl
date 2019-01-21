@@ -15,6 +15,8 @@ using Targets
 using Records
 import Records: required_modules
 using StaticArrays
+using Exploration
+using Subsampling
 
 # Rename to remove N redundancy
 struct WCMSpatial1D{T,N,P,C<:Connectivity{T},
@@ -44,9 +46,21 @@ space_array(model::WCMSpatial1D) = Calculated(model.space).value
 #     return WCMSpatial1D{BT1,BT2,BT3,BT4,BT5,BT6,BT7}
 # end
 
+function subsampling_time_idxs(t_target, solver)
+    t_solver = time_span(solver)[1]:save_dt(solver):time_span(solver)[end]
+    subsampling_idxs(t_target, t_solver)
+end
+function subsampling_space_idxs(x_target, model, solver)
+    x_model = space_arr(model)[1:solver.space_save_every:end,1]
+    subsampling_idxs(x_target, x_model)
+end
+
+export subsampling_time_idxs, subsampling_space_idxs
+
+
 
 # * Calculated WC73 Simulation Type
-struct CalculatedWCMSpatial1D{T,N,P,C,L,S,CC<:CalculatedParam{C},CL <: CalculatedParam{L},CS <: CalculatedParam{S}} <: CalculatedParam{WCMSpatial1D{T,N,P,C,L,S}}
+mutable struct CalculatedWCMSpatial1D{T,N,P,C,L,S,CC<:CalculatedParam{C},CL <: CalculatedParam{L},CS <: CalculatedParam{S}} <: CalculatedParam{WCMSpatial1D{T,N,P,C,L,S}}
     α::SVector{P,T}
     β::SVector{P,T}
     τ::SVector{P,T}
@@ -75,63 +89,26 @@ function Calculated(wc::WCMSpatial1D)
 end
 
 
-# function update_from_p!(cwc::CalculatedWCMSpatial1D, new_p, p_search::ParameterSearch{<:WCMSpatial1D})
-#     # Use the variable model stored by p_search to create static model
-#     new_model = model_from_p(p_search, new_p)
+function update_from_p!(cwc::CalculatedWCMSpatial1D{T}, new_p::Array{T}, model, variable_map) where T
+    # Use the variable model stored by p_search to create static model
+    new_model = model_from_p(model, variable_map, new_p)
 
-#     # Update the calculated values from the new static model
-#     cwc.α = new_model.α
-#     cwc.β = new_model.β
-#     cwc.τ = new_model.τ
-#     update!(cwc.connectivity, new_model.connectivity, space)
-#     update!(cwc.nonlinearity, new_model.nonlinearity)
-#     update!(cwc.stimulus, new_model.stimulus, space)
-# end
+    # Update the calculated values from the new static model
+    cwc.α = new_model.α
+    cwc.β = new_model.β
+    cwc.τ = new_model.τ
+    update!(cwc.connectivity, new_model.connectivity, new_model.space)
+    update!(cwc.nonlinearity, new_model.nonlinearity)
+    update!(cwc.stimulus, new_model.stimulus, new_model.space)
+end
 
 function get_values(cwc::CalculatedWCMSpatial1D{T,N}) where {T,N}
     (cwc.α, cwc.β, cwc.τ, get_value.(cwc.connectivity), get_value.(cwc.nonlinearity), get_value.(cwc.stimulus))
 end
 
-# import Exploration: make_problem_generator
-# # * Problem generation
 
-# function make_problem_generator(p_search::ParameterSearch{<:WCMSpatial1D{T,N,P}}) where {T,N,P}
-#     model = initial_model(p_search)
-#     tspan = time_span(p_search)
 
-#     u0 = initial_value(model)
-#     cwc = Calculated(model)
-#     function problem_generator(prob, new_p)
-#         update_from_p!(cwc, new_p, p_search)
-#         α, β, τ, P, connectivity_mx, nonlinearity_fn, stimulus_fn = get_values(cwc)
-#         function WilsonCowan73!(dA::Array{T,2}, A::Array{T,2}, p::Array{T,1}, t::T)::Nothing where {T<:Float64}
-
-#             for i in 1:P
-#                 stim_val::Array{T,1} = stimulus_fn[i](t)
-#                 nonl_val::Array{T,1} = nonlinearity_fn[i](sum(connectivity_mx[i,j]::Array{T,2} * A[:,j] for j in 1:n_pops) .+ stim_val)
-#                 dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.0 .- A[:,i]) .*  nonl_val + P[i]) ./ τ[i]
-#             end
-#         end
-#         ODEProblem(WilsonCowan73!, u0, tspan, new_p)
-#     end
-#     initial_problem = problem_generator(nothing, p_search.initial_p)
-#     return initial_problem, problem_generator
-# end
-# export make_problem_generator
-
-# function make_calculated_function(cwc::CalculatedWCMSpatial1D{T,1,2,2,C,L,S,CC,CL,CS}, space::Segment{T}) where {T,C<:Connectivity{T},L<:Nonlinearity{T},S<:Stimulus{T},CC<:CalculatedParam{C},CL <: CalculatedParam{L},CS <: CalculatedParam{S}}
-#     (α, β, τ, connectivity_mx, nonlinearity_objs, stimulus_objs) = get_values(cwc)
-
-#     let stim_val::Array{T,1}=zeros(space), nonl_val::Array{T,1}=zeros(space), α::Array{T,1}=α, β::Array{T,1}=β, τ::Array{T,1}=τ, connectivity_mx::Matrix{Matrix{T}}=connectivity_mx, nonlinearity_objs::Array{CL,1}=nonlinearity_objs, stimulus_objs::Array{CS,1}=stimulus_objs
-#         (dA::Array{T,2}, A::Array{T,2}, p::Union{Array{T,1},Nothing}, t::T) -> (
-#             for i in 1:2
-#                 stimulate!(stim_val, stimulus_objs[i], t) # I'll bet it goes faster if we pull this out of the loop
-#                 nonlinearity!(nonl_val, nonlinearity_objs[i], sum(connectivity_mx[i,j] * A[:,j] for j in 1:2) .+ stim_val)
-#                 dA[:,i] .= (-α[i] .* A[:,i] .+ β[i] .* (1.0 .- A[:,i]) .*  nonl_val) ./ τ[i]
-#             end
-#         )
-#     end
-# end
+import Exploration: make_problem_generator
 
 function make_calculated_function(cwc::CalculatedWCMSpatial1D{T,1,P,C,L,S,CC,CL,CS}) where {T,P,C<:Connectivity{T},L<:Nonlinearity{T},S<:Stimulus{T},CC<:CalculatedParam{C},CL <: CalculatedParam{L},CS <: CalculatedParam{S}}
     (α, β, τ, connectivity_mx, nonlinearity_objs, stimulus_objs) = get_values(cwc)
@@ -153,7 +130,23 @@ function make_calculated_function(cwc::CalculatedWCMSpatial1D{T,1,P,C,L,S,CC,CL,
     end
 end
 
-function generate_problem(model::M, solver::SV) where {T,M<:WCMSpatial1D{T},SV<:Solver{T}}
+function make_problem_generator(model::M, solver::SV, variable_map) where {T,M<:WCMSpatial1D{T},SV<:Solver{T}}
+    tspan = time_span(solver)
+    u0 = initial_value(model)
+
+    cwc = Calculated(model)
+
+    function problem_generator(prob, new_p::Array{T})
+        update_from_p!(cwc, new_p, model, variable_map)
+        WilsonCowan73! = make_calculated_function(cwc)
+        ode_fn = convert(ODEFunction{true}, WilsonCowan73!)
+        return ODEProblem(ode_fn, u0, tspan, new_p)
+    end
+
+    return problem_generator
+end
+
+function Simulating.generate_problem(model::M, solver::SV) where {T,M<:WCMSpatial1D{T},SV<:Solver{T}}
     tspan = time_span(solver)
     u0 = initial_value(model)
 

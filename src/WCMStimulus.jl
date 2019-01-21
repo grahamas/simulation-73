@@ -9,9 +9,9 @@ using Random
 
 abstract type Stimulus{T,uType} <: Parameter{T} end
 
-function update!(calc_stims::Array{CS,1}, new_stims::Array{S,1}, space::Space{T}) where {T,S <: Stimulus{T}, CS<:CalculatedParam{S}}
+function update!(calc_stims::AbstractArray{CS,1}, new_stims::AbstractArray{S,1}, space::Space{T}) where {T,S <: Stimulus{T}, CS<:CalculatedParam{S}}
     for i in 1:length(calc_stims)
-        if calc_stims[i].stimulus != new_stims[i].stimulus
+        if calc_stims[i].stimulus != new_stims[i]
             calc_stims[i] = Calculated(new_stims[i], space)
         end
     end

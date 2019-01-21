@@ -3,67 +3,34 @@ module WCMTarget
 using WCM
 using Targets
 using Parameters
-import DifferentialEquations: DESolution
+using Modeling
+using Simulating
+import DifferentialEquations: ODESolution
+using JLD2
 
-function penalize_increasing(timeseries)
-	difference = timeseries[2:end] .- timeseries[1:end-1]
-	increases = difference[difference .> 0]
-	return sum(increases)
+struct MatchExample{T} <: LossFunction{T}
+	data::Array{T}
+	x::Array{T,1}
+	t::Array{T,1}
+end
+function MatchExample(; file_name::String="")
+	@load file_name wave x t
+	MatchExample(wave, x, t)
 end
 
-function penalize_decreasing(timeseries)
-	difference = timeseries[2:end] .- timeseries[1:end-1]
-	decreases = difference[difference .<= 0]
-	return sum(abs.(decreases))
+function (p::MatchExample{T})(soln::ODESolution{T}, x_dxs, pop_dxs, t_dxs) where {T, AT<:Array{T,2}}
+	sum((soln[x_dxs, pop_dxs, t_dxs] .- p.data) .^ 2)
 end
 
-function long_halflife(peak_vals)
-	beginning = peak_vals[1]
-	posthalf = find(peak_vals .< beginning/2)
-	if length(posthalf) < 1
-		return Inf
-	end
-	return 1.0 / posthalf[1]
+function Targets.loss(fn::MatchExample{T}, model::WCMSpatial1D{T}, solver::Solver{T}) where T
+	t_target, x_target = fn.t, fn.x
+	t_dxs = subsampling_time_idxs(t_target, solver)
+	x_dxs = subsampling_space_idxs(x_target, model, solver)
+	pop_dxs = 1
+	(soln) -> fn(soln, x_dxs, pop_dxs, t_dxs)
 end
-
-function must_travel(peak_vals, peak_dxs::Array{Int},
-	small_number=0.01, small_dx=27)
-	normal_peaks = peak_vals .> small_number
-	normal_peak_dxs = peak_dxs[normal_peaks]
-	if sum(normal_peak_dxs .> small_dx) < 1
-		return Inf
-	end
-	return 0
-end
-
-function must_not_increase(timeseries)
-	difference = timeseries[2:end] .- timeseries[1:end-1]
-	increases = difference[(difference .> 0)]
-	if sum(increases) > 0
-		return Inf
-	end
-	return sum(increases)
-end
-
-function must_decrease(timeseries)
-	difference = timeseries[2:end] .- timeseries[1:end-1]
-	decreases = difference[difference .< 0]
-	if sum(decreases) == 0
-		return Inf
-	end
-	return sum(decreases)
-end
-
-function must_be_pulse(timeseries)
-	if timeseries[1] ≈ 0
-		first_nonzero = find(timeseries .> 0)[1]
-		timeseries = timeseries[first_nonzero:end]
-	end
-	if (length(timeseries) == 0) || (sum(timeseries .≈ 0) == 0)
-		return Inf
-	end
-	return 0
-end
+	
+export MatchExample
 
 @with_kw struct DecayingTraveling{T} <: LossFunction{T}
 	timepoints::AbstractArray{T}
@@ -77,12 +44,12 @@ end
 	space_start::T
 end
 
-function (p::DecayingTraveling{T})(soln::DESolution, calc_space) where {T}
+function (p::DecayingTraveling{T})(soln::ODESolution, calc_space) where {T}
 	time_vec = p.timepoints
 	pop = p.target_pop
-	timeseries = soln(time_vec)[calc_space .> p.space_start,pop,:]
-	peak_vals = Array{T,1}(length(time_vec))
-	peak_dxs = Array{Int,1}(length(time_vec))
+	timeseries = soln(time_vec)[calc_space[:,pop] .> p.space_start,pop,:]
+	peak_vals = Array{T,1}(undef, length(time_vec))
+	peak_dxs = Array{Int,1}(undef, length(time_vec))
 	for time_dx in 1:length(time_vec)
 		peak_vals[time_dx], peak_dxs[time_dx] = findmax(timeseries[:,time_dx])
 	end
@@ -93,38 +60,5 @@ function (p::DecayingTraveling{T})(soln::DESolution, calc_space) where {T}
 			+ must_decrease(peak_vals)
 			+ must_be_pulse(timeseries[1,:]))
 end
-
-function (p::Traveling{T})(soln::DESolution, calc_space) where {T}
-	time_vec = p.timepoints
-	pop = p.target_pop
-	timeseries = soln(time_vec)[calc_space .> p.space_start,pop,:]
-	peak_vals = Array{T,1}(length(time_vec))
-	peak_dxs = Array{Int,1}(length(time_vec))
-	for time_dx in 1:length(time_vec)
-		peak_vals[time_dx], peak_dxs[time_dx] = findmax(timeseries[:,time_dx])
-	end
-
-	return (penalize_decreasing(peak_dxs)
-			+ must_travel(peak_vals, peak_dxs)
-			+ must_not_increase(peak_vals)
-			+ must_be_pulse(timeseries[1,:]))
-end
-
-@with_kw struct DecayingWaveFactory{T} <: TargetFactory{T}
-    timepoints::AbstractArray
-    decay::T
-    speed::T
-    target_pop::Int
-end
-
-function (F::DecayingWaveFactory)(model::WCMSpatial1D)
-    segment = Calculated(model.space).value
-    wave_fn(t) = @. exp(F.decay * t) * sech(segment - F.speed * t)
-    l_wave_frames = wave_fn.(F.timepoints)
-    target_pop = cat(3, l_wave_frames...)
-    return cat(2, target_pop, zeros(target_pop))
-end
-
-export DecayingWaveFactory, DecayingTraveling
 
 end

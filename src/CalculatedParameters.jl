@@ -34,7 +34,7 @@ function get_value(cp::CalculatedParam)
     cp.value
 end
 
-function update!(olds::Array, news::Array)
+function update!(olds::AbstractArray, news::AbstractArray)
     any(update!(pair...) for pair in zip(olds, news))
 end
 
