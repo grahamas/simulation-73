@@ -1,19 +1,11 @@
 using Modeling, WCM, Meshes, Records, Simulating,
   CalculatedParameters, Analysis, WCMAnalysis,
   WCMConnectivity, WCMNonlinearity, WCMStimulus,
-  WCMTarget, Exploration
+  WCMTarget
 using WCM: WCMSpatial1D
 using DifferentialEquations: Euler
-using JLD2
 
-if !(@isdefined UV)
-  const UV = UnboundedVariable
-  const BV = BoundedVariable
-  const varying{T} = Union{T,BV{T}}
-  const v = varying{Float64}
-end
-
-const v = varying{Float64}
+const v = Varying{Float64}
 
 N=1
 P=2
@@ -23,22 +15,22 @@ p_search = ParameterSearch(;
             pop_names = ["E", "I"],
             α = v[1.1, 1.0],
             β = v[1.1, 1.1],
-            τ = v[BV(0.1, (0.05,0.25)), 0.18],
+            τ = v[0.18, 0.1], #REVERSED
             space = PopSegment{v,P}(; n_points=301, extent=100.0),
-            nonlinearity = pops(SigmoidNonlinearity{v}; a=v[1.2, 1.0],
-                                                        θ=v[2.6, 8.0]),
+            nonlinearity = pops(SigmoidNonlinearity{v}; a=v[BV(1.2, (0.9, 1.3)), BV(1.0, (0.9, 1.3))],
+                                                        θ=v[8.0, 2.6]),
             stimulus = pops(NoisySharpBumpStimulus{v}; strength=v[1.2, 1.2],
                                                    window=Tuple{v,v}[(0.0,0.55), (0.0,0.55)],
                                                    width=v[2.81, 2.81],
                                                    SNR=v[80.0, 80.0]),
             connectivity = pops(ShollConnectivity{v};
-                amplitude = v[16.0 -18.2;
-                             27.0 -4.0],
+                amplitude = v[BV(16.0, (8.0,24.0)) BV(-18.2, (-30.0,-15.0));
+                             BV(27.0, (15.0,30.0)) BV(-4.0,(-12.0,-2.0))],
                 spread = v[2.5 2.7;
                            2.7 2.5])
             ),
         solver = Solver(;
-            stop_time = 2.0,
+            stop_time = 1.8,
             dt = 0.005,
             space_save_every=1,
             time_save_every=1,
@@ -67,13 +59,13 @@ p_search = ParameterSearch(;
             ),
         output = SingleOutput(;
             root = "/home/grahams/Dropbox/simulation-73/results/",
-            simulation_name = "plotting_tests"
+            simulation_name = "broad_search/reversing_e_i"
             ),
-        target=StretchExample(
-            file_name="data/wave_example.jld2",
-            stretch_dx=1
+        target=MatchExample(
+            file_name="data/wave_example.jld2"
           ),
-        MaxSteps=10
+        MaxSteps=10000
         )
 
+using JLD2
 @save "parameters.jld2" p_search

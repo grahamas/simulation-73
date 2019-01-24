@@ -13,8 +13,6 @@ if !(@isdefined UV)
   const v = varying{Float64}
 end
 
-const v = varying{Float64}
-
 N=1
 P=2
 @show v
@@ -23,22 +21,24 @@ p_search = ParameterSearch(;
             pop_names = ["E", "I"],
             α = v[1.1, 1.0],
             β = v[1.1, 1.1],
-            τ = v[BV(0.1, (0.05,0.25)), 0.18],
+            τ = v[BV(0.18, (0.09,0.2)), BV(0.1, (0.09,0.2))], #REVERSED
             space = PopSegment{v,P}(; n_points=301, extent=100.0),
-            nonlinearity = pops(SigmoidNonlinearity{v}; a=v[1.2, 1.0],
-                                                        θ=v[2.6, 8.0]),
+            nonlinearity = pops(Sech2Nonlinearity{v}; a=v[BV(1.2, (0.1, 2.0)), BV(1.0, (0.1, 2.0))],
+                                                        θ=v[BV(8.0, (2.0, 9.0)), BV(2.6, (2.0,9.0))]),
             stimulus = pops(NoisySharpBumpStimulus{v}; strength=v[1.2, 1.2],
                                                    window=Tuple{v,v}[(0.0,0.55), (0.0,0.55)],
                                                    width=v[2.81, 2.81],
                                                    SNR=v[80.0, 80.0]),
             connectivity = pops(ShollConnectivity{v};
-                amplitude = v[16.0 -18.2;
-                             27.0 -4.0],
+                amplitude = v[BV(16.0, (1.0,30.0)) BV(-18.2, (-30.0,-1.0));
+                             BV(27.0, (1.0,30.0)) BV(-4.0,(-30.0,-1.0))],
+                # spread = v[BV(2.5, (1.0, 4.0)) BV(2.7, (1.0, 4.0));
+                #            BV(2.7, (1.0, 4.0)) BV(2.5, (1.0, 4.0))])
                 spread = v[2.5 2.7;
-                           2.7 2.5])
+                          2.7 2.5])
             ),
         solver = Solver(;
-            stop_time = 2.0,
+            stop_time = 1.8,
             dt = 0.005,
             space_save_every=1,
             time_save_every=1,
@@ -67,13 +67,14 @@ p_search = ParameterSearch(;
             ),
         output = SingleOutput(;
             root = "/home/grahams/Dropbox/simulation-73/results/",
-            simulation_name = "plotting_tests"
+            simulation_name = "broad_search/reversing_e_i_sech2"
             ),
-        target=StretchExample(
-            file_name="data/wave_example.jld2",
-            stretch_dx=1
+        target=MatchExample(
+            file_name="data/wave_example.jld2"
           ),
         MaxSteps=10
         )
 
 @save "parameters.jld2" p_search
+
+analyse(p_search.simulation_result)

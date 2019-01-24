@@ -3,7 +3,7 @@ module Meshes
 using Markdown
 using Parameters
 using CalculatedParameters
-import CalculatedParameters: Calculated, update!
+import CalculatedParameters: Calculated
 
 abstract type Space{T,N} <: Parameter{T} end
 abstract type PopSpace{T,N,P} <: Space{T,N} end
@@ -29,15 +29,13 @@ function Calculated(segment::PopSegment{T,P}) where {T,P}
     CalculatedPopSegment{T,P}(segment)
 end
 
-function update!(cs::CalculatedPopSegment, segment::PopSegment)
-    if cs.segment == segment
-        return false
-    else
-        cs.segment = segment
-        cs.value = calculate(segment)
-        return true
-    end
-end
+# function update(cs::CalculatedPopSegment, segment::PopSegment)
+#     if cs.segment != segment
+#         cs.segment = segment
+#         cs.value = calculate(segment)
+#     end
+#     return cs
+# end
 
 get_origin(seg::PopSegment) = CartesianIndex(round(Int, seg.n_points / 2), 1)
 
@@ -98,18 +96,8 @@ function Calculated(dm::DistanceMatrix{T}) where T
     CalculatedDistanceMatrix{T}(dm)
 end
 
-
-function update!(cdm::CalculatedDistanceMatrix, segment::PopSegment)
-    if update!(cdm.calc_segment, segment)
-        cdm.value = distance_matrix(cdm.calc_segment)
-        return true
-    else
-        return false
-    end
-end
-
 export DistanceMatrix, CalculatedDistanceMatrix
 
-export Space, PopSegment, PopSpace, PopSegment, Calculated, update!
+export Space, PopSegment, PopSpace, PopSegment, Calculated, update
 
 end

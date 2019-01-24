@@ -9,7 +9,6 @@ using Meshes
 using RecipesBase
 using Plots
 using Parameters
-using Memoize
 using WCM
 using CalculatedParameters
 using Simulating

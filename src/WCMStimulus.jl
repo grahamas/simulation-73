@@ -4,17 +4,13 @@ using Parameters
 
 using Meshes
 using CalculatedParameters
-import CalculatedParameters: Calculated, update!
+import CalculatedParameters: Calculated, update
 using Random
 
 abstract type Stimulus{T,uType} <: Parameter{T} end
 
-function update!(calc_stims::AbstractArray{CS,1}, new_stims::AbstractArray{S,1}, space::Space{T}) where {T,S <: Stimulus{T}, CS<:CalculatedParam{S}}
-    for i in 1:length(calc_stims)
-        if calc_stims[i].stimulus != new_stims[i]
-            calc_stims[i] = Calculated(new_stims[i], space)
-        end
-    end
+function update(calc_arr::AA, new_arr::AbstractArray{S,1}, space::Space{T}) where {T, S <: Stimulus{T}, CS <: CalculatedParam{S}, AA<:AbstractArray{CS,1}}
+    [calc_arr[i].stimulus != new_arr[i] ? Calculated(new_arr[i], space) : calc_arr[i] for i in CartesianIndices(calc_arr)]
 end
 
 # ------------- GaussianNoiseStimulus ----------- #
@@ -152,6 +148,6 @@ export NoisySharpBumpStimulus, CalculatedNoisySharpBumpStimulus
 CalculatedParameters.get_value(c::CalculatedGaussianNoiseStimulus{T}) where T = c
 CalculatedParameters.get_value(c::CalculatedNoisySharpBumpStimulus{T}) where T = c
 CalculatedParameters.get_value(c::CalculatedSharpBumpStimulus{T}) where T = c
-export Stimulus, Calculated, update!, stimulate!
+export Stimulus, Calculated, update, stimulate!
 
 end

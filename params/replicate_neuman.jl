@@ -17,10 +17,10 @@ P=2
 simulation = Simulation(
         model = WCMSpatial1D{v,N,P}(;
             pop_names = ["E", "I"],
-            α = [1.1, 1.0],
-            β = [1.1, 1.1],
-            τ = [0.1, 0.18],
-            space = PopSegment{v,P}(; n_points=301, extent=100),
+            α = v[1.1, 1.0],
+            β = v[1.1, 1.1],
+            τ = v[0.1, 0.18],
+            space = PopSegment{v,P}(; n_points=301, extent=100.0),
             nonlinearity = pops(SigmoidNonlinearity{v}; a=[1.2, 1.0],
                                                         θ=[2.6, 8.0]),
             stimulus = pops(NoisySharpBumpStimulus{v}; strength=[1.2, 1.2],
@@ -37,10 +37,10 @@ simulation = Simulation(
             stop_time = 3.0,
             dt = 0.01,
             space_save_every=1,
-            time_save_every=10,
+            time_save_every=1,
             algorithm=Euler()
             ),
-        analyses = Analyses{v}(;
+        analyses = Analyses(;
           plot_specs = [
               # Animate(;
               #   fps = 20

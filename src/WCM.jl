@@ -2,7 +2,7 @@ module WCM
 
 using Parameters
 using CalculatedParameters
-import CalculatedParameters: Calculated, update!
+import CalculatedParameters: Calculated, update
 using Simulating
 using Modeling
 using WCMConnectivity
@@ -97,9 +97,9 @@ function update_from_p!(cwc::CalculatedWCMSpatial1D{T}, new_p::Array{T}, model, 
     cwc.α = new_model.α
     cwc.β = new_model.β
     cwc.τ = new_model.τ
-    update!(cwc.connectivity, new_model.connectivity, new_model.space)
-    update!(cwc.nonlinearity, new_model.nonlinearity)
-    update!(cwc.stimulus, new_model.stimulus, new_model.space)
+    cwc.connectivity = update(cwc.connectivity, new_model.connectivity, new_model.space)
+    cwc.nonlinearity = update(cwc.nonlinearity, new_model.nonlinearity)
+    cwc.stimulus = update(cwc.stimulus, new_model.stimulus, new_model.space)
 end
 
 function get_values(cwc::CalculatedWCMSpatial1D{T,N}) where {T,N}

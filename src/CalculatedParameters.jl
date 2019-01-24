@@ -34,8 +34,8 @@ function get_value(cp::CalculatedParam)
     cp.value
 end
 
-function update!(olds::AbstractArray, news::AbstractArray)
-    any(update!(pair...) for pair in zip(olds, news))
+function update(olds::AA, news::AA) where {AA <: AbstractArray}
+    AA[update(pair...) for pair in zip(olds, news)]
 end
 
 function Calculated(a::T) where T
@@ -45,7 +45,7 @@ end
 export Variable, UnboundedVariable, BoundedVariable
 export zero, default_value, bounds
 export Parameter, CalculatedParam, pops, Calculated
-export update!
+export update
 export get_value
 
 end

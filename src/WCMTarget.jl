@@ -8,7 +8,9 @@ using Simulating
 import DifferentialEquations: ODESolution
 using JLD2
 
-struct MatchExample{T} <: LossFunction{T}
+abstract type AbstractExampleTarget{T} <: LossFunction{T} end
+
+struct MatchExample{T} <: AbstractExampleTarget{T}
 	data::Array{T}
 	x::Array{T,1}
 	t::Array{T,1}
@@ -31,6 +33,31 @@ function Targets.loss(fn::MatchExample{T}, model::WCMSpatial1D{T}, solver::Solve
 end
 	
 export MatchExample
+
+struct StretchExample{T} <: AbstractExampleTarget{T}
+	data::Array{T}
+	x::Array{T,1}
+	t::Array{T,1}
+	stretch_dx::Int
+end
+function StretchExample(; file_name::String="", stretch_dx=nothing)
+	@load file_name wave x t
+	StretchExample(wave, x, t, stretch_dx)
+end
+
+function (p::StretchExample{T})(soln::ODESolution{T}, x_dxs, pop_dxs, t_dxs) where {T, AT<:Array{T,2}}
+	sum((soln[x_dxs, pop_dxs, t_dxs] .- p.data) .^ 2)
+end
+
+function Targets.loss(fn::StretchExample{T}, model::WCMSpatial1D{T}, solver::Solver{T}) where T
+	t_target, x_target = fn.t, fn.x
+	t_dxs = subsampling_time_idxs(t_target, solver)
+	x_dxs = subsampling_space_idxs(x_target, model, solver)
+	pop_dxs = 1
+	(soln) -> fn(soln, x_dxs, pop_dxs, t_dxs)
+end
+	
+export StretchExample
 
 @with_kw struct DecayingTraveling{T} <: LossFunction{T}
 	timepoints::AbstractArray{T}

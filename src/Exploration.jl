@@ -40,6 +40,7 @@ function ParameterSearch(;varying_model::M=nothing, solver::S=nothing,
     model_result = model_from_p(varying_model, variable_dxs, best_candidate(result))
     @show model_result
     simulation_result = Simulation(; model = model_result, solver=solver, analyses=analyses, output=output)
+    @info "Left simulation result"
     ParameterSearch{T,M,S}(varying_model, solver, analyses, output, target,
         result, simulation_result)
 end
@@ -145,6 +146,7 @@ end
 
 function var_deconstruct(arr::AA) where {AA<:AbstractArray}
     deconstruction = map(var_deconstruct, arr)
+    @show typeof(arr)
     return (base_type(typeof(arr)), [deconstruction...]) # remade incase static
 end
 
@@ -182,7 +184,7 @@ function base_type(::Type{Tuple{T,S}}) where {T,S}
     return Tuple{BT,BS}
 end
 
-function base_type(::Type{SArray{TUP,T,N,M}}) where {N,M,T,TUP}
+function base_type(::Type{SA}) where {N,M,T,TUP,SA<:Union{SArray{TUP,T,N,M},MArray{TUP,T,N,M},SizedArray{TUP,T,N,M}}}
     BT = base_type(T)
     return SArray{TUP,BT,N,M}
 end    

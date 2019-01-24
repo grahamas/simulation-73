@@ -2,7 +2,6 @@ module Records
 
 using Parameters
 using JLD2
-using Memoize
 using Dates
 using Logging
 
