@@ -1,12 +1,4 @@
-module Records
-
-using Parameters
-using JLD2
-using Dates
-using Logging
-
 abstract type AbstractOutput end
-
 
 struct SingleOutput <: AbstractOutput
     root::String
@@ -68,18 +60,10 @@ function filecopy(output::AbstractOutput, source_path, dest_base_name)
     cp(source_path, joinpath(output.dir_path, dest_base_name))
 end
 
-function (o::SingleOutput)(write_fn::Function, base_name::AbstractString, args...; kwargs...)
+function (o::SingleOutput)(write_fn::Function, base_name::String, args...; kwargs...)
     o.safe_writer(write_fn, base_name, args...; kwargs...)
 end
 
-function (o::SingleOutput)(obj; base_name::AbstractString, write_fn)
-    return nothing
-end
-function required_modules()
-    error("undefined.")
-end
-
-
-export AbstractOutput, SingleOutput, ExperimentOutput, filecopy
-
-end
+# function (o::SingleOutput)(obj; base_name::AbstractString, write_fn)
+#     return nothing
+# end

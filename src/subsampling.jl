@@ -1,5 +1,3 @@
-module Subsampling
-
 
 function scalar_to_idx_window(scalar_window::Tuple{T,T}, origin_idx::Int, max_idx::Int, Δscalar::T) where T
 	unbounded_float_idx_window = origin_idx .+ scalar_window ./ Δscalar
@@ -41,8 +39,11 @@ end
 function subsampling_idxs(target::AbstractArray{T,1}, Δsource::T, max_idx::Int; origin_idx::Int=1) where T
 	subsampling_idxs(Δsource, max_idx; scalar_window=(target[1], target[end]), Δsubsampled=target[2]-target[1], origin_idx=origin_idx)
 end
-
-
-export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs
-
+function subsampling_time_idxs(t_target, solver)
+    t_solver = time_span(solver)[1]:save_dt(solver):time_span(solver)[end]
+    subsampling_idxs(t_target, t_solver)
+end
+function subsampling_space_idxs(x_target, model, solver)
+    x_model = space_arr(model)[1:solver.space_save_every:end,1]
+    subsampling_idxs(x_target, x_model)
 end

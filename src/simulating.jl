@@ -1,19 +1,17 @@
-module Simulating
 
-using Modeling
-using Records
-using Parameters
-using JLD2
-import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
-using Meshes
+#region Model
+abstract type Model{T,N,P} <: AbstractParameter{T} end
 
-abstract type AbstractPlotSpecification end
-abstract type AbstractSpaceTimePlotSpecification <: AbstractPlotSpecification end
-@with_kw struct Analyses
-    plot_specs::Array{AbstractPlotSpecification}
+function space_arr(model::Model)::AbstractArray
+    Calculated(model.space).value
 end
-export AbstractPlotSpecification, AbstractSpaceTimePlotSpecification, Analyses
 
+function initial_value(model::Model{T,N,P}) where {T,N,P}
+    space_zeros = zeros(model.space)
+end
+#endregion
+
+#region Solver
 struct Solver{T,ALG<:Union{OrdinaryDiffEqAlgorithm,Nothing},DT<:Union{T,Nothing}}
     tspan::Tuple{T,T}
     algorithm::ALG
@@ -36,28 +34,28 @@ function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: PopSpace{T,1,
     end
     return CartesianIndex.(Iterators.product(axes(space)...))[1:solver.space_save_every:end,:]
 end
+#endregion
 
+#region Simulation
 """A Simulation object runs its own simulation upon initialization."""
 struct Simulation{T,M<:Model{T},S<:Solver{T}}
     model::M
     solver::S
-    analyses::Analyses
-    output::AbstractOutput
     solution::DESolution
-    Simulation{T,M,S}(m,s,a,o) where {T,M<:Model{T},S<:Solver{T}} = new(m,s,a,o,_solve(m,s))
+    Simulation{T,M,S}(m,s) where {T,M<:Model{T},S<:Solver{T}} = new(m,s,_solve(m,s))
 end
 
-function Simulation(; model::M, solver::S, analyses::Analyses, output::AbstractOutput) where {T, M<:Model{T}, S<:Solver{T}}
-    Simulation{T,M,S}(model,solver,analyses,output)
+function Simulation(; model::M, solver::S) where {T, M<:Model{T}, S<:Solver{T}}
+    Simulation{T,M,S}(model,solver)
 end
 
-Modeling.initial_value(sim::Simulation) = initial_value(sim.model)
+initial_value(sim::Simulation) = initial_value(sim.model)
 time_span(solver::Solver{T}) where T = solver.tspan
 time_span(sim::Simulation) = time_span(sim.solver)
-Modeling.space_arr(sim::Simulation) = space_arr(sim.model)[1:sim.solver.space_save_every:end,1] # TODO: remove 1D assumption
+space_arr(sim::Simulation) = space_arr(sim.model)[1:sim.solver.space_save_every:end,1] # TODO: remove 1D assumption
 time_arr(sim::Simulation) = sim.solution.t
-function Meshes.get_origin(sim::Simulation) # TODO: Remove 1D assumption
-    round(Int, Meshes.get_origin(sim.model.space)[1] / sim.solver.space_save_every) 
+function get_origin(sim::Simulation) # TODO: Remove 1D assumption
+    round(Int, get_origin(sim.model.space)[1] / sim.solver.space_save_every) 
 end
 save_dt(sim::Simulation{T}) where T = save_dt(sim.solver)
 save_dx(sim::Simulation{T}) where T = step(sim.model.space) * sim.solver.space_save_every
@@ -68,6 +66,7 @@ Base.maximum(sim::Simulation) = maximum(map(maximum, sim.solution.u))
 function write_params(sim::Simulation)
     write_object(sim.output, "parameters.jld2", "sim", sim)
 end
+#endregion
 
 """
     _solve wraps the DifferentialEquations function, solve.
@@ -100,7 +99,14 @@ function run_simulation(jl_filename::AbstractString)
     return simulation
 end
 
-export run_simulation, Simulation, write_params, Solver,
-    time_span, time_arr, save_dt, save_dx, save_idxs, generate_problem
+function generate_problem(model::M, solver::SV) where {T,M<:Model{T},SV<:Solver{T}}
+    tspan = time_span(solver)
+    u0 = initial_value(model)
 
+    calculated_model = Calculated(model)
+
+    system_fn! = make_calculated_function(calculated_model)
+
+    ode_fn = convert(ODEFunction{true}, system_fn!)
+    return ODEProblem(ode_fn, u0, tspan, nothing)
 end

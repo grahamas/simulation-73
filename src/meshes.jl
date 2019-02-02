@@ -1,14 +1,7 @@
-module Meshes
-
-using Markdown
-using Parameters
-using CalculatedParameters
-import CalculatedParameters: Calculated
-
-abstract type Space{T,N} <: Parameter{T} end
+abstract type Space{T,N} <: AbstractParameter{T} end
 abstract type PopSpace{T,N,P} <: Space{T,N} end
 
-# * Segment
+#region Segment
 @with_kw struct PopSegment{DistT,P} <: PopSpace{DistT,1,P}
     extent::DistT
     n_points::Int
@@ -19,7 +12,7 @@ function calculate(segment::PopSegment{T,P}) where {T,P}
     return repeat(one_pop, outer=(1,P))
 end
 
-struct CalculatedPopSegment{DistT<:Number,P} <: CalculatedParam{PopSegment{DistT,P}}
+struct CalculatedPopSegment{DistT<:Number,P} <: CalculatedType{PopSegment{DistT,P}}
     segment::PopSegment{DistT}
     value::Array{DistT,2}
     CalculatedPopSegment{DistT,P}(segment::PopSegment{DistT,P}) where {DistT,P} = new(segment, calculate(segment))
@@ -28,14 +21,6 @@ end
 function Calculated(segment::PopSegment{T,P}) where {T,P}
     CalculatedPopSegment{T,P}(segment)
 end
-
-# function update(cs::CalculatedPopSegment, segment::PopSegment)
-#     if cs.segment != segment
-#         cs.segment = segment
-#         cs.value = calculate(segment)
-#     end
-#     return cs
-# end
 
 get_origin(seg::PopSegment) = CartesianIndex(round(Int, seg.n_points / 2), 1)
 
@@ -50,12 +35,11 @@ size(cs::CalculatedPopSegment) = size(cs.value)
 zeros(seg::PopSegment{T,P}) where {T,P} = zeros(T,seg.n_points,P)
 
 ndims(space::PopSpace{T,N}) where {T,N} = N + 1
+#endregion
 
-export step, zeros, length, get_origin
+#region DistanceMatrix
 
-# * Distance matrix
-
-@with_kw struct DistanceMatrix{T} <: Parameter{T}
+@with_kw struct DistanceMatrix{T} <: AbstractParameter{T}
     calculated_segment::CalculatedPopSegment{T}
 end
 
@@ -77,7 +61,7 @@ function distance_matrix(dm::DistanceMatrix{T}) where {T <: Real}
     return distance_mx'
 end
 
-struct CalculatedDistanceMatrix{T} <: CalculatedParam{DistanceMatrix{T}}
+struct CalculatedDistanceMatrix{T} <: CalculatedType{DistanceMatrix{T}}
     distance_matrix::DistanceMatrix{T}
     value::Matrix{T}
     CalculatedDistanceMatrix{T}(dm::DistanceMatrix{T}) where T = new(dm, distance_matrix(dm))
@@ -96,8 +80,4 @@ function Calculated(dm::DistanceMatrix{T}) where T
     CalculatedDistanceMatrix{T}(dm)
 end
 
-export DistanceMatrix, CalculatedDistanceMatrix
-
-export Space, PopSegment, PopSpace, PopSegment, Calculated, update
-
-end
+#endregion
