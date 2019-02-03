@@ -1,4 +1,3 @@
-abstract type Target{T} <: AbstractParameter{T} end
+abstract type AbstractTarget{T} <: AbstractParameter{T} end
 
-
-
+target_loss() = error("undefined.")

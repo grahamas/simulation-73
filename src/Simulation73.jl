@@ -32,14 +32,14 @@ export DistanceMatrix, CalculatedDistanceMatrix,
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
-	subsampling_time_idxs, subsampling_space_idxs 
+	subsampling_time_idxs, subsampling_space_idxs
 
 # "analysing.jl"
-export AbstractPlotSpecification, AbstractSpaceTimePlotSpecification, Analyses, 
+export AbstractPlotSpecification, AbstractSpaceTimePlotSpecification, Analyses,
 	output_name, plot_and_save, analyse
 
 # "targets.jl"
-export Target, TargetFactory, LossFunction, target_loss
+export AbstractTarget, target_loss
 
 # "simulating.jl"
 export Model, initial_value, space_arr,

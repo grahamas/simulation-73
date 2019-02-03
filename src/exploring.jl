@@ -4,13 +4,13 @@
 struct ParameterSearch{T, M<: Model{<:MaybeVariable{T}}, S<:Solver{T}}
     model::M
     solver::S
-    target::Target
+    target::AbstractTarget
     result::OptimizationResults
     result_simulation::Simulation{T,<:Model{T},S}
 end
 
 function ParameterSearch(;varying_model::M=nothing, solver::S=nothing,
-        target::Target=nothing, kwargs...) where {T,M<:Model{<:MaybeVariable{T}},S<:Solver{T}}
+        target::AbstractTarget=nothing, kwargs...) where {T,M<:Model{<:MaybeVariable{T}},S<:Solver{T}}
     initial_p, variable_dxs, p_bounds = init_variables(varying_model)
     result = run_search(varying_model, variable_dxs, solver, target, initial_p, p_bounds; kwargs...)
     result_model = model_from_p(varying_model, variable_dxs, best_candidate(result))
@@ -96,7 +96,7 @@ end
 function _build_loss_objective(initial_problem, solver::Solver{T,Nothing}, space, loss_fn, prob_generator) where T
     build_loss_objective(initial_problem, Tsit5(), loss_fn;
         prob_generator=prob_generator,
-        save_at=save_dt(solver), 
+        save_at=save_dt(solver),
         timeseries_steps=solver.time_save_every,
         save_idxs=save_idxs(solver, space),
         alg_hints=[solver.stiffness])
