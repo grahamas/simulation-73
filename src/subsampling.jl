@@ -1,9 +1,35 @@
 
-function scalar_to_idx_window(scalar_window::Tuple{T,T}, origin_idx::Int, max_idx::Int, Δscalar::T) where T
-	unbounded_float_idx_window = origin_idx .+ scalar_window ./ Δscalar
-	bounded_float_idx_window = max.(min.(unbounded_float_idx_window, max_idx), 1)
-	return round.(Int, bounded_float_idx_window)
+# Subsampling space can definitely be necessary
+# Subsampling time may not be, maybe rather use DESolution methods.
+
+# Supposing adaptive time, what do I want to do?
+#	- Restrict analysis resolution
+#	- Regularize analysis interval (!!!)
+
+abstract type AbstractSubsampler{DT,W} end
+
+@with_kw struct Subsampler{DT,W} <: AbstractSubsampler{DT,W}
+	Δ::DT = nothing
+	window::W = nothing
 end
+
+@with_kw struct IndexInfo{D}
+	Δ::D
+	origin_idx::Int # TODO: Make CartesianIndex
+end
+
+struct StrideToEnd
+	stride::Int
+	start::Int
+	StrideToEnd(stride, start=1) = new(stride, start)
+end
+
+import Base: to_indices, _maybetail, @_inline_meta, tail, getindex
+to_indices(A, inds, I::Tuple{StrideToEnd, Vararg{Any}})=
+	(@_inline_meta; (I[1].start:I[1].stride:inds[1][end], to_indices(A, _maybetail(inds), tail(I))...))
+import Base: getindex
+getindex(A, S::StrideToEnd) = getindex(A, to_indices(A, (S,))...)
+#getindex(A, ind::StrideToEnd) = A[ind.start:ind.stride:end]
 
 function scalar_to_idx_window(scalar_window::Tuple{T,T}, arr::AbstractArray{T,1}) where T
 	(findfirst((scalar_window[1] .< arr) .| (scalar_window[1] .≈ arr)), findlast((scalar_window[2] .> arr) .| (scalar_window[2] .≈ arr)))
@@ -14,18 +40,41 @@ function subsampling_Δidx(Δsubsampled::T, Δsource::T) where T
 	return Δidx
 end
 
-function subsampling_idxs(Δsource::T, max_idx::Int; Δsubsampled::T=Δsource, scalar_window::Union{Tuple{T,T},Nothing}=nothing, origin_idx::Int=1) where T
-	if scalar_window != nothing
-		idx_window = scalar_to_idx_window(scalar_window, origin_idx, max_idx, Δsource)
+function subsampling_idxs(Δsource::T, origin_idx::Int, Δsubsampled::T, scalar_window::Tuple{T,T}) where T
+	Δidx = subsampling_Δidx(Δsubsampled, Δsource)
+	if scalar_window[1] == -Inf
+		lower_idx = 1
 	else
-		idx_window = (origin_idx, max_idx)
+		lower_idx = round(Int, origin_idx + scalar_window[1] / Δsource)
 	end
-	idx_window[1]:subsampling_Δidx(Δsubsampled, Δsource):idx_window[2]
+	if scalar_window[2] == Inf
+		return StrideToEnd(Δidx,lower_idx)
+	else
+		upper_idx = round(Int, origin_idx + scalar_window[2] / Δsource)
+		return lower_idx:Δidx:upper_idx
+	end
+end
+
+function subsampling_idxs(info, subsampler::Subsampler{Nothing, Nothing})
+	Colon()
+end
+
+function subsampling_idxs(info::IndexInfo{T}, subsampler::Subsampler{T,Tuple{T,T}}) where T
+	subsampling_idxs(info.Δ, info.origin_idx, subsampler.Δ, subsampler.window)
+end
+
+function subsampling_idxs(info::IndexInfo{T}, subsampler::Subsampler{T,Nothing}) where {T <: Number}#Δsubsampled::T, scalar_window::Nothing) where T
+	Δidx = subsampling_Δidx(subsampler.Δ, info.Δ)
+	return StrideToEnd(Δidx)
+end
+
+function subsampling_idxs(info::IndexInfo{T}, subsampler::Subsampler{Nothing,Tuple{T,T}}) where T
+	Δsubsampled = info.Δ
+	subsampling_idxs(info.Δ, info.origin_idx, Δsubsampled, subsampler.window)
 end
 
 function subsampling_idxs(target::AbstractArray{T,1}, source::AbstractArray{T,1}) where T
 	Δsource = source[2] - source[1]
-	max_idx = length(source)
 
 	Δsubsampled = target[2] - target[1]
 	scalar_window = (target[1], target[end])
@@ -36,14 +85,9 @@ function subsampling_idxs(target::AbstractArray{T,1}, source::AbstractArray{T,1}
 	idx_window[1]:Δidx:idx_window[2]
 end
 
-function subsampling_idxs(target::AbstractArray{T,1}, Δsource::T, max_idx::Int; origin_idx::Int=1) where T
-	subsampling_idxs(Δsource, max_idx; scalar_window=(target[1], target[end]), Δsubsampled=target[2]-target[1], origin_idx=origin_idx)
-end
-function subsampling_time_idxs(t_target, solver)
-    t_solver = time_span(solver)[1]:save_dt(solver):time_span(solver)[end]
-    subsampling_idxs(t_target, t_solver)
-end
-function subsampling_space_idxs(x_target, model, solver)
-    x_model = space_arr(model)[1:solver.space_save_every:end,1]
-    subsampling_idxs(x_target, x_model)
+function subsampling_idxs(target::AbstractArray{T,1}, source_info::IndexInfo) where T
+	Δ = target[1] - target[2]
+	target_subsampler = Subsampler(; window = (target[1], target[end]), Δ = target[2]-target[1])
+	@assert all((target[2:end] - target[1:end-1]) .≈ target_subsampler.Δ)
+	subsampling_idxs(source_info, target_subsampler)
 end

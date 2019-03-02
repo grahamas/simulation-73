@@ -19,16 +19,15 @@ struct Solver{T,ALG<:Union{OrdinaryDiffEqAlgorithm,Nothing},DT<:Union{T,Nothing}
     time_save_every::Int
     space_save_every::Int # TODO: Remove 1D Assumption
     stiffness::Symbol
+    #dense::Bool
 end
 
-function Solver(; start_time::T=0.0, stop_time::T, dt::DT, time_save_every::Int=1,
-                    space_save_every::Int=1,
-                    algorithm::ALG=nothing, stiffness=:auto) where {T, ALG, DT<:Union{T,Nothing}}
-    Solver{T,ALG,DT}((start_time, stop_time), algorithm, dt, time_save_every, space_save_every, stiffness)
+function Solver{S}(; start_time::S=0.0, stop_time::S, dt::DT, time_save_every::Int=1, space_save_every::Int=1, algorithm::ALG=nothing, stiffness=:auto) where {S, ALG, DT<:Union{S,Nothing}}
+    Solver{S,ALG,DT}((start_time, stop_time), algorithm, dt, time_save_every, space_save_every, stiffness)
 end
 save_dt(s::Solver{T}) where T = s.simulated_dt * s.time_save_every
 
-function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: PopSpace{T,1,P}}#::Union{Nothing,Array{CartesianIndex}} 
+function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: PopSpace{T,1,P}}#::Union{Nothing,Array{CartesianIndex}}
     if solver.space_save_every == 1
         return nothing
     end
@@ -52,20 +51,75 @@ end
 initial_value(sim::Simulation) = initial_value(sim.model)
 time_span(solver::Solver{T}) where T = solver.tspan
 time_span(sim::Simulation) = time_span(sim.solver)
-space_arr(sim::Simulation) = space_arr(sim.model)[1:sim.solver.space_save_every:end,1] # TODO: remove 1D assumption
-time_arr(sim::Simulation) = sim.solution.t
-function get_origin(sim::Simulation) # TODO: Remove 1D assumption
-    round(Int, get_origin(sim.model.space)[1] / sim.solver.space_save_every) 
+space_arr(model::Model, solver::Solver) = space_arr(model)[1:solver.space_save_every:end,1] # TODO: remove 1D assumption
+space_arr(sim::Simulation) = space_arr(sim.model, sim.solver)
+function time_arr(solver::Solver{T}) where T
+    start, stop = time_span(solver)
+    start:save_dt(solver):stop
 end
-save_dt(sim::Simulation{T}) where T = save_dt(sim.solver)
-save_dx(sim::Simulation{T}) where T = step(sim.model.space) * sim.solver.space_save_every
+time_arr(sim::Simulation) = time_arr(sim.solver)#sim.solution.t
 
+function get_space_origin_idx(model::Model)
+    get_space_origin_idx(model.space)
+end
+function get_space_origin_idx(model::Model, solver::Solver)  # TODO: Remove 1D assumption
+    round(Int, get_space_origin_idx(model)[1] / solver.space_save_every)
+end
+function get_space_origin_idx(sim::Simulation)
+    get_space_origin_idx(sim.model, sim.solver)
+end
+
+save_dt(sim::Simulation{T}) where T = save_dt(sim.solver)
+save_dx(model::Model, solver::Solver)= step(model.space) * solver.space_save_every
+save_dx(sim::Simulation{T}) where T = save_dx(sim.model, sim.solver)
 Base.minimum(sim::Simulation) = minimum(map(minimum, sim.solution.u))
 Base.maximum(sim::Simulation) = maximum(map(maximum, sim.solution.u))
+
+get_space_index_info(model::Model{T}, solver::Solver{T}) where T = IndexInfo(save_dx(model, solver), get_space_origin_idx(model, solver))
+get_space_index_info(sim::Simulation{T}) where T = get_space_index_info(sim.model, sim.solver)
+get_time_index_info(solver::Solver{T}) where T = IndexInfo(save_dt(solver), 1)
+get_time_index_info(sim::Simulation{T}) where T = get_time_index_info(sim.solver)
 
 function write_params(sim::Simulation)
     write_object(sim.output, "parameters.jld2", "sim", sim)
 end
+
+function subsampling_idxs(model::Model, solver::Solver, time_subsampler, space_subsampler)
+    x_info = get_space_index_info(model, solver)
+    t_info = get_time_index_info(solver)
+
+    x_dxs = subsampling_idxs(x_info, space_subsampler)
+    t_dxs = subsampling_idxs(t_info, time_subsampler)
+
+    return (x_dxs, 1, t_dxs)
+end
+
+function subsampling_idxs(simulation::Simulation{T,<:Model{T,1}}, time_subsampler::Subsampler, space_subsampler::Subsampler) where T
+    subsampling_idxs(simulation.model, simulation.solver, time_subsampler, space_subsampler)
+end
+function subsampling_time_idxs(solver::Solver, t_target::AbstractArray)
+    t_solver = time_span(solver)[1]:save_dt(solver):time_span(solver)[end]
+    subsampling_idxs(t_target, t_solver)
+end
+function subsampling_space_idxs(model::Model, solver::Solver, x_target::AbstractArray)
+    x_model = space_arr(model)[1:solver.space_save_every:end,1]
+    subsampling_idxs(x_target, x_model)
+end
+
+function subsample(simulation::Simulation{T,<:Model{T,1}}; time_subsampler, space_subsampler) where T
+    t = time_arr(simulation)
+    x = space_arr(simulation)
+
+    x_dxs, pop_dxs, t_dxs = subsampling_idxs(simulation, time_subsampler, space_subsampler)
+
+    t = t[t_dxs]
+    x = x[x_dxs] # TODO: Remove 1D return assumption
+    wave = simulation.solution[x_dxs,pop_dxs,t_dxs]
+
+    return (t,x,wave)
+end
+
+
 #endregion
 
 """

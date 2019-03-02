@@ -4,9 +4,9 @@ using Markdown # for doc_str
 using CalculatedTypes
 import CalculatedTypes: Calculated, update
 using DifferentialEquations, DiffEqParamEstim
-using BlackBoxOptim
+using BlackBoxOptim, Optim
 using StaticArrays
-import BlackBoxOptim: OptimizationResults
+import BlackBoxOptim
 using JLD2
 import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
 using Dates
@@ -32,11 +32,11 @@ export DistanceMatrix, CalculatedDistanceMatrix,
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
-	subsampling_time_idxs, subsampling_space_idxs
+	subsampling_time_idxs, subsampling_space_idxs, Subsampler
 
 # "analysing.jl"
 export AbstractPlotSpecification, AbstractSpaceTimePlotSpecification, Analyses,
-	output_name, plot_and_save, analyse
+	output_name, plot_and_save, analyse, subsample, subsampling_idxs
 
 # "targets.jl"
 export AbstractTarget, target_loss

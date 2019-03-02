@@ -22,7 +22,7 @@ function Calculated(segment::PopSegment{T,P}) where {T,P}
     CalculatedPopSegment{T,P}(segment)
 end
 
-get_origin(seg::PopSegment) = CartesianIndex(round(Int, seg.n_points / 2), 1)
+get_space_origin_idx(seg::PopSegment) = CartesianIndex(round(Int, seg.n_points / 2), 1)
 
 import Base: step, zeros, length, size, ndims
 step(seg::PopSegment) = seg.extent / (seg.n_points - 1)

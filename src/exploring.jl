@@ -5,15 +5,18 @@ struct ParameterSearch{T, M<: Model{<:MaybeVariable{T}}, S<:Solver{T}}
     model::M
     solver::S
     target::AbstractTarget
-    result::OptimizationResults
+    result::Union{BlackBoxOptim.OptimizationResults, Optim.OptimizationResults}
     result_simulation::Simulation{T,<:Model{T},S}
 end
+
+minimizer(res::BlackBoxOptim.OptimizationResults) = best_candidate(res)
+minimizer(res::Optim.OptimizationResults) = Optim.minimizer(res)
 
 function ParameterSearch(;varying_model::M=nothing, solver::S=nothing,
         target::AbstractTarget=nothing, kwargs...) where {T,M<:Model{<:MaybeVariable{T}},S<:Solver{T}}
     initial_p, variable_dxs, p_bounds = init_variables(varying_model)
     result = run_search(varying_model, variable_dxs, solver, target, initial_p, p_bounds; kwargs...)
-    result_model = model_from_p(varying_model, variable_dxs, best_candidate(result))
+    result_model = model_from_p(varying_model, variable_dxs, minimizer(result))
     @show result_model
     result_simulation = Simulation(; model = result_model, solver=solver)
     @info "Left simulation result"
@@ -112,6 +115,23 @@ function run_search(varying_model, variable_map, solver, target, initial_p, p_bo
                                                 problem_generator)
     result = bboptimize(loss_obj; NumDimensions=length(initial_p),
         MaxSteps=MaxSteps, SearchRange=p_bounds)
+    return result
+end
+
+function run_search_optim(varying_model, variable_map, solver, target, initial_p, p_bounds::Array{<:Tuple}; MaxSteps=11e3)
+    @show MaxSteps
+    initial_model = model_from_p(varying_model, variable_map, initial_p)
+    problem_generator = make_problem_generator(initial_model, solver, variable_map)
+    initial_problem = problem_generator(nothing, initial_p)
+    loss_fn = target_loss(target, initial_model, solver)
+    loss_obj = _build_loss_objective(initial_problem, solver, initial_model.space, loss_fn,
+                                                problem_generator)
+    lower = [bounds[1] for bounds in p_bounds]
+    upper = [bounds[2] for bounds in p_bounds]
+    result = optimize(loss_obj, lower, upper, initial_p, Fminbox(ParticleSwarm()),
+                        Optim.Options(
+                         iterations = 10,
+                         show_every = 1))
     return result
 end
 
