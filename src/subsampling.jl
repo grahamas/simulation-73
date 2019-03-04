@@ -28,8 +28,7 @@ import Base: to_indices, _maybetail, @_inline_meta, tail, getindex
 to_indices(A, inds, I::Tuple{StrideToEnd, Vararg{Any}})=
 	(@_inline_meta; (I[1].start:I[1].stride:inds[1][end], to_indices(A, _maybetail(inds), tail(I))...))
 import Base: getindex
-getindex(A, S::StrideToEnd) = getindex(A, to_indices(A, (S,))...)
-#getindex(A, ind::StrideToEnd) = A[ind.start:ind.stride:end]
+getindex(A::AbstractArray, S::StrideToEnd) = getindex(A, to_indices(A, (S,))...)
 
 function scalar_to_idx_window(scalar_window::Tuple{T,T}, arr::AbstractArray{T,1}) where T
 	(findfirst((scalar_window[1] .< arr) .| (scalar_window[1] .≈ arr)), findlast((scalar_window[2] .> arr) .| (scalar_window[2] .≈ arr)))
