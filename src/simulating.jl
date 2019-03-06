@@ -27,7 +27,7 @@ function Solver{S}(; start_time::S=0.0, stop_time::S, dt::DT, time_save_every::I
 end
 save_dt(s::Solver{T}) where T = s.simulated_dt * s.time_save_every
 
-function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: PopSpace{T,1,P}}#::Union{Nothing,Array{CartesianIndex}}
+function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: Pops{P,T}}#::Unio{P,n}{Nothing,Array{CartesianIndex}}
     if solver.space_save_every == 1
         return nothing
     end
@@ -132,7 +132,7 @@ function _solve(model,solver)
     problem = generate_problem(model, solver)
     _solve(problem, solver, model.space)
 end
-function _solve(problem::ODEProblem, solver::Solver{T,Euler}, space::PopSpace{T}) where T
+function _solve(problem::ODEProblem, solver::Solver{T,Euler}, space::Pops{P,T}) where {P,T}
     # TODO: Calculate save_idxs ACCOUNTING FOR pops
     @show "Solving Euler"
     solve(problem, Euler(), dt=solver.simulated_dt,
@@ -140,7 +140,7 @@ function _solve(problem::ODEProblem, solver::Solver{T,Euler}, space::PopSpace{T}
             timeseries_steps=solver.time_save_every,
             save_idxs=save_idxs(solver, space))
 end
-function _solve(problem::ODEProblem, solver::Solver{T,Nothing}, space::PopSpace{T}) where T
+function _solve(problem::ODEProblem, solver::Solver{T,Nothing}, space::Pops{P,T}) where {P,T}
     @show "Solving with default ALG"
     solve(problem, saveat=save_dt(solver), timeseries_steps=solver.time_save_every,
         save_idxs=save_idxs(solver, space), alg_hints=[solver.stiffness])

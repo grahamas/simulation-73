@@ -1,83 +1,87 @@
-abstract type Space{T,N} <: AbstractParameter{T} end
-abstract type PopSpace{T,N,P} <: Space{T,N} end
+abstract type AbstractSpace{T,D} <: AbstractParameter{T} end
+
+discrete_segment(extent::T, n_points::Int) where {T <: Number} = LinRange{T}(-(extent/2), (extent/2), n_points)
+@calculated_type(struct Circle{T} <: AbstractSpace{T,1}
+    extent::T
+    n_points::Int
+end, discrete_segment(extent, n_points),
+    Array{T,1}
+)
+distance_metric(circ::Circle, a, b) = min(mod(a-b, circ.extent), mod(b-a, circ.extent))
+
+
+@calculated_type(struct Segment{T} <: AbstractSpace{T,1}
+    extent::T
+    n_points::Int
+end, discrete_segment(extent, n_points),
+    Array{T,1}
+)
+distance_metric(::Segment, a, b) = abs(a - b)
+
+@calculated_type(struct Pops{P,T,D,S} <: AbstractSpace{T,D}
+    space::S
+end, calculate(space)#repeat(calculate(space), outer=(ones(Int,D)...,P))
+)
+
+Pops{n_pops}(space::S) where {T,D,n_pops,S <: AbstractSpace{T,D}} = Pops{n_pops,T,D,S}(space)
+distance_metric(ps::Pops, a, b) = distance_metric(ps.space, a, b)
+
+@calculated_type(struct Grid{T} <: AbstractSpace{T,2}
+    extent::Tuple{T,T}
+    n_points::Tuple{Int,Int}
+end, zip(discrete_segment.(extent, n_points)),
+    Array{T,2}
+)
 
 #region Segment
-@with_kw struct PopSegment{DistT,P} <: PopSpace{DistT,1,P}
-    extent::DistT
-    n_points::Int
-end
 
-function calculate(segment::PopSegment{T,P}) where {T,P}
-    one_pop = LinRange{T}(-(segment.extent/2), (segment.extent/2), segment.n_points)
-    return repeat(one_pop, outer=(1,P))
-end
-
-struct CalculatedPopSegment{DistT<:Number,P} <: CalculatedType{PopSegment{DistT,P}}
-    segment::PopSegment{DistT}
-    value::Array{DistT,2}
-    CalculatedPopSegment{DistT,P}(segment::PopSegment{DistT,P}) where {DistT,P} = new(segment, calculate(segment))
-end
-
-function Calculated(segment::PopSegment{T,P}) where {T,P}
-    CalculatedPopSegment{T,P}(segment)
-end
-
-get_space_origin_idx(seg::PopSegment) = CartesianIndex(round(Int, seg.n_points / 2), 1)
+get_space_origin_idx(line::AbstractSpace{T,1}) where T = CartesianIndex(round(Int, line.n_points / 2), 1)
+get_space_origin_idx(pops::Pops) = get_space_origin_idx(pops.space)
 
 import Base: step, zeros, length, size, ndims
-step(seg::PopSegment) = seg.extent / (seg.n_points - 1)
-step(cs::CalculatedPopSegment) = step(cs.segment)
-length(cs::CalculatedPopSegment) = length(cs.value)
-length(seg::PopSegment) = seg.n_points
+step(line::AbstractSpace{T,1}) where T = line.extent / (line.n_points - 1)
+length(line::AbstractSpace{T,1}) where T = line.n_points
 
-size(s::PopSegment{T,P}) where {T,P} = (s.n_points,P)
-size(cs::CalculatedPopSegment) = size(cs.value)
-zeros(seg::PopSegment{T,P}) where {T,P} = zeros(T,seg.n_points,P)
+step(ps::Pops) = step(ps.space)
+length(ps::Pops) = length(ps.space)
 
-ndims(space::PopSpace{T,N}) where {T,N} = N + 1
+step(cs::CalculatedType{<:AbstractSpace}) = step(cs.source)
+length(cs::CalculatedType{<:AbstractSpace}) = length(cs.source)
+
+size(cs::CalculatedType{<:AbstractSpace}) = size(cs.value)
+
+size(line::AbstractSpace{T,1}) where T = (length(line),)
+size(ps::Pops{P}) where P = (size(ps.space)...,P)
+
+zeros(space::AbstractSpace{T}) where {T} = zeros(T,size(space)...)
+
+ndims(space::AbstractSpace) = length(size(space))
 #endregion
 
-#region DistanceMatrix
-
-@with_kw struct DistanceMatrix{T} <: AbstractParameter{T}
-    calculated_segment::CalculatedPopSegment{T}
-end
-
-function DistanceMatrix(seg::PopSegment{T}) where T
-    DistanceMatrix{T}(Calculated(seg))
-end
-
-@doc doc"""
-This matrix contains values such that the $j^{th}$ column of the $i^{th}$ row
-contains the distance between locations $i$ and $j$ in the 1D space dimension provided.
-"""
-function distance_matrix(dm::DistanceMatrix{T}) where {T <: Real}
-    # aka Hankel, but that method isn't working in SpecialMatrices
-    xs = dm.calculated_segment.value[:,1]
-    distance_mx = zeros(T, length(xs), length(xs))
-    for i in range(1, length=length(xs))
-        distance_mx[:, i] .= abs.(xs .- xs[i])
-    end
-    return distance_mx'
-end
-
-struct CalculatedDistanceMatrix{T} <: CalculatedType{DistanceMatrix{T}}
-    distance_matrix::DistanceMatrix{T}
-    value::Matrix{T}
-    CalculatedDistanceMatrix{T}(dm::DistanceMatrix{T}) where T = new(dm, distance_matrix(dm))
-end
-step(cdm::CalculatedDistanceMatrix) = step(cdm.distance_matrix.calculated_segment)
-
-function CalculatedDistanceMatrix(segment::S) where {T,S <: PopSegment{T}}
-    CalculatedDistanceMatrix{T}(DistanceMatrix(segment))
-end
-
-function CalculatedDistanceMatrix(calculated_segment::S) where {T,S <: CalculatedPopSegment{T}}
-    CalculatedDistanceMatrix{T}(calculated_segment)
-end
-
-function Calculated(dm::DistanceMatrix{T}) where T
-    CalculatedDistanceMatrix{T}(dm)
-end
-
-#endregion
+#
+# Base.zero(tup::Type{T}) where {T <: Tuple} = T(map(zero, t.parameters))
+# @calculated_type(struct DistanceMatrix{COORD_T,CS} <: AbstractParameter{COORD_T}
+#     calculated_space::CS
+# end,
+# begin
+#     xs = calculated_space.value[:,1]
+#     distance_mx = zeros(COORD_T, length(xs), length(xs))
+#     for i in range(1, length=length(xs))
+#         distance_mx[:, i] .= distance_metric.(Ref(calculated_space.source), xs, xs[i])
+#     end
+#     return distance_mx'
+# end,
+# Array{T,2}
+# )
+#
+# step(cdm::CalculatedDistanceMatrix) = step(cdm.source.calculated_space)
+#
+# function DistanceMatrix{COORD_T}(cs::CS) where {COORD_T,CS}
+#     DistanceMatrix{COORD_T,CS}(cs)
+# end
+# function DistanceMatrix(space::S) where {T, S <: AbstractSpace{T}}
+#     DistanceMatrix{T}(Calculated(space))
+# end
+# function CalculatedDistanceMatrix(space::S) where {T,S <: AbstractSpace{T}}
+#     CalculatedDistanceMatrix{T}(DistanceMatrix(space))
+# end
