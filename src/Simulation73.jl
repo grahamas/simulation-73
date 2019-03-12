@@ -29,7 +29,7 @@ export SingleOutput, ExperimentOutput, filecopy, AbstractOutput
 # "meshes.jl"
 export DistanceMatrix, CalculatedDistanceMatrix, get_origin,
 	AbstractSpace, Pops, AbstractLine,
-	Segment, Pops, Circle
+	Segment, Pops, Circle, get_edges, one_pop
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,

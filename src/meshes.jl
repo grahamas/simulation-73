@@ -4,8 +4,9 @@ discrete_segment(extent::T, n_points::Int) where {T <: Number} = LinRange{T}(-(e
 @calculated_type(struct Circle{T} <: AbstractSpace{T,1}
     extent::T
     n_points::Int
-end, discrete_segment(extent, n_points),
-    Array{T,1}
+end, function calculate()
+    discrete_segment(extent, n_points)
+end
 )
 distance_metric(circ::Circle, a, b) = min(mod(a-b, circ.extent), mod(b-a, circ.extent))
 
@@ -13,15 +14,25 @@ distance_metric(circ::Circle, a, b) = min(mod(a-b, circ.extent), mod(b-a, circ.e
 @calculated_type(struct Segment{T} <: AbstractSpace{T,1}
     extent::T
     n_points::Int
-end, discrete_segment(extent, n_points),
-    Array{T,1}
+end, function calculate()
+    discrete_segment(extent, n_points)
+end
 )
 distance_metric(::Segment, a, b) = abs(a - b)
 
 @calculated_type(struct Pops{P,T,D,S} <: AbstractSpace{T,D}
     space::S
-end, calculate(space)#repeat(calculate(space), outer=(ones(Int,D)...,P))
+end, function calculate()
+    calculate(space)#repeat(calculate(space), outer=(ones(Int,D)...,P))
+end
 )
+
+@generated function one_pop(calc_pops::CalculatedType{<:Pops{P,T,D,S}}) where {P,T,D,S}
+    colons = [:(:) for i in 1:D]
+    quote
+        calc_pops.value[$(colons...),1]
+    end
+end
 
 Pops{n_pops}(space::S) where {T,D,n_pops,S <: AbstractSpace{T,D}} = Pops{n_pops,T,D,S}(space)
 distance_metric(ps::Pops, a, b) = distance_metric(ps.space, a, b)
@@ -29,9 +40,14 @@ distance_metric(ps::Pops, a, b) = distance_metric(ps.space, a, b)
 @calculated_type(struct Grid{T} <: AbstractSpace{T,2}
     extent::Tuple{T,T}
     n_points::Tuple{Int,Int}
-end, zip(discrete_segment.(extent, n_points)),
-    Array{T,2}
+end, function calculate()
+    zip(discrete_segment.(extent, n_points))
+end
 )
+
+function get_edges(locations::CalculatedType{<:AbstractSpace{T}}) where {T}
+    ((locations.value[i], locations.value[j]) for (i,j) in Iterators.product(CartesianIndices(locations.value),CartesianIndices(locations.value)))
+end
 
 #region Segment
 
