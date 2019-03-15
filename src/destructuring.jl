@@ -64,7 +64,6 @@ end
 
 function var_deconstruct(arr::AA) where {AA<:AbstractArray}
     deconstruction = map(var_deconstruct, arr)
-    @show typeof(arr)
     return (base_type(typeof(arr)), [deconstruction...]) # remade incase static
 end
 
@@ -105,7 +104,7 @@ end
 function base_type(::Type{SA}) where {N,M,T,TUP,SA<:Union{SArray{TUP,T,N,M},MArray{TUP,T,N,M},SizedArray{TUP,T,N,M}}}
     BT = base_type(T)
     return SArray{TUP,BT,N,M}
-end    
+end
 
 function reconstruct(tup::Tuple{Type,<:Union{Number,AbstractString}})
     return tup[2]

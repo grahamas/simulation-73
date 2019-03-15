@@ -2,13 +2,6 @@
 #region Model
 abstract type Model{T,N,P} <: AbstractParameter{T} end
 
-function space_arr(model::Model)::AbstractArray
-    Calculated(model.space).value
-end
-
-function initial_value(model::Model{T,N,P}) where {T,N,P}
-    space_zeros = zeros(model.space)
-end
 #endregion
 
 #region Solver
@@ -22,16 +15,17 @@ struct Solver{T,ALG<:Union{OrdinaryDiffEqAlgorithm,Nothing},DT<:Union{T,Nothing}
     #dense::Bool
 end
 
-function Solver{S}(; start_time::S=0.0, stop_time::S, dt::DT, time_save_every::Int=1, space_save_every::Int=1, algorithm::ALG=nothing, stiffness=:auto) where {S, ALG, DT<:Union{S,Nothing}}
+function Solver{S}(; start_time::S=0.0, stop_time::S, dt::DT, time_save_every::Int=1, space_save_every=1, algorithm::ALG=nothing, stiffness=:auto) where {S, ALG, DT<:Union{S,Nothing}}
     Solver{S,ALG,DT}((start_time, stop_time), algorithm, dt, time_save_every, space_save_every, stiffness)
 end
 save_dt(s::Solver{T}) where T = s.simulated_dt * s.time_save_every
 
 function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: Pops{P,T}}#::Unio{P,n}{Nothing,Array{CartesianIndex}}
-    if solver.space_save_every == 1
+    if all(solver.space_save_every .== 1)
         return nothing
     end
-    return CartesianIndex.(Iterators.product(axes(space)...))[1:solver.space_save_every:end,:]
+    all_indices = CartesianIndices(space)
+    space_saved_subsample(all_indices, solver)
 end
 #endregion
 
@@ -48,16 +42,20 @@ function Simulation(; model::M, solver::S) where {T, M<:Model{T}, S<:Solver{T}}
     Simulation{T,M,S}(model,solver)
 end
 
+initial_value(model::Model{T,N,P}) where {T,N,P} = zero(model.space)
 initial_value(sim::Simulation) = initial_value(sim.model)
 time_span(solver::Solver{T}) where T = solver.tspan
 time_span(sim::Simulation) = time_span(sim.solver)
-space_arr(model::Model, solver::Solver) = space_arr(model)[1:solver.space_save_every:end,1] # TODO: remove 1D assumption
-space_arr(sim::Simulation) = space_arr(sim.model, sim.solver)
-function time_arr(solver::Solver{T}) where T
+function space_saved_subsample(arr, solver::Solver)
+    collect(arr)[[StrideToEnd(i) for i in solver.space_save_every]...,:]
+end
+saved_space_arr(model::Model, solver::Solver) = space_saved_subsample(coordinates(model.space), solver)
+saved_space_arr(sim::Simulation) = saved_space_arr(sim.model, sim.solver)
+function saved_time_arr(solver::Solver{T}) where T
     start, stop = time_span(solver)
     start:save_dt(solver):stop
 end
-time_arr(sim::Simulation) = time_arr(sim.solver)#sim.solution.t
+saved_time_arr(sim::Simulation) = saved_time_arr(sim.solver)#sim.solution.t
 
 function get_space_origin_idx(model::Model)
     get_space_origin_idx(model.space)
@@ -79,6 +77,12 @@ get_space_index_info(model::Model{T}, solver::Solver{T}) where T = IndexInfo(sav
 get_space_index_info(sim::Simulation{T}) where T = get_space_index_info(sim.model, sim.solver)
 get_time_index_info(solver::Solver{T}) where T = IndexInfo(save_dt(solver), 1)
 get_time_index_info(sim::Simulation{T}) where T = get_time_index_info(sim.solver)
+
+@generated function pop_frame(solution::ODESolution{T,NPT,<:Array{<:Array{T,NP},1}}, pop_dx::Int, time_dx::Int) where {T,NP,NPT}
+    N = NP - 1
+    colons = [:(:) for i in 1:N]
+    :(solution[$(colons...),pop_dx, time_dx])
+end
 
 function write_params(sim::Simulation)
     write_object(sim.output, "parameters.jld2", "sim", sim)
@@ -102,7 +106,7 @@ function subsampling_time_idxs(solver::Solver, t_target::AbstractArray)
     subsampling_idxs(t_target, t_solver)
 end
 function subsampling_space_idxs(model::Model, solver::Solver, x_target::AbstractArray)
-    x_model = space_arr(model)[1:solver.space_save_every:end,1]
+    x_model = saved_space_arr(model, solver)
     subsampling_idxs(x_target, x_model)
 end
 

@@ -29,7 +29,10 @@ export SingleOutput, ExperimentOutput, filecopy, AbstractOutput
 # "meshes.jl"
 export DistanceMatrix, CalculatedDistanceMatrix, get_origin,
 	AbstractSpace, Pops, AbstractLine,
-	Segment, Pops, Circle, get_edges, one_pop
+	Segment, Circle,
+	Grid,
+	Pops, get_edges, one_pop, one_pop_zero,
+	coordinates
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
@@ -45,7 +48,10 @@ export AbstractTarget, target_loss
 # "simulating.jl"
 export Model, initial_value, space_arr,
 	run_simulation, Simulation, write_params, Solver,
-    time_span, time_arr, save_dt, save_dx, save_idxs, generate_problem
+    time_span,
+	saved_time_arr, saved_space_arr,
+	save_dt, save_dx, save_idxs, generate_problem,
+	pop_frame
 
 # "exploring.jl"
 export ParameterSearch, make_problem_generator, update_from_p!,
