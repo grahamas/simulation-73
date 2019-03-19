@@ -31,7 +31,7 @@ export DistanceMatrix, CalculatedDistanceMatrix, get_origin,
 	AbstractSpace, Pops, AbstractLine,
 	Segment, Circle,
 	Grid,
-	Pops, get_edges, one_pop, one_pop_zero,
+	Pops, get_distances, one_pop, one_pop_zero,
 	coordinates
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
@@ -51,7 +51,8 @@ export Model, initial_value, space_arr,
     time_span,
 	saved_time_arr, saved_space_arr,
 	save_dt, save_dx, save_idxs, generate_problem,
-	pop_frame
+	pop_frame,
+	Execution
 
 # "exploring.jl"
 export ParameterSearch, make_problem_generator, update_from_p!,

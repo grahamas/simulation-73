@@ -30,17 +30,21 @@ end
 #endregion
 
 #region Simulation
-"""A Simulation object runs its own simulation upon initialization."""
 struct Simulation{T,M<:Model{T},S<:Solver{T}}
     model::M
     solver::S
-    solution::DESolution
-    Simulation{T,M,S}(m,s) where {T,M<:Model{T},S<:Solver{T}} = new(m,s,_solve(m,s))
+    Simulation{T,M,S}(m::M,s::S) where {T,M<:Model{T},S<:Solver{T}} = new(m,s)
 end
-
 function Simulation(; model::M, solver::S) where {T, M<:Model{T}, S<:Solver{T}}
     Simulation{T,M,S}(model,solver)
 end
+
+struct Execution{T,S<:Simulation{T},D<:DESolution}
+    simulation::S
+    solution::D
+end
+Execution(s::S) where {T,S <: Simulation{T}} = Execution(s,solve(s))
+
 
 initial_value(model::Model{T,N,P}) where {T,N,P} = zero(model.space)
 initial_value(sim::Simulation) = initial_value(sim.model)
@@ -70,8 +74,8 @@ end
 save_dt(sim::Simulation{T}) where T = save_dt(sim.solver)
 save_dx(model::Model, solver::Solver)= step(model.space) * solver.space_save_every
 save_dx(sim::Simulation{T}) where T = save_dx(sim.model, sim.solver)
-Base.minimum(sim::Simulation) = minimum(map(minimum, sim.solution.u))
-Base.maximum(sim::Simulation) = maximum(map(maximum, sim.solution.u))
+Base.minimum(solution::DESolution) = minimum(map(minimum, solution.u))
+Base.maximum(solution::DESolution) = maximum(map(maximum, solution.u))
 
 get_space_index_info(model::Model{T}, solver::Solver{T}) where T = IndexInfo(save_dx(model, solver), get_space_origin_idx(model, solver))
 get_space_index_info(sim::Simulation{T}) where T = get_space_index_info(sim.model, sim.solver)
@@ -110,15 +114,18 @@ function subsampling_space_idxs(model::Model, solver::Solver, x_target::Abstract
     subsampling_idxs(x_target, x_model)
 end
 
-function subsample(simulation::Simulation{T,<:Model{T,1}}; time_subsampler, space_subsampler) where T
-    t = time_arr(simulation)
-    x = space_arr(simulation)
+function subsample(execution::Execution{T,<:Simulation{T,<:Model{T}}}; time_subsampler, space_subsampler) where T
+    simulation = execution.simulation
+    solution = execution.solution
+
+    t = saved_time_arr(simulation)
+    x = saved_space_arr(simulation)
 
     x_dxs, pop_dxs, t_dxs = subsampling_idxs(simulation, time_subsampler, space_subsampler)
 
     t = t[t_dxs]
     x = x[x_dxs] # TODO: Remove 1D return assumption
-    wave = simulation.solution[x_dxs,pop_dxs,t_dxs]
+    wave = solution[x_dxs,pop_dxs,t_dxs]
 
     return (t,x,wave)
 end
@@ -132,7 +139,8 @@ end
     partially initialized Simulation.
 """
 generate_problem() = error("undefined")
-function _solve(model,solver)
+solve(simulation::Simulation) = _solve(simulation.model, simulation.solver)
+function _solve(model::Model,solver::Solver)
     problem = generate_problem(model, solver)
     _solve(problem, solver, model.space)
 end
@@ -154,7 +162,7 @@ end
 function run_simulation(jl_filename::AbstractString)
     include(jl_filename)
     filecopy(simulation.output, jl_filename, basename(jl_filename))
-    return simulation
+    return execution
 end
 
 function generate_problem(model::M, solver::SV) where {T,M<:Model{T},SV<:Solver{T}}
