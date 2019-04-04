@@ -1,10 +1,6 @@
 
-#region Model
 abstract type Model{T,N,P} <: AbstractParameter{T} end
 
-#endregion
-
-#region Solver
 struct Solver{T,ALG<:Union{OrdinaryDiffEqAlgorithm,Nothing},DT<:Union{T,Nothing}}
     tspan::Tuple{T,T}
     algorithm::ALG
@@ -27,9 +23,7 @@ function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: Pops{P,T}}#::
     all_indices = CartesianIndices(space)
     space_saved_subsample(all_indices, solver)
 end
-#endregion
 
-#region Simulation
 struct Simulation{T,M<:Model{T},S<:Solver{T}}
     model::M
     solver::S
@@ -130,8 +124,6 @@ function subsample(execution::Execution{T,<:Simulation{T,<:Model{T}}}; time_subs
     return (t,x,wave)
 end
 
-
-#endregion
 
 """
     _solve wraps the DifferentialEquations function, solve.

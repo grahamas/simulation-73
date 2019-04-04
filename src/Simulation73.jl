@@ -27,12 +27,11 @@ export AbstractVariable, UnboundedVariable, BoundedVariable,
 export SingleOutput, ExperimentOutput, filecopy, AbstractOutput
 
 # "meshes.jl"
-export DistanceMatrix, CalculatedDistanceMatrix, get_origin,
-	AbstractSpace, Pops, AbstractLine,
-	Segment, Circle,
-	Grid,
-	Pops, get_distances, one_pop, one_pop_zero,
-	coordinates
+export Pops, Segment, Circle,
+	 Grid, Torus
+
+export AbstractSpace, DistanceMatrix, CalculatedDistanceMatrix, get_origin,
+	 get_distances, one_pop, one_pop_zero, coordinates
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
