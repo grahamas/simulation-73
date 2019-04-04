@@ -1,12 +1,15 @@
 language: julia
 julia: 1.1
+install:
+  - git clone git://github.com/grahamas/CalculatedTypes.git ../CalculatedTypes
 jobs:
   include:
     - stage: "Documentation"
       julia: 1.1
       os: linux
       script:
-        - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd()));
+        - julia --project=docs/ -e 'using Pkg; Pkg.add(PackageSpec(path="../CalculatedTypes"));
+                                               Pkg.add(PackageSpec(path=pwd()));
                                                Pkg.instantiate()'
         - julia --project=docs/ docs/make.jl
       after_success: skip
