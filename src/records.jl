@@ -6,32 +6,15 @@ struct SingleOutput <: AbstractOutput
     dir_path::String
     safe_writer::Function
 end
-function SingleOutput(; root=nothing, simulation_name=nothing)
-    dir_path = directory(root, simulation_name)
+function SingleOutput(; root=nothing, simulation_name=nothing, dir_prefix=nothing)
+    dir_path = directory(root, simulation_name, dir_prefix)
     writer = make_writer(dir_path)
     SingleOutput(root, simulation_name, dir_path, writer)
 end
 
-# @with_kw struct ExperimentOutput <: AbstractOutput
-#     root::String
-#     simulation_name::String
-#     mod_name::String
-#     experiment_name::String
-# end
-
-# * File ops
-
-# function make_experiment_output_folder(root, simulation_name, mod_name, experiment_name)
-#     @assert length(mod_name) > 0
-#     #nowstr = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS.s")
-#     #experiment_dir_name = join([experiment_name, nowstr], "_")
-#     dir_name = joinpath(root, experiment_name)
-#     mkpath(dir_name)
-#     return (dir_name, if (length(simulation_name) > 0) join([simulation_name, mod_name], "_") else mod_name end)
-# end
-
-function directory(root, simulation_name)
+function directory(root, simulation_name, prefix)
     nowstr = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS.s")
+    basename = "$(prefix)_$(nowstr)"
     dir_name = joinpath(root, simulation_name, nowstr)
     mkpath(dir_name)
     return dir_name
@@ -63,7 +46,3 @@ end
 function (o::SingleOutput)(write_fn::Function, base_name::String, args...; kwargs...)
     o.safe_writer(write_fn, base_name, args...; kwargs...)
 end
-
-# function (o::SingleOutput)(obj; base_name::AbstractString, write_fn)
-#     return nothing
-# end
