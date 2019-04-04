@@ -1,2 +1,4 @@
 [deps]
+CalculatedTypes = "c5cc2754-201b-11e9-1dc9-9986dc9f5801"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Simulation73 = "310cc8c8-1ffe-11e9-399c-c5a008d6bdcc"
