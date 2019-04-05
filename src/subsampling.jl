@@ -13,11 +13,13 @@ abstract type AbstractSubsampler{DT,W} end
 	window::W = nothing
 end
 
+"IndexInfo specifies the index of 0 and the stride (`Δ`) between indices."
 @with_kw struct IndexInfo{D}
 	Δ::D
 	origin_idx::Int # TODO: Make CartesianIndex
 end
 
+"StrideToEnd is a custom index type that acts like `start:stride:end`."
 struct StrideToEnd
 	stride::Int
 	start::Int
