@@ -10,6 +10,7 @@ jobs:
       script:
         - julia --project=docs/ -e 'using Pkg; Pkg.activate(pwd());
                                                Pkg.develop(PackageSpec(path="../CalculatedTypes"));
+                                               Pkg.add("Documenter");
                                                Pkg.instantiate()'
         - julia --project=docs/ docs/make.jl
       after_success: skip
