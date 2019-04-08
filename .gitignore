@@ -11,3 +11,6 @@ py_exemplars/
 
 *.sublime*
 .ftpconfig
+build
+
+Manifest.toml
