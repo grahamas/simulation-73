@@ -1,22 +1,9 @@
 # Simulation73 Documentation
 
-## Meshes
-
-### Space Types
-```@docs
-AbstractSpace
-Pops
-Segment
-Circle
-Grid
-Torus
+## Features Outline
+```@contents
+Pages = [
+  "lib/meshes.md"
+]
+Depth=1
 ```
-### Functions
-```@docs
-DistanceMatrix
-CalculatedDistanceMatrix
-get_origin
-get_distances
-one_pop
-one_pop_zero
-coordinates
