@@ -9,8 +9,10 @@
 #########################################################
 
 """
-    Within an object deconstructed into an array, set one element to val,
-    where dxs indicate that element by successive indexing into nested arrays.
+    set_deep_dx!(model_deconstruction, dxs, val)
+
+Within an object deconstructed into an array, set one element to val,
+where dxs indicate that element by successive indexing into nested arrays.
 """
 function set_deep_dx!(model_deconstruction::Tuple{Type,Array}, dxs, val)
     tmp = model_deconstruction

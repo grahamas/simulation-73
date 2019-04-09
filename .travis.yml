@@ -12,7 +12,6 @@ jobs:
       Pkg.develop([PackageSpec(path="../CalculatedTypes"), PackageSpec(path=pwd())]);
       haskey(Pkg.installed(), "Documenter") || Pkg.add("Documenter");
       Pkg.instantiate();
-      using Simulation73;
       include("docs/make.jl")'
     after_success: skip
 notifications:

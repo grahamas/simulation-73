@@ -6,19 +6,6 @@ DocTestSetup = quote
 end
 ```
 
-## Meshes Types
-Meshes represent space as a grid, possibly with multiple "populations" (i.e. multiple grids occupying the same space).
-
-### Space Types
-```@docs
-AbstractSpace
-Pops
-Segment
-Circle
-Grid
-Torus
-```
-
 ## Variables
 ```@autodocs
 Modules = [Simulation73]
@@ -38,18 +25,32 @@ Pages = ["destructuring.jl"]
 ```
 
 ## Meshes
+```@docs
+Pops
+Segment
+Circle
+Grid
+Torus
+```
+
 ```@autodocs
 Modules = [Simulation73]
 Pages = ["meshes.jl"]
 ```
 
 ## Subsampling
+
+```@docs
+Simulation73.IndexInfo
+```
+
 ```@autodocs
 Modules = [Simulation73]
 Pages = ["subsampling.jl"]
 ```
 
 ## Simulating
+
 ```@autodocs
 Modules = [Simulation73]
 Pages = ["simulating.jl"]

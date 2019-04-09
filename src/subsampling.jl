@@ -19,7 +19,11 @@ end
 	origin_idx::Int # TODO: Make CartesianIndex
 end
 
-"StrideToEnd is a custom index type that acts like `start:stride:end`."
+"""
+	StrideToEnd(stride, start=1)
+
+StrideToEnd is a custom index type that acts like `start:stride:end`, to circumvent the fact that you can't put `start:stride:end` into a variable.
+"""
 struct StrideToEnd
 	stride::Int
 	start::Int

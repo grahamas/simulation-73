@@ -1,4 +1,5 @@
-"AbstractSpace{T,D} with distance type T and dimension D"
+
+"`AbstractSpace{T,D}`` with distance-type `T` and dimension `D`"
 abstract type AbstractSpace{T,D} <: AbstractParameter{T} end
 
 """
@@ -10,7 +11,7 @@ Return an object in the shape of the space where each element is the coordinate 
 coordinates(space::AbstractSpace) = coordinates(calculate(space))
 coordinates(calc_space::CalculatedType{<:AbstractSpace}) = calc_space.value
 
-"""
+@doc """
     euclidean_metric(edge)
 
 Return the distance between two points in euclidean space, given an edge between those points.
@@ -67,7 +68,7 @@ end
 )
 distance_metric(segment::Segment, edge) = euclidean_metric(edge)
 
-"A Circle with circumference `extent` represented by `n_points`-many points"
+@doc "A Circle with circumference `extent` represented by `n_points`-many points"
 @calculated_type(struct Circle{T} <: AbstractSpace{T,1}
     extent::T
     n_points::Int
@@ -100,7 +101,9 @@ function one_pop(calc_pops::CalculatedType{<:Pops{P,T,D,S}}) where {P,T,D,S}
     coordinates(calc_pops)
 end
 
-"""A square Grid of points with `extent` describing the length along each dimension and `n_points` describing the number of points representing each dimension."""
+@doc """
+A square Grid of points with `extent` describing the length along each dimension and `n_points` describing the number of points representing each dimension.
+"""
 @calculated_type(struct Grid{T} <: AbstractSpace{T,2}
     extent::Tuple{T,T}
     n_points::Tuple{Int,Int}
