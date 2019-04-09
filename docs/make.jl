@@ -2,7 +2,8 @@ using Documenter, Simulation73
 
 makedocs(
     sitename="Simulation73 Documentation",
-    pages=["index.md"]
+    pages=["index.md"],
+    modules=[Simulation73]
 )
 
 deploydocs(

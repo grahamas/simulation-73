@@ -1,13 +1,5 @@
 # Simulation73 Documentation
 
-## Features Outline
-```@contents
-Pages = [
-  "lib/meshes.md"
-]
-Depth=1
-```
-
 ## Meshes Types
 Meshes represent space as a grid, possibly with multiple "populations" (i.e. multiple grids occupying the same space).
 
