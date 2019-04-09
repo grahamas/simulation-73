@@ -1,5 +1,11 @@
 # Simulation73 Documentation
 
+```@meta
+DocTestSetup = quote
+    using Simulation73
+end
+```
+
 ## Meshes Types
 Meshes represent space as a grid, possibly with multiple "populations" (i.e. multiple grids occupying the same space).
 
@@ -28,7 +34,7 @@ Pages = ["records.jl"]
 ## Destructuring
 ```@autodocs
 Modules = [Simulation73]
-Pages = ["Destructuring.jl"]
+Pages = ["destructuring.jl"]
 ```
 
 ## Meshes

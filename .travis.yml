@@ -10,7 +10,10 @@ jobs:
     script:
     - julia --project=docs/ -e 'using Pkg;
       Pkg.develop([PackageSpec(path="../CalculatedTypes"), PackageSpec(path=pwd())]);
-      Pkg.add("Documenter"); Pkg.instantiate(); include("docs/make.jl")'
+      haskey(Pkg.installed(), "Documenter") || Pkg.add("Documenter");
+      Pkg.instantiate();
+      using Simulation73;
+      include("docs/make.jl")'
     after_success: skip
 notifications:
   email: false
