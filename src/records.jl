@@ -1,11 +1,13 @@
 abstract type AbstractOutput end
 
+"Output from a single simulation."
 struct SingleOutput <: AbstractOutput
     root::String
     simulation_name::String
     dir_path::String
     safe_writer::Function
 end
+
 function SingleOutput(; root=nothing, simulation_name=nothing, dir_prefix=nothing)
     dir_path = directory(root, simulation_name, dir_prefix)
     writer = make_writer(dir_path)

@@ -10,8 +10,3 @@ Circle
 Grid
 Torus
 ```
-
-## Functions
-```@autodocs
-Modules = Simulation73
-```

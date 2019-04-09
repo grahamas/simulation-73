@@ -33,6 +33,7 @@ function init_variables(variable_model::M) where {T,M <: Model{<:MaybeVariable{T
     return initial_p, variable_dxs, p_bounds
 end
 
+"Initialize all variables to their default value."
 function init_variables(deconstructed::Tuple{Type,<:AbstractArray}, T::Type)
     variable_dxs = []
     initial_p = T[]

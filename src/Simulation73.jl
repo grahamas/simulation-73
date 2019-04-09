@@ -1,5 +1,11 @@
 module Simulation73
 
+```@meta
+DocTestSetup = quote
+    using Simulation73, CalculatedTypes
+end
+```
+
 using Markdown # for doc_str
 using CalculatedTypes
 import CalculatedTypes: Calculated, update
@@ -46,18 +52,15 @@ export AbstractTarget, target_loss
 
 # "simulating.jl"
 export Model, initial_value, space_arr,
-	run_simulation, Simulation, write_params, Solver,
-    time_span,
+	run_simulation, Simulation, write_params, Solver, time_span,
 	saved_time_arr, saved_space_arr,
 	save_dt, save_dx, save_idxs, generate_problem,
 	pop_frame,
-	Execution
+	Execution, run_search, model_from_p, result_simulation
 
 # "exploring.jl"
 export ParameterSearch, make_problem_generator, update_from_p!,
 	make_calculated_function
-
-export run_search, model_from_p, result_simulation
 
 include("variables.jl")
 include("records.jl")

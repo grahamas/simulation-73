@@ -213,6 +213,7 @@ function generate_problem(model::M, solver::SV) where {T,M<:Model{T},SV<:Solver{
     return ODEProblem(ode_fn, u0, tspan, nothing)
 end
 generate_problem(simulation) = generate_problem(simulation.model, simulation.solver)
+
 solve(simulation::Simulation) = _solve(simulation.model, simulation.solver)
 function _solve(model::Model,solver::Solver)
     problem = generate_problem(model, solver)
@@ -235,7 +236,7 @@ end
 """
     run_simulation(jl_filename)
 
-Loads a simulation object defined in `jl_filename`, and save the parameters. 
+Loads a simulation object defined in `jl_filename`, and save the parameters.
 """
 function run_simulation(jl_filename::AbstractString)
     include(jl_filename)
