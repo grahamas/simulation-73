@@ -8,9 +8,9 @@ jobs:
     julia: 1.1
     os: linux
     script:
-    - julia --project=docs/ -e 'using Pkg; Pkg.activate(pwd()); Pkg.develop(PackageSpec(path="../CalculatedTypes"));
-      Pkg.add("Documenter"); Pkg.instantiate()'
-    - julia --project=docs/ -e 'ENV["DOCUMENTER_DEBUG"] = true; include("docs/make.jl")'
+    - julia --project=docs/ -e 'using Pkg;
+      Pkg.develop([PackageSpec(path="../CalculatedTypes"), PackageSpec(path=pwd())]);
+      Pkg.add("Documenter"); Pkg.instantiate(); include("docs/make.jl")'
     after_success: skip
 notifications:
   email: false

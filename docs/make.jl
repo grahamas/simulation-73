@@ -1,5 +1,3 @@
-using Pkg; Pkg.activate(pwd())
-
 using Documenter, Simulation73
 
 makedocs(
