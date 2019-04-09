@@ -12,12 +12,6 @@ Torus
 ```
 
 ## Functions
-```@docs
-DistanceMatrix
-CalculatedDistanceMatrix
-get_origin
-get_distances
-one_pop
-one_pop_zero
-coordinates
+```@autodocs
+Modules = Simulation73
 ```
