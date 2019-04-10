@@ -23,7 +23,10 @@ end
 function (o::SingleOutput)(write_fn::Function, base_name::String, args...; kwargs...)
     o.safe_writer(write_fn, base_name, args...; kwargs...)
 end
-
+# By default, save using JLD2
+function (o::SingleOutput)(base_name::String, args...)
+    o(((name, obj) -> @save name obj), base_name, args...)
+end
 
 raw"""
     directory(root, simulation_name, prefix)
