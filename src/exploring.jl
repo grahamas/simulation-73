@@ -1,19 +1,19 @@
 
 
 "A model with variable parameters, and a target."
-struct ParameterSearch{T, M<: Model{<:MaybeVariable{T}}, S<:Solver{T}}
+struct ParameterSearch{T, M<: AbstractModel{<:MaybeVariable{T}}, S<:Solver{T}}
     model::M
     solver::S
     target::AbstractTarget
     result::Union{BlackBoxOptim.OptimizationResults, Optim.OptimizationResults}
-    result_simulation::Simulation{T,<:Model{T},S}
+    result_simulation::Simulation{T,<:AbstractModel{T},S}
 end
 
 minimizer(res::BlackBoxOptim.OptimizationResults) = best_candidate(res)
 minimizer(res::Optim.OptimizationResults) = Optim.minimizer(res)
 
 function ParameterSearch(;varying_model::M=nothing, solver::S=nothing,
-        target::AbstractTarget=nothing, kwargs...) where {T,M<:Model{<:MaybeVariable{T}},S<:Solver{T}}
+        target::AbstractTarget=nothing, kwargs...) where {T,M<:AbstractModel{<:MaybeVariable{T}},S<:Solver{T}}
     initial_p, variable_dxs, p_bounds = init_variables(varying_model)
     result = run_search(varying_model, variable_dxs, solver, target, initial_p, p_bounds; kwargs...)
     result_model = model_from_p(varying_model, variable_dxs, minimizer(result))
@@ -27,7 +27,7 @@ result_simulation(p_search::ParameterSearch) = p_search.result_simulation
 
 """Takes model with variable parameters,
 and returns default variable values and indices to those variables."""
-function init_variables(variable_model::M) where {T,M <: Model{<:MaybeVariable{T}}}
+function init_variables(variable_model::M) where {T,M <: AbstractModel{<:MaybeVariable{T}}}
     deconstructed = var_deconstruct(variable_model)
     initial_p, variable_dxs, p_bounds = init_variables(deconstructed, T)
     return initial_p, variable_dxs, p_bounds
@@ -145,7 +145,7 @@ end
 update_from_p!(args...) = error("Please import and implement.")
 make_calculated_function(args...) = error("Please import and implement.")
 
-function make_problem_generator(model::M, solver::SV, variable_map) where {T,M<:Model{T},SV<:Solver{T}}
+function make_problem_generator(model::M, solver::SV, variable_map) where {T,M<:AbstractModel{T},SV<:Solver{T}}
     tspan = time_span(solver)
     u0 = initial_value(model)
 

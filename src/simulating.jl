@@ -1,5 +1,5 @@
-"A Model specifies all parameters of a system."
-abstract type Model{T,N,P} <: AbstractParameter{T} end
+"A AbstractModel specifies all parameters of a system."
+abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
 
 "A Solver holds the parameters of the differential equation solver."
 struct Solver{T,ALG<:Union{OrdinaryDiffEqAlgorithm,Nothing},DT<:Union{T,Nothing}}
@@ -35,13 +35,13 @@ function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: Pops{P,T}}#::
     space_saved_subsample(all_indices, solver)
 end
 
-"A Simulation holds a Model to be solved and a Solver to solve it."
-struct Simulation{T,M<:Model{T},S<:Solver{T}}
+"A Simulation holds an AbstractModel to be solved and a Solver to solve it."
+struct Simulation{T,M<:AbstractModel{T},S<:Solver{T}}
     model::M
     solver::S
-    Simulation{T,M,S}(m::M,s::S) where {T,M<:Model{T},S<:Solver{T}} = new(m,s)
+    Simulation{T,M,S}(m::M,s::S) where {T,M<:AbstractModel{T},S<:Solver{T}} = new(m,s)
 end
-function Simulation(; model::M, solver::S) where {T, M<:Model{T}, S<:Solver{T}}
+function Simulation(; model::M, solver::S) where {T, M<:AbstractModel{T}, S<:Solver{T}}
     Simulation{T,M,S}(model,solver)
 end
 
@@ -58,7 +58,7 @@ Execution(s::S) where {T,S <: Simulation{T}} = Execution(s,solve(s))
 
 Return the model's initial value (defaults to all zeros)
 """
-initial_value(model::Model{T,N,P}) where {T,N,P} = zero(model.space)
+initial_value(model::AbstractModel{T,N,P}) where {T,N,P} = zero(model.space)
 initial_value(sim::Simulation) = initial_value(sim.model)
 """
     time_span(solver)
@@ -82,7 +82,7 @@ end
 
 Return the spatial coordinates of values saved by `solver`
 """
-saved_space_arr(model::Model, solver::Solver) = space_saved_subsample_(coordinates(model.space), solver)
+saved_space_arr(model::AbstractModel, solver::Solver) = space_saved_subsample_(coordinates(model.space), solver)
 saved_space_arr(sim::Simulation) = saved_space_arr(sim.model, sim.solver)
 """
     saved_time_arr(solver)
@@ -103,10 +103,10 @@ saved_time_arr(sim::Simulation) = saved_time_arr(sim.solver)#sim.solution.t
 
 Return the index of the spatial origin of `model`'s `space`.
 """
-function get_space_origin_idx(model::Model)
+function get_space_origin_idx(model::AbstractModel)
     get_space_origin_idx(model.space)
 end
-function get_space_origin_idx(model::Model, solver::Solver)  # TODO: Remove 1D assumption
+function get_space_origin_idx(model::AbstractModel, solver::Solver)  # TODO: Remove 1D assumption
     round(Int, get_space_origin_idx(model) ./ solver.space_save_every)
 end
 function get_space_origin_idx(sim::Simulation)
@@ -114,7 +114,7 @@ function get_space_origin_idx(sim::Simulation)
 end
 
 save_dt(sim::Simulation{T}) where T = save_dt(sim.solver)
-save_dx(model::Model, solver::Solver)= step(model.space) * solver.space_save_every
+save_dx(model::AbstractModel, solver::Solver)= step(model.space) * solver.space_save_every
 save_dx(sim::Simulation{T}) where T = save_dx(sim.model, sim.solver)
 Base.minimum(solution::DESolution) = minimum(map(minimum, solution.u))
 Base.maximum(solution::DESolution) = maximum(map(maximum, solution.u))
@@ -125,7 +125,7 @@ Base.maximum(solution::DESolution) = maximum(map(maximum, solution.u))
 
 Return IndexInfo for saved space array.
 """
-get_space_index_info(model::Model{T}, solver::Solver{T}) where T = IndexInfo(save_dx(model, solver), get_space_origin_idx(model, solver))
+get_space_index_info(model::AbstractModel{T}, solver::Solver{T}) where T = IndexInfo(save_dx(model, solver), get_space_origin_idx(model, solver))
 get_space_index_info(sim::Simulation{T}) where T = get_space_index_info(sim.model, sim.solver)
 """
     get_time_index_info(solver)
@@ -157,7 +157,7 @@ function write_params(sim::Simulation)
 end
 
 
-function subsampling_idxs(model::Model, solver::Solver, time_subsampler, space_subsampler)
+function subsampling_idxs(model::AbstractModel, solver::Solver, time_subsampler, space_subsampler)
     x_info = get_space_index_info(model, solver)
     t_info = get_time_index_info(solver)
 
@@ -167,19 +167,19 @@ function subsampling_idxs(model::Model, solver::Solver, time_subsampler, space_s
     return (x_dxs, 1, t_dxs)
 end
 
-function subsampling_idxs(simulation::Simulation{T,<:Model{T,1}}, time_subsampler::Subsampler, space_subsampler::Subsampler) where T
+function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T,1}}, time_subsampler::Subsampler, space_subsampler::Subsampler) where T
     subsampling_idxs(simulation.model, simulation.solver, time_subsampler, space_subsampler)
 end
 function subsampling_time_idxs(solver::Solver, t_target::AbstractArray)
     t_solver = time_span(solver)[1]:save_dt(solver):time_span(solver)[end]
     subsampling_idxs(t_target, t_solver)
 end
-function subsampling_space_idxs(model::Model, solver::Solver, x_target::AbstractArray)
+function subsampling_space_idxs(model::AbstractModel, solver::Solver, x_target::AbstractArray)
     x_model = saved_space_arr(model, solver)
     subsampling_idxs(x_target, x_model)
 end
 
-function subsample(execution::Execution{T,<:Simulation{T,<:Model{T}}}; time_subsampler, space_subsampler) where T
+function subsample(execution::Execution{T,<:Simulation{T,<:AbstractModel{T}}}; time_subsampler, space_subsampler) where T
     simulation = execution.simulation
     solution = execution.solution
 
@@ -201,7 +201,7 @@ end
 
 Return an ODEProblem of the `model` with time span specified by `solver`.
 """
-function generate_problem(model::M, solver::SV) where {T,M<:Model{T},SV<:Solver{T}}
+function generate_problem(model::M, solver::SV) where {T,M<:AbstractModel{T},SV<:Solver{T}}
     tspan = time_span(solver)
     u0 = initial_value(model)
 
@@ -215,7 +215,7 @@ end
 generate_problem(simulation) = generate_problem(simulation.model, simulation.solver)
 
 solve(simulation::Simulation) = _solve(simulation.model, simulation.solver)
-function _solve(model::Model,solver::Solver)
+function _solve(model::AbstractModel,solver::Solver)
     problem = generate_problem(model, solver)
     _solve(problem, solver, model.space)
 end
@@ -241,5 +241,8 @@ Loads a simulation object defined in `jl_filename`, and save the parameters.
 function run_simulation(jl_filename::AbstractString)
     include(jl_filename)
     filecopy(simulation.output, jl_filename, basename(jl_filename))
-    return execution
+    @assert all([@isdefined(simulation), @isdefined(output), @isdefined(analysis)])
+    execution = execute(simulation)
+    results = analyse.(analyses, Ref(execution), Ref(output))
+    return (execution, results)
 end
