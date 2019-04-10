@@ -6,6 +6,12 @@ DocTestSetup = quote
 end
 ```
 
+## Manual
+
+```@contents
+Pages = joinpath.("man", ["simulation.md"])
+```
+
 ## Library Documentation
 
 ```@contents

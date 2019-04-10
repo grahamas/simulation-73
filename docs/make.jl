@@ -5,17 +5,17 @@ makedocs(
     modules=[Simulation73],
     pages = [
        "Home" => "index.md",
-       # "Manual" => Any[
-       #     "Guide" => "man/guide.md",
-       #     "man/examples.md",
-       #     "man/syntax.md",
-       #     "man/doctests.md",
-       #     "man/latex.md",
-       #     hide("man/hosting.md", [
-       #         "man/hosting/walkthrough.md"
-       #     ]),
-       #     "man/other-formats.md",
-       # ],
+       "Manual" => Any[
+           "man/simulation.md"
+           # "man/examples.md",
+           # "man/syntax.md",
+           # "man/doctests.md",
+           # "man/latex.md",
+           # hide("man/hosting.md", [
+           #     "man/hosting/walkthrough.md"
+           # ]),
+           # "man/other-formats.md",
+       ],
        "Library" => Any[
            "Public" => "lib/public.md",
            hide("Internals" => "lib/internals.md",
