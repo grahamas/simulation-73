@@ -13,7 +13,6 @@ struct ObjectDeconstruction{OBJ}
     deconstruction::Tuple{Type,Array}
 end
 
-
 """
     set_deep_dx!(model_deconstruction, dxs, val)
 
@@ -36,12 +35,11 @@ struct Deconstructor <: AbstractDeconstructor end
 
 Deconstruct a parameter into nested tuples of the form `(type,value)`.
 
-In contrast to [`deconstruct_and_fix_variables`](@ref), preserve variables as variables. Thus,
 ```
     Parameter{Varying{T}} |> deconstruct |> reconstruct # isa Parameter{Varying{T}}
 ```
 """
-function deconstruct(ad::AbstractDeconstructor, m::M) where {M <: AbstractParameter}
+function deconstruct(m::M, ad::AbstractDeconstructor=Deconstructor()) where {M <: AbstractParameter}
     deconstruction = Tuple{Type,Any}[]
     for i_field in 1:nfields(m)
         substruct = ad(getfield(m, i_field))
@@ -50,20 +48,17 @@ function deconstruct(ad::AbstractDeconstructor, m::M) where {M <: AbstractParame
     return (typeof(m), deconstruction)
 end
 
-function deconstruct(ad::AbstractDeconstructor, val::AbstractVariable)
+
+function deconstruct(val::Union{AbstractString,Number}, ad::AbstractDeconstructor=Deconstructor())
     return (typeof(val), val)
 end
 
-function deconstruct(ad::AbstractDeconstructor, val::Union{AbstractString,Number})
-    return (typeof(val), val)
-end
-
-function deconstruct(ad::AbstractDeconstructor, arr::AA) where {AA<:AbstractArray}
+function deconstruct(arr::AA, ad::AbstsractDeconstructor=Deconstructor()) where {AA<:AbstractArray}
     deconstruction = map(ad, arr)
     return (base_type(typeof(arr)), [deconstruction...]) # remade incase static
 end
 
-function deconstruct(ad::AbstractDeconstructor, tup::Tuple)
+function deconstruct(tup::Tuple, ad::AbstractDeconstructor=Deconstructor())
     deconstruction = map(ad, tup)
     return (base_type(typeof(tup)), [deconstruction...])
 end

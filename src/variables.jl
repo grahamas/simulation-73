@@ -32,12 +32,12 @@ function pops(t::Type{T}; kwargs...)::Array{T} where T
     return map((single_kwargs) -> t(;single_kwargs...), new_kwargs)
 end
 
-struct DeconstructAndFixVariables <: AbstractDeconstructor end
+struct DeconstructorFixingVariables <: AbstractDeconstructor end
 
-function deconstruct(ad::AbstractDeconstructor, val::AbstractVariable)
+function deconstruct(val::AbstractVariable, ad::AbstractDeconstructor=Deconstructor())
     return (typeof(val), val)
 end
-function deconstruct(deconstructor::DeconstructAndFixVariables, v::AbstractVariable)
+function deconstruct(v::AbstractVariable, deconstructor::DeconstructorFixingVariables)
     val = default_value(v)
     return (typeof(val), val)
 end
