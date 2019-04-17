@@ -3,8 +3,8 @@
 #########################################################
 ######### MODEL DECONSTRUCTION & RECONSTRUCTION #########
 # Deconstruct a model (which is naturally hierarchical)
-# into a flat representation.
-# Alter flat representation.
+# into an array representation.
+# Alter array representation.
 # Reconstruct hierarchical model.
 #########################################################
 
@@ -12,6 +12,9 @@ struct ObjectDeconstruction{OBJ}
     source::OBJ
     deconstruction::Tuple{Type,Array}
 end
+
+struct VariableObjectDeconstruction{OBJ}
+    deconstruction::
 
 """
     set_deep_dx!(model_deconstruction, dxs, val)
@@ -27,6 +30,7 @@ function set_deep_dx!(model_deconstruction::Tuple{Type,Array}, dxs, val)
     tmp[2][dxs[end]] = val
 end
 
+
 abstract type AbstractDeconstructor end
 struct Deconstructor <: AbstractDeconstructor end
 
@@ -35,7 +39,7 @@ function deconstruct(val::Union{AbstractString,Number}, ad::AbstractDeconstructo
     return (typeof(val), val)
 end
 
-function deconstruct(arr::AA, ad::AbstsractDeconstructor=Deconstructor()) where {AA<:AbstractArray}
+function deconstruct(arr::AA, ad::AbstractDeconstructor=Deconstructor()) where {AA<:AbstractArray}
     deconstruction = map(ad, arr)
     return (base_type(typeof(arr)), [deconstruction...]) # remade incase static
 end
@@ -50,16 +54,7 @@ function base_type(T::Int)
 end
 
 
-function base_type(::Type{P}) where {P <: AbstractParameter}
-    BTs = map(base_type, P.parameters)
-    return (P.name.wrapper){BTs...}
-end
-
 function base_type(::Type{T}) where T <: Real
-    return T
-end
-
-function base_type(::Type{V}) where {T, V<: Union{AbstractVariable{T}, T}}
     return T
 end
 
@@ -78,6 +73,7 @@ function base_type(::Type{SA}) where {N,M,T,TUP,SA<:Union{SArray{TUP,T,N,M},MArr
     BT = base_type(T)
     return SArray{TUP,BT,N,M}
 end
+
 
 function reconstruct(tup::Tuple{Type,<:Union{Number,AbstractString}})
     return tup[2]
