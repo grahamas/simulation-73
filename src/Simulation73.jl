@@ -62,9 +62,10 @@ export Model, initial_value, space_arr,
 export ParameterSearch, make_problem_generator, update_from_p!,
 	make_calculated_function
 
+
+include("deconstructing.jl")
 include("variables.jl")
 include("records.jl")
-include("destructuring.jl")
 include("meshes.jl")
 include("subsampling.jl")
 include("simulating.jl")
