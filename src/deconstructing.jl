@@ -30,24 +30,6 @@ end
 abstract type AbstractDeconstructor end
 struct Deconstructor <: AbstractDeconstructor end
 
-"""
-    deconstruct(ad::AbstractDeconstructor, param)
-
-Deconstruct a parameter into nested tuples of the form `(type,value)`.
-
-```
-    Parameter{Varying{T}} |> deconstruct |> reconstruct # isa Parameter{Varying{T}}
-```
-"""
-function deconstruct(m::M, ad::AbstractDeconstructor=Deconstructor()) where {M <: AbstractParameter}
-    deconstruction = Tuple{Type,Any}[]
-    for i_field in 1:nfields(m)
-        substruct = ad(getfield(m, i_field))
-        push!(deconstruction, substruct)
-    end
-    return (typeof(m), deconstruction)
-end
-
 
 function deconstruct(val::Union{AbstractString,Number}, ad::AbstractDeconstructor=Deconstructor())
     return (typeof(val), val)
