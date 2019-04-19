@@ -147,16 +147,6 @@ Return spatial frame for a given population `pop_dx` and time `time_dx`.
     :(solution[$(colons...),pop_dx, time_dx])
 end
 
-"""
-    write_params(simulation)
-
-Write the simulation to a top-level parameters file hard-coded "parameters.jld2"
-"""
-function write_params(sim::Simulation)
-    write_object(sim.output, "parameters.jld2", "sim", sim)
-end
-
-
 function subsampling_idxs(model::AbstractModel, solver::Solver, time_subsampler, space_subsampler)
     x_info = get_space_index_info(model, solver)
     t_info = get_time_index_info(solver)
@@ -167,8 +157,13 @@ function subsampling_idxs(model::AbstractModel, solver::Solver, time_subsampler,
     return (x_dxs, 1, t_dxs)
 end
 
-function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T,1}}, time_subsampler::Subsampler, space_subsampler::Subsampler) where T
+function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T,1}}, space_subsampler::Subsampler, time_subsampler::Subsampler) where T
     subsampling_idxs(simulation.model, simulation.solver, time_subsampler, space_subsampler)
+end
+function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T,1}}, x_target::AbstractArray, t_target::AbstractArray) where T
+    return (subsampling_space_idxs(simulation.model, simulation.solver, x_target),
+            1,
+            subsampling_time_idxs(simulation.solver, t_target))
 end
 function subsampling_time_idxs(solver::Solver, t_target::AbstractArray)
     t_solver = time_span(solver)[1]:save_dt(solver):time_span(solver)[end]
@@ -201,23 +196,15 @@ end
 
 Return an ODEProblem of the `model` with time span specified by `solver`.
 """
-function generate_problem(model::M, solver::SV) where {T,M<:AbstractModel{T},SV<:Solver{T}}
-    tspan = time_span(solver)
-    u0 = initial_value(model)
-
-    calculated_model = Calculated(model)
-
-    system_fn! = make_calculated_function(calculated_model)
-
-    ode_fn = convert(ODEFunction{true}, system_fn!)
-    return ODEProblem(ode_fn, u0, tspan, nothing)
+function generate_problem(simulation::Simulation{T}) where {T}
+    system_mutator! = make_system_mutator(simulation)
+    ode_fn = convert(ODEFunction{true}, system_mutator!)
+    return ODEProblem(ode_fn, initial_value(simulation), time_span(simulation), nothing)
 end
-generate_problem(simulation) = generate_problem(simulation.model, simulation.solver)
 
-solve(simulation::Simulation) = _solve(simulation.model, simulation.solver)
-function _solve(model::AbstractModel,solver::Solver)
-    problem = generate_problem(model, solver)
-    _solve(problem, solver, model.space)
+function solve(simulation::Simulation)
+    problem = generate_problem(simulation)
+    _solve(problem, simulation.solver, simulation.model.space)
 end
 function _solve(problem::ODEProblem, solver::Solver{T,Euler}, space::Pops{P,T}) where {P,T}
     # TODO: Calculate save_idxs ACCOUNTING FOR pops
@@ -245,4 +232,24 @@ function run_simulation(jl_filename::AbstractString)
     execution = execute(simulation)
     results = analyse.(analyses, Ref(execution), Ref(output))
     return (execution, results)
+end
+
+"""
+    make_mutators(simulation)
+
+Construct a list functions to successively mutate the system's difference (`dA`).
+"""
+make_mutators(sim::Simulation) = make_mutators(sim.model)
+
+"""
+    make_system_mutator(simulation)
+
+Construct the differential function to be provided to the ODE solver.
+"""
+function make_system_mutator(sim::SIM) where {SIM <: Simulation}
+    mutators = make_mutators(sim)
+    function system_mutator!(dA::Array{T,N}, A::Array{T,N}, t::T) where {T,N}
+        dA .= zero(T)
+        reduce(∘, mutators)(dA, A, t)
+    end
 end

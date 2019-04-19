@@ -1,14 +1,9 @@
 module Simulation73
 
-```@meta
-DocTestSetup = quote
-    using Simulation73, CalculatedTypes
-end
-```
+
 
 using Markdown # for doc_str
-using CalculatedTypes
-import CalculatedTypes: Calculated, update
+using Memoize
 using DifferentialEquations, DiffEqParamEstim
 using BlackBoxOptim, Optim
 using StaticArrays
@@ -50,17 +45,16 @@ export AbstractPlotSpecification, AbstractSpaceTimePlotSpecification, Analyses,
 # "targets.jl"
 export AbstractTarget, target_loss
 
+export execute
+
 # "simulating.jl"
-export Model, initial_value, space_arr,
-	run_simulation, Simulation, write_params, Solver, time_span,
-	saved_time_arr, saved_space_arr,
-	save_dt, save_dx, save_idxs, generate_problem,
-	pop_frame,
-	Execution, run_search, model_from_p, result_simulation
+export AbstractModel, Solver, Simulation, Execution,
+	initial_value, time_span, save_dt, save_dx,
+	generate_problem, solve, run_simulation,
+	make_mutators, make_system_mutator
 
 # "exploring.jl"
-export ParameterSearch, make_problem_generator, update_from_p!,
-	make_calculated_function
+export Search, SearchExecution, make_problem_generator, search, run_search
 
 
 include("deconstructing.jl")

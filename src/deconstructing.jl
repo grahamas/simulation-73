@@ -8,13 +8,13 @@
 # Reconstruct hierarchical model.
 #########################################################
 
-struct ObjectDeconstruction{OBJ}
+abstract type AbstractDeconstruction{OBJ} end
+
+struct Deconstruction{OBJ} <: AbstractDeconstruction{OBJ}
     source::OBJ
     deconstruction::Tuple{Type,Array}
 end
 
-struct VariableObjectDeconstruction{OBJ}
-    deconstruction::
 
 """
     set_deep_dx!(model_deconstruction, dxs, val)

@@ -74,3 +74,62 @@ end
 function base_type(::Type{V}) where {T, V<: Union{AbstractVariable{T}, T}}
     return T
 end
+
+struct VariableDeconstruction{OBJ} <: AbstractDeconstruction{OBJ}
+    source::OBJ
+    deconstruction::Tuple{Type,Array}
+    dxs_map
+    default_values
+    bounds
+end
+
+function VariableDeconstruction(obj)
+	dxs_map, default_values, bounds = variables(obj)
+	deconstruction = deconstruct(obj, DeconstructorFixingVariables())
+	VariableDeconstruction(obj, deconstruction, dxs_map, default_values, bounds)
+end
+
+"""Takes model with variable parameters,
+and returns default variable values and indices to those variables."""
+function variables(variable_parameter::P) where {T,
+											P <: AbstractParameter{<:MaybeVariable{T}}}
+    deconstructed = deconstruct(variable_model)
+    default_value, dxs_map, bounds = variables(deconstructed, T)
+    return dxs_map, default_value, bounds
+end
+
+"Initialize all variables to their default value."
+function variables(deconstructed::Tuple{Type,<:AbstractArray}, T::Type)
+    dxs_map = []
+    default_values = T[]
+    bounds = Tuple{T,T}[]
+    for dx in CartesianIndices(size(deconstructed[2]))
+        (typ, val) = deconstructed[2][dx]
+        if typ <: AbstractVariable
+            push!(dxs_map, [dx])
+            push!(default_values, default_value(val))
+            push!(bounds, bounds(val))
+        elseif val isa AbstractArray
+            dxs, ps, bds = variables((typ, val), T)
+            @assert length(ps) == length(dxs)
+            push!(dxs_map, [vcat(dx, x) for x in dxs]...)
+            push!(default_values, ps...)
+            push!(bounds, bds...)
+        end
+    end
+    return dxs_map, default_values, bounds
+end
+
+function param_from_vec(var_deconstruction::VariableDeconstruction, values_vec)
+    target = deepcopy(var_deconstruction.deconstruction)
+	for (dxs, value) in zip(var_deconstruction.dxs_map, values_vec)
+		set_deep_dx!(target, dxs, value)
+	end
+	reconstruct(target)
+end
+
+
+function param_from_vec(varying_param::AbstractParameter{MaybeVariable{T}}, values_vec) where T
+    varying_param_deconstruction = VariableDeconstruction(varying_param)
+    param_from_vec(varying_param_deconstruction, values_vec)
+end
