@@ -22,8 +22,6 @@ Base.zero(::Type{<:MaybeVariable{T}}) where T <: Number = zero(T)
 default_value(var::V) where V <: AbstractVariable = var.value
 bounds(var::V) where V <: BoundedVariable = var.bounds
 
-abstract type AbstractParameter{T<:MaybeVariable} end
-
 "Map a type over kwargs"
 function pops(t::Type{T}; kwargs...)::Array{T} where T
     syms = keys(kwargs)

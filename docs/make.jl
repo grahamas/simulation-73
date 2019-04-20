@@ -1,7 +1,7 @@
 using Documenter, Simulation73
 
 makedocs(
-    sitename="Simulation73 Documentation",
+    sitename="Simulation73",
     modules=[Simulation73],
     pages = [
        "Home" => "index.md",
@@ -19,7 +19,7 @@ makedocs(
        "Library" => Any[
            "Public" => "lib/public.md",
            hide("Internals" => "lib/internals.md",
-           Any[joinpath("lib/internals", f) for f in readdir("docs/src/lib/internals")]
+            Any[joinpath("lib/internals", f) for f in readdir("docs/src/lib/internals")]
            )
        ]
    ]

@@ -44,6 +44,7 @@ end
 function Simulation(; model::M, solver::S) where {T, M<:AbstractModel{T}, S<:Solver{T}}
     Simulation{T,M,S}(model,solver)
 end
+DrWatson.allaccess(s::Simulation) = [:model]
 
 "An Execution holds a Simulation and the solution obtained by running the Simulation."
 struct Execution{T,S<:Simulation{T},D<:DESolution}
@@ -51,6 +52,9 @@ struct Execution{T,S<:Simulation{T},D<:DESolution}
     solution::D
 end
 Execution(s::S) where {T,S <: Simulation{T}} = Execution(s,solve(s))
+DrWatson.allaccess(e::Execution) = [:simulation]
+
+execute(s::Simulation) = Execution(s)
 
 """
     initial_value(model)

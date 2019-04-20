@@ -89,13 +89,13 @@ discrete_grid(extent::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T} = Iterat
     discrete_segment.(extent, n_points)...)
 
 "A simple Segment of length `extent` and `n_points`-many points"
-struct Segment{T} <: AbstractSpace{T,1}
+@with_kw struct Segment{T} <: AbstractSpace{T,1}
     extent::T
     n_points::Int
 end
 distance_metric(segment::Segment, edge) = euclidean_metric(edge)
 @doc "A Circle with circumference `extent` represented by `n_points`-many points"
-struct Circle{T} <: AbstractSpace{T,1}
+@with_kw struct Circle{T} <: AbstractSpace{T,1}
     extent::T
     n_points::Int
 end
@@ -108,7 +108,7 @@ end
 
 Wrap a generic AbstractSpace so that it repeats P-many times
 """
-struct Pops{P,T,D,S} <: AbstractSpace{T,D}
+@with_kw struct Pops{P,T,D,S} <: AbstractSpace{T,D}
     space::S
 end
 @memoize Dict function coordinates(space::Pops)
@@ -129,14 +129,14 @@ end
 @doc """
 A square Grid of points with `extent` describing the length along each dimension and `n_points` describing the number of points representing each dimension.
 """
-struct Grid{T} <: AbstractSpace{T,2}
+@with_kw struct Grid{T} <: AbstractSpace{T,2}
     extent::Tuple{T,T}
     n_points::Tuple{Int,Int}
 end
 distance_metric(grid::Grid, edge) = euclidean_metric(edge)
 
 """A Torus shaped grid of points."""
-struct Torus{T} <: AbstractSpace{T,2}
+@with_kw struct Torus{T} <: AbstractSpace{T,2}
     extent::Tuple{T,T}
     n_points::Tuple{Int,Int}
 end

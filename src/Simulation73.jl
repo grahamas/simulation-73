@@ -1,16 +1,14 @@
 module Simulation73
 
-
+using DrWatson
 
 using Markdown # for doc_str
-using Memoize
 using DifferentialEquations, DiffEqParamEstim
 using BlackBoxOptim, Optim
 using StaticArrays
 import BlackBoxOptim
 using JLD2
 import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
-using Dates
 using RecipesBase
 using Parameters
 using Plots
@@ -19,13 +17,13 @@ using Plots
 # ENV["MPLBACKEND"]="Agg"
 # using Plots
 
+abstract type AbstractParameter{T} end
+DrWatson.default_allowed(c::AbstractParameter) = (Real, String, Symbol, AbstractParameter)
+
 # "variables.jl"
 export AbstractVariable, UnboundedVariable, BoundedVariable,
 	default_value, bounds, pops, MaybeVariable,
 	AbstractParameter
-
-# "records.jl"
-export SingleOutput, ExperimentOutput, filecopy, AbstractOutput
 
 # "meshes.jl"
 export Pops, Segment, Circle,
@@ -56,7 +54,7 @@ export AbstractModel, Solver, Simulation, Execution,
 # "exploring.jl"
 export Search, SearchExecution, make_problem_generator, search, run_search
 
-
+include("helpers.jl")
 include("deconstructing.jl")
 include("variables.jl")
 include("records.jl")
