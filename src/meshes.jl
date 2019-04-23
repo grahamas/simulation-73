@@ -143,7 +143,7 @@ end
 distance_metric(torus::Torus, edge) = euclidean_metric_periodic(edge, torus.extent)
 
 @memoize Dict function coordinates(space::AbstractSpace{T,2}) where T
-    discrete_grid(extent, n_points)
+    discrete_grid(space.extent, space.n_points)
 end
 
 """
