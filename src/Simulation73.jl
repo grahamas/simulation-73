@@ -1,7 +1,6 @@
 module Simulation73
 
 using DrWatson
-
 using Markdown # for doc_str
 using DifferentialEquations, DiffEqParamEstim
 using BlackBoxOptim, Optim
@@ -48,7 +47,9 @@ export execute
 export AbstractModel, Solver, Simulation, Execution,
 	initial_value, time_span, save_dt, save_dx,
 	generate_problem, solve, run_simulation,
-	make_mutators, make_system_mutator
+	make_mutators, make_system_mutator,
+	saved_time_arr, saved_space_arr,
+	pop_frame
 
 # "exploring.jl"
 export Search, SearchExecution, make_problem_generator, search, run_search

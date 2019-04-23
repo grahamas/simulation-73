@@ -101,7 +101,7 @@ time_span(sim::Simulation) = time_span(sim.solver)
 Return the part of `arr` that would have been saved by `solver`.
 """
 function _space_saved_subsample_(arr, solver::Solver)
-    collect(arr)[[StrideToEnd(i) for i in solver.space_save_every]...,:]
+    collect(arr)[[StrideToEnd(i) for i in solver.space_save_every]...]
 end
 """
     saved_space_arr(model, solver)
@@ -109,7 +109,7 @@ end
 
 Return the spatial coordinates of values saved by `solver`
 """
-saved_space_arr(model::AbstractModel, solver::Solver) = space_saved_subsample_(coordinates(model.space), solver)
+saved_space_arr(model::AbstractModel, solver::Solver) = _space_saved_subsample_(coordinates(model.space), solver)
 saved_space_arr(sim::Simulation) = saved_space_arr(sim.model, sim.solver)
 """
     saved_time_arr(solver)
@@ -134,7 +134,7 @@ function get_space_origin_idx(model::AbstractModel)
     get_space_origin_idx(model.space)
 end
 function get_space_origin_idx(model::AbstractModel, solver::Solver)  # TODO: Remove 1D assumption
-    round(Int, get_space_origin_idx(model) ./ solver.space_save_every)
+    CartesianIndex(round.(Int, Tuple(get_space_origin_idx(model)) ./ solver.space_save_every))
 end
 function get_space_origin_idx(sim::Simulation)
     get_space_origin_idx(sim.model, sim.solver)
@@ -174,7 +174,7 @@ Return spatial frame for a given population `pop_dx` and time `time_dx`.
     :(solution[$(colons...),pop_dx, time_dx])
 end
 
-function subsampling_idxs(model::AbstractModel, solver::Solver, time_subsampler, space_subsampler)
+function subsampling_idxs(model::AbstractModel, solver::Solver, space_subsampler, time_subsampler)
     x_info = get_space_index_info(model, solver)
     t_info = get_time_index_info(solver)
 
@@ -185,7 +185,7 @@ function subsampling_idxs(model::AbstractModel, solver::Solver, time_subsampler,
 end
 
 function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T,1}}, space_subsampler::Subsampler, time_subsampler::Subsampler) where T
-    subsampling_idxs(simulation.model, simulation.solver, time_subsampler, space_subsampler)
+    subsampling_idxs(simulation.model, simulation.solver, space_subsampler, time_subsampler)
 end
 function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T,1}}, x_target::AbstractArray, t_target::AbstractArray) where T
     return (subsampling_space_idxs(simulation.model, simulation.solver, x_target),
@@ -208,7 +208,7 @@ function subsample(execution::Execution{T,<:Simulation{T,<:AbstractModel{T}}}; t
     t = saved_time_arr(simulation)
     x = saved_space_arr(simulation)
 
-    x_dxs, pop_dxs, t_dxs = subsampling_idxs(simulation, time_subsampler, space_subsampler)
+    x_dxs, pop_dxs, t_dxs = subsampling_idxs(simulation, space_subsampler, time_subsampler)
 
     t = t[t_dxs]
     x = x[x_dxs] # TODO: Remove 1D return assumption
