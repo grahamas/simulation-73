@@ -112,7 +112,7 @@ Wrap a generic AbstractSpace so that it repeats P-many times
     space::S
 end
 @memoize Dict function coordinates(space::Pops)
-    coordinates(space)#repeat(calculate(space), outer=(ones(Int,D)...,P))
+    coordinates(space.space)#repeat(calculate(space), outer=(ones(Int,D)...,P))
 end
 Pops{n_pops}(space::S) where {T,D,n_pops,S <: AbstractSpace{T,D}} = Pops{n_pops,T,D,S}(space)
 distance_metric(pops::Pops, edge) = distance_metric(pops.space, edge)
@@ -206,5 +206,6 @@ size(ps::Pops{P}) where P = (size(ps.space)...,P)
 zero(::Type{NTuple{N,T}}) where {N,T} = NTuple{N,T}(zero(T) for i in 1:N)
 zero(space::AbstractSpace{T}) where {T} = zeros(T,size(space)...)
 one_pop_zero(pops::Pops) = zero(pops.space)
+one_pop_size(pops::Pops) = size(pops.space)
 
 ndims(space::AbstractSpace) = length(size(space))

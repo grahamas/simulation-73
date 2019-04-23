@@ -11,7 +11,6 @@ using JLD2
 import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
 using RecipesBase
 using Parameters
-using Plots
 
 # ENV["GKSwstype"] = "100" # For headless plotting (on server)
 # ENV["MPLBACKEND"]="Agg"
@@ -30,7 +29,7 @@ export Pops, Segment, Circle,
 	 Grid, Torus
 
 export AbstractSpace, DistanceMatrix, CalculatedDistanceMatrix, get_origin,
-	 get_distances, one_pop, one_pop_zero, coordinates
+	 get_distances, one_pop, one_pop_zero, one_pop_size, coordinates
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
@@ -57,7 +56,6 @@ export Search, SearchExecution, make_problem_generator, search, run_search
 include("helpers.jl")
 include("deconstructing.jl")
 include("variables.jl")
-include("records.jl")
 include("meshes.jl")
 include("subsampling.jl")
 include("simulating.jl")

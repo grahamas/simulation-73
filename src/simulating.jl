@@ -36,7 +36,7 @@ function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: Pops{P,T}}#::
 end
 
 "A Simulation holds an AbstractModel to be solved and a Solver to solve it."
-struct Simulation{T,M<:AbstractModel{T},S<:Solver{T}}
+struct Simulation{T,M<:AbstractModel{T},S<:Solver{T}} <: AbstractParameter{T}
     model::M
     solver::S
     Simulation{T,M,S}(m::M,s::S) where {T,M<:AbstractModel{T},S<:Solver{T}} = new(m,s)
@@ -44,7 +44,30 @@ end
 function Simulation(; model::M, solver::S) where {T, M<:AbstractModel{T}, S<:Solver{T}}
     Simulation{T,M,S}(model,solver)
 end
-DrWatson.allaccess(s::Simulation) = [:model]
+function DrWatson.default_prefix(s::Simulation)
+    space_dir = default_prefix(s.space)
+    nonl_dir = default_prefix(s.nonlinearity)
+    conn_dir = default_prefix(s.connectivity)
+    stim_dir = default_prefix(s.stimulus)
+    joinpath(space_dir, nonl_dir, conn_dir, stim_dir)
+end
+combine_names(name::Symbol, subname::Symbol) = (name, subname)
+combine_names(name::Symbol, subnames::Tuple) = (name, subnames...)
+function DrWatson.allaccess(ap::AbstractParameter)
+    names = fieldnames(typeof(ap))
+    all_names = []
+    for name ∈ names
+        @show typeof(getproperty(ap, name))
+        subnames =  DrWatson.allaccess(getproperty(ap, name))
+        if length(subnames) == 0
+            push!(all_names, name)
+        else
+            push!(all_names, combine_names.(name, subnames)...)
+        end
+    end
+    return all_names
+end
+
 
 "An Execution holds a Simulation and the solution obtained by running the Simulation."
 struct Execution{T,S<:Simulation{T},D<:DESolution}
@@ -52,7 +75,7 @@ struct Execution{T,S<:Simulation{T},D<:DESolution}
     solution::D
 end
 Execution(s::S) where {T,S <: Simulation{T}} = Execution(s,solve(s))
-DrWatson.allaccess(e::Execution) = [:simulation]
+DrWatson.savename(e::Execution) = savename(e.simulation)
 
 execute(s::Simulation) = Execution(s)
 
@@ -251,9 +274,5 @@ make_mutators(sim::Simulation) = make_mutators(sim.model)
 Construct the differential function to be provided to the ODE solver.
 """
 function make_system_mutator(sim::SIM) where {SIM <: Simulation}
-    mutators = make_mutators(sim)
-    function system_mutator!(dA::Array{T,N}, A::Array{T,N}, t::T) where {T,N}
-        dA .= zero(T)
-        reduce(∘, mutators)(dA, A, t)
-    end
+    make_system_mutator(sim.model)
 end
