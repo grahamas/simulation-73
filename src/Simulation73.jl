@@ -3,12 +3,11 @@ module Simulation73
 using DrWatson
 using Markdown # for doc_str
 using DifferentialEquations, DiffEqParamEstim
-using BlackBoxOptim, Optim
+#using BlackBoxOptim, Optim
 using StaticArrays
-import BlackBoxOptim
 using JLD2
 import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
-using RecipesBase
+#using RecipesBase
 using Parameters
 
 # ENV["GKSwstype"] = "100" # For headless plotting (on server)
@@ -51,8 +50,8 @@ export AbstractModel, Solver, Simulation, Execution,
 	saved_time_arr, saved_space_arr,
 	pop_frame
 
-# "exploring.jl"
-export Search, SearchExecution, make_problem_generator, search, run_search
+# # "exploring.jl"
+# export Search, SearchExecution, make_problem_generator, search, run_search
 
 include("helpers.jl")
 include("deconstructing.jl")
@@ -61,7 +60,7 @@ include("meshes.jl")
 include("subsampling.jl")
 include("simulating.jl")
 include("targets.jl")
-include("exploring.jl")
+# include("exploring.jl")
 include("analysing.jl")
 
 end
