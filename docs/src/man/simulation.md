@@ -18,6 +18,6 @@ The `solver` parameter is of type [`Solver`](@ref) as defined by this module, wh
 
 ## Specifying a Model
 
-Begin any simulation by defining a model, say of type `ToyModel <: AbstractModel`. Minimally, if `model isa ToyModel` then `model.space isa AbstractSpace` and `Calculated(model) isa CalculatedType{Model}` (from module [`CalculatedTypes`](https://grahamas.github.io/CalculatedTypes/dev/)). Finally, the any model must extend [`make_calculated_function`](@ref) to return the differential function to be solved.
+Begin any simulation by defining a model, say of type `ToyModel <: AbstractModel`. Minimally, if `model isa ToyModel` then `model.space isa AbstractSpace` and `initial_value(model::ToyModel)` must be defined. Finally, the model must extend [`make_system_mutator`](@ref) to return the differential function to be solved.
 
 To implement parameter exploration, the model must additionally extend [`update_from_p!`](@ref).

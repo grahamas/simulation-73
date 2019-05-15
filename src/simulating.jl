@@ -85,7 +85,7 @@ execute(s::Simulation) = Execution(s)
 
 Return the model's initial value (defaults to all zeros)
 """
-initial_value(model::AbstractModel{T,N,P}) where {T,N,P} = zero(model.space)
+initial_value(model::AbstractModel{T,N,P}) where {T,N,P} = initial_value(model)
 initial_value(sim::Simulation) = initial_value(sim.model)
 """
     time_span(solver)
