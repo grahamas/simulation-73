@@ -232,12 +232,13 @@ Return an ODEProblem of the `model` with time span specified by `solver`.
 function generate_problem(simulation::Simulation{T}) where {T}
     system_mutator! = make_system_mutator(simulation)
     ode_fn = convert(ODEFunction{true}, system_mutator!)
-    return ODEProblem(ode_fn, initial_value(simulation), history(simulation), time_span(simulation))
+    return ODEProblem(ode_fn, initial_value(simulation), time_span(simulation))
 end
 
 function generate_problem(simulation::Simulation{T,MwD}) where {T, MwD<:AbstractModelwithDelay}
     system_mutator! = make_system_mutator(simulation)
-    return DDEProblem(system_mutator, initial_value(simulation), time_span(simulation), nothing)
+    return DDEProblem(system_mutator!, initial_value(simulation), history(simulation), time_span(simulation))
+end
 
 function solve(simulation::Simulation)
     problem = generate_problem(simulation)
