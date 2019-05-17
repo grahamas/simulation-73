@@ -1,5 +1,6 @@
 "A AbstractModel specifies all parameters of a system."
 abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
+abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
 
 "A Solver holds the parameters of the differential equation solver."
 struct Solver{T,ALG<:Union{OrdinaryDiffEqAlgorithm,Nothing},DT<:Union{T,Nothing}}
@@ -85,7 +86,6 @@ execute(s::Simulation) = Execution(s)
 
 Return the model's initial value (defaults to all zeros)
 """
-initial_value(model::AbstractModel{T,N,P}) where {T,N,P} = initial_value(model)
 initial_value(sim::Simulation) = initial_value(sim.model)
 """
     time_span(solver)
@@ -95,6 +95,12 @@ Return the time span over which the solver runs.
 """
 time_span(solver::Solver{T}) where T = solver.tspan
 time_span(sim::Simulation) = time_span(sim.solver)
+"""
+    history(model)
+    history(simulation)
+Return the "history" of the model prior to start time
+"""
+history(simulation::Simulation) = history(simulation.model)
 """
     space_saved_subsample_(arr, solver)
 
@@ -226,8 +232,12 @@ Return an ODEProblem of the `model` with time span specified by `solver`.
 function generate_problem(simulation::Simulation{T}) where {T}
     system_mutator! = make_system_mutator(simulation)
     ode_fn = convert(ODEFunction{true}, system_mutator!)
-    return ODEProblem(ode_fn, initial_value(simulation), time_span(simulation), nothing)
+    return ODEProblem(ode_fn, initial_value(simulation), history(simulation), time_span(simulation))
 end
+
+function generate_problem(simulation::Simulation{T,MwD}) where {T, MwD<:AbstractModelwithDelay}
+    system_mutator! = make_system_mutator(simulation)
+    return DDEProblem(system_mutator, initial_value(simulation), time_span(simulation), nothing)
 
 function solve(simulation::Simulation)
     problem = generate_problem(simulation)

@@ -30,6 +30,14 @@ function pops(t::Type{T}; kwargs...)::Array{T} where T
     return map((single_kwargs) -> t(;single_kwargs...), new_kwargs)
 end
 
+function pops(ts::AbstractArray{<:Type{T}}; kwargs...)::Array{T} where T
+	syms = keys(kwargs)
+	args = zip(values(kwargs)...)
+	new_kwargs = (zip(syms, args) for arg in args)
+	type_and_new_kwargs = zip(ts, new_kwargs)
+	return map((t, single_kwargs) -> t(; single_kwargs...), type_and_new_kwargs)
+end
+
 """
     deconstruct(ad::AbstractDeconstructor, param)
 
