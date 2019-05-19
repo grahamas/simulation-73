@@ -43,8 +43,8 @@ export AbstractTarget, target_loss
 export execute
 
 # "simulating.jl"
-export AbstractModel, Solver, Simulation, Execution,
-	initial_value, time_span, save_dt, save_dx,
+export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
+	initial_value, history, time_span, save_dt, save_dx,
 	generate_problem, solve, run_simulation,
 	make_mutators, make_system_mutator,
 	saved_time_arr, saved_space_arr,
