@@ -22,13 +22,6 @@ export AbstractVariable, UnboundedVariable, BoundedVariable,
 	default_value, bounds, pops, MaybeVariable,
 	AbstractParameter
 
-# "meshes.jl"
-export Pops, Segment, Circle,
-	 Grid, Torus
-
-export AbstractSpace, DistanceMatrix, CalculatedDistanceMatrix, get_origin,
-	 get_distances, one_pop, one_pop_zero, one_pop_size, coordinates
-
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
 	subsampling_time_idxs, subsampling_space_idxs, Subsampler
@@ -56,7 +49,7 @@ export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
 include("helpers.jl")
 include("deconstructing.jl")
 include("variables.jl")
-include("meshes.jl")
+#include("meshes.jl")
 include("subsampling.jl")
 include("simulating.jl")
 include("targets.jl")

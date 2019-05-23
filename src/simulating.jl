@@ -28,11 +28,11 @@ save_dt(s::Solver{T}) where T = s.simulated_dt * s.time_save_every
 
 Return the indices into space of the values that the solver saves.
 """
-function save_idxs(solver::Solver{T}, space::SP) where {T,P, SP <: Pops{P,T}}#::Unio{P,n}{Nothing,Array{CartesianIndex}}
+function save_idxs(model::AbstractModel{T}, solver::Solver{T}) where {T}#::Unio{P,n}{Nothing,Array{CartesianIndex}}
     if all(solver.space_save_every .== 1)
         return nothing
     end
-    all_indices = CartesianIndices(space)
+    all_indices = CartesianIndices(initial_value(model))
     space_saved_subsample(all_indices, solver)
 end
 
@@ -174,10 +174,10 @@ get_time_index_info(sim::Simulation{T}) where T = get_time_index_info(sim.solver
 
 Return spatial frame for a given population `pop_dx` and time `time_dx`.
 """
-@generated function pop_frame(solution::ODESolution{T,NPT,<:Array{<:Array{T,NP},1}}, pop_dx::Int, time_dx::Int) where {T,NP,NPT}
+@generated function pop_frame(solution::ODESolution{T,NPT,<:AbstractArray{<:AbstractArray{T,NP},1}}, pop_dx::Int, time_dx::Int) where {T,NP,NPT}
     N = NP - 1
     colons = [:(:) for i in 1:N]
-    :(solution[$(colons...),pop_dx, time_dx])
+    :(solution[pop_dx, $(colons...), time_dx])
 end
 
 function subsampling_idxs(model::AbstractModel, solver::Solver, space_subsampler, time_subsampler)
@@ -242,20 +242,20 @@ end
 
 function solve(simulation::Simulation)
     problem = generate_problem(simulation)
-    _solve(problem, simulation.solver, simulation.model.space)
+    _solve(problem, simulation.solver, simulation.model)
 end
-function _solve(problem::ODEProblem, solver::Solver{T,Euler}, space::Pops{P,T}) where {P,T}
+function _solve(problem::ODEProblem, solver::Solver{T,Euler}, model::AbstractModel{T}) where {T}
     # TODO: Calculate save_idxs ACCOUNTING FOR pops
     @show "Solving Euler"
     solve(problem, Euler(), dt=solver.simulated_dt,
             #saveat=save_dt(solver),
             timeseries_steps=solver.time_save_every,
-            save_idxs=save_idxs(solver, space))
+            save_idxs=save_idxs(model, solver))
 end
-function _solve(problem::ODEProblem, solver::Solver{T,Nothing}, space::Pops{P,T}) where {P,T}
+function _solve(problem::ODEProblem, solver::Solver{T,Nothing}, model::AbstractModel{T}) where {T}
     @show "Solving with default ALG"
     solve(problem, saveat=save_dt(solver), timeseries_steps=solver.time_save_every,
-        save_idxs=save_idxs(solver, space), alg_hints=[solver.stiffness])
+        save_idxs=save_idxs(model, solver), alg_hints=[solver.stiffness])
 end
 
 """
