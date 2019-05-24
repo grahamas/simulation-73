@@ -2,7 +2,7 @@ module Simulation73
 
 using DrWatson
 using Markdown # for doc_str
-using DifferentialEquations, DiffEqParamEstim
+using DifferentialEquations#, DiffEqParamEstim
 #using BlackBoxOptim, Optim
 using StaticArrays
 using JLD2
@@ -46,10 +46,8 @@ export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
 # # "exploring.jl"
 # export Search, SearchExecution, make_problem_generator, search, run_search
 
-include("helpers.jl")
 include("deconstructing.jl")
 include("variables.jl")
-#include("meshes.jl")
 include("subsampling.jl")
 include("simulating.jl")
 include("targets.jl")
