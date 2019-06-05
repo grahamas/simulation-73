@@ -22,6 +22,8 @@ export AbstractVariable, UnboundedVariable, BoundedVariable,
 	default_value, bounds, pops, MaybeVariable,
 	AbstractParameter
 
+export AbstractSpace, AbstractLattice, coordinates
+
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
 	subsampling_time_idxs, subsampling_space_idxs, Subsampler
@@ -49,6 +51,7 @@ export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
 include("deconstructing.jl")
 include("variables.jl")
 include("subsampling.jl")
+include("space.jl")
 include("simulating.jl")
 include("targets.jl")
 # include("exploring.jl")
