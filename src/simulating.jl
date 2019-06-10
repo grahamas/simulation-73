@@ -147,7 +147,7 @@ function get_space_origin_idx(sim::Simulation)
 end
 
 save_dt(sim::Simulation{T}) where T = save_dt(sim.solver)
-save_dx(model::AbstractModel, solver::Solver)= step(model.space) * solver.space_save_every
+save_dx(model::AbstractModel, solver::Solver)= step(model.space) .* solver.space_save_every
 save_dx(sim::Simulation{T}) where T = save_dx(sim.model, sim.solver)
 Base.minimum(solution::DESolution) = minimum(map(minimum, solution.u))
 Base.maximum(solution::DESolution) = maximum(map(maximum, solution.u))
