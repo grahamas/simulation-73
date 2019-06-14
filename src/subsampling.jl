@@ -14,9 +14,9 @@ abstract type AbstractSubsampler{DT,W} end
 end
 
 "IndexInfo specifies the index of 0 and the stride (`Δ`) between indices."
-@with_kw struct IndexInfo{D}
-	Δ::D
-	origin_idx::Int # TODO: Make CartesianIndex
+@with_kw struct IndexInfo{D,N}
+	Δ::NTuple{N,D}
+	origin_idx::CartesianIndex{N}
 end
 
 """
@@ -24,11 +24,11 @@ end
 
 StrideToEnd is a custom index type that acts like `start:stride:end`, to circumvent the fact that you can't put `start:stride:end` into a variable.
 """
-struct StrideToEnd
-	stride::Int
-	start::Int
-	StrideToEnd(stride, start=1) = new(stride, start)
-end
+struct StrideToEnd{N}
+	stride::CartesianIndex{N}
+	start::CartesianIndex{N}
+	StrideToEnd(stride, start=CartesianIndex{N}(1)) = new(stride, start)
+end # FIXME: Does this need to be CartesianIndices?
 
 import Base: to_indices, _maybetail, @_inline_meta, tail, getindex
 to_indices(A, inds, I::Tuple{StrideToEnd, Vararg{Any}})=
@@ -45,19 +45,20 @@ function subsampling_Δidx(Δsubsampled::T, Δsource::T) where T
 	return Δidx
 end
 
-function subsampling_idxs(Δsource::T, origin_idx::Int, Δsubsampled::T, scalar_window::Tuple{T,T}) where T
+
+function subsampling_idxs(Δsource::T, origin_idx::Int, Δsubsampled::T, scalar_window::Tuple{T,T}) where {N,T<:Number}
 	Δidx = subsampling_Δidx(Δsubsampled, Δsource)
-	if scalar_window[1] == -Inf
-		lower_idx = 1
-	else
-		lower_idx = round(Int, origin_idx + scalar_window[1] / Δsource)
-	end
+	lower_idx = max(1, round(Int, origin_idx + (scalar_window[1] / Δsource)))
 	if scalar_window[2] == Inf
 		return StrideToEnd(Δidx,lower_idx)
 	else
 		upper_idx = round(Int, origin_idx + scalar_window[2] / Δsource)
 		return lower_idx:Δidx:upper_idx
 	end
+end
+
+function subsampling_idxs(Δsource::T, origin_idx::CartesianIndex{N}, Δsubsampled::T, scalar_window::Tuple{T,T}) where {N,T<:NTuple{N}}
+	[subsampling_idxs(args...) for args in zip(Δsource, Tuple(origin_idx), Δsubsampled, zip(scalar_window...))]
 end
 
 function subsampling_idxs(info, subsampler::Subsampler{Nothing, Nothing})
@@ -78,21 +79,22 @@ function subsampling_idxs(info::IndexInfo{T}, subsampler::Subsampler{Nothing,Tup
 	subsampling_idxs(info.Δ, info.origin_idx, Δsubsampled, subsampler.window)
 end
 
-function subsampling_idxs(target::AbstractArray{T,1}, source::AbstractArray{T,1}) where T
-	Δsource = source[2] - source[1]
-
-	Δsubsampled = target[2] - target[1]
-	scalar_window = (target[1], target[end])
-	idx_window = scalar_to_idx_window(scalar_window, source)
-
-	Δidx = subsampling_Δidx(Δsubsampled, Δsource)
-
-	idx_window[1]:Δidx:idx_window[2]
-end
-
-function subsampling_idxs(target::AbstractArray{T,1}, source_info::IndexInfo) where T
-	Δ = target[1] - target[2]
-	target_subsampler = Subsampler(; window = (target[1], target[end]), Δ = target[2]-target[1])
-	@assert all((target[2:end] - target[1:end-1]) .≈ target_subsampler.Δ)
-	subsampling_idxs(source_info, target_subsampler)
-end
+# FIXME generalize to N-D
+# function subsampling_idxs(target::AbstractArray{T,1}, source::AbstractArray{T,1}) where T
+# 	Δsource = (source[2] - source[1],)
+#
+# 	Δsubsampled = (target[2] - target[1],)
+# 	scalar_window = (target[1], target[end])
+# 	idx_window = scalar_to_idx_window(scalar_window, source)
+#
+# 	Δidx = subsampling_Δidx(Δsubsampled, Δsource)
+#
+# 	idx_window[1]:Δidx:idx_window[2]
+# end
+# 
+# function subsampling_idxs(target::AbstractArray{T,1}, source_info::IndexInfo) where T
+# 	Δ = target[1] - target[2]
+# 	target_subsampler = Subsampler(; window = (target[1], target[end]), Δ = target[2]-target[1])
+# 	@assert all((target[2:end] - target[1:end-1]) .≈ target_subsampler.Δ)
+# 	subsampling_idxs(source_info, target_subsampler)
+# end
