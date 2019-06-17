@@ -24,12 +24,11 @@ end
 
 StrideToEnd is a custom index type that acts like `start:stride:end`, to circumvent the fact that you can't put `start:stride:end` into a variable.
 """
-struct StrideToEnd{N}
-	stride::CartesianIndex{N}
-	start::CartesianIndex{N}
-	StrideToEnd(stride, start=CartesianIndex{N}(1)) = new(stride, start)
+struct StrideToEnd
+    stride::Int
+	start::Int
+	StrideToEnd(stride::Int, start::Int=1) = new(stride, start)
 end # FIXME: Does this need to be CartesianIndices?
-
 import Base: to_indices, _maybetail, @_inline_meta, tail, getindex
 to_indices(A, inds, I::Tuple{StrideToEnd, Vararg{Any}})=
 	(@_inline_meta; (I[1].start:I[1].stride:inds[1][end], to_indices(A, _maybetail(inds), tail(I))...))
@@ -65,7 +64,7 @@ function subsampling_idxs(info, subsampler::Subsampler{Nothing, Nothing})
 	Colon()
 end
 
-function subsampling_idxs(info::IndexInfo{T}, subsampler::Subsampler{T,Tuple{T,T}}) where T
+function subsampling_idxs(info::IndexInfo{T,N}, subsampler::Subsampler{T,Tuple{T,T}}) where {N, T<:NTuple{N}}
 	subsampling_idxs(info.Δ, info.origin_idx, subsampler.Δ, subsampler.window)
 end
 

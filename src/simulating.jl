@@ -166,7 +166,7 @@ get_space_index_info(sim::Simulation{T}) where T = get_space_index_info(sim.mode
 
 Return IndexInfo for saved time array.
 """
-get_time_index_info(solver::Solver{T}) where T = IndexInfo(save_dt(solver), 1)
+get_time_index_info(solver::Solver{T}) where T = IndexInfo(save_dt(solver), (1,))
 get_time_index_info(sim::Simulation{T}) where T = get_time_index_info(sim.solver)
 
 """
