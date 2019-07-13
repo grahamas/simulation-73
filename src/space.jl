@@ -1,7 +1,6 @@
 
 "`AbstractSpace{T,D}` with distance-type `T` and dimension `D`"
 abstract type AbstractSpace{T,D} <: AbstractParameter{T} end
-abstract type AbstractLattice{T,D} <: AbstractSpace{T,D} end
 
 """
     coordinates(space::AbstractSpace)
@@ -9,4 +8,29 @@ abstract type AbstractLattice{T,D} <: AbstractSpace{T,D} end
 Return an object in the shape of the space where each element is the coordinate of that element.
 """
 coordinates(space::AbstractSpace) = error("undefined.")
-get_space_origin_idx(space::AbstractSpace{T}) where T = CartesianIndex(round.(Int, space.n_points ./ 2, RoundNearestTiesUp))
+
+"""
+    distances(space)
+
+Return the distances between every pair of points in `space`
+"""
+function distances(space::AbstractSpace{T}) where T
+    edges = Iterators.product(coordinates(space), coordinates(space))
+    distances = distance_metric.(Ref(space), edges)
+end
+
+# Extend Base methods to AbstractSpace types
+import Base: step, zero, length, size, ndims
+step(space::AbstractSpace{T}) where T = space.extent ./ (space.n_points .- 1)
+
+zero(::Type{NTuple{N,T}}) where {N,T} = NTuple{N,T}(zero(T) for _ in 1:N)
+zero(space::AbstractSpace{T}) where {T} = zeros(T,size(space)...)
+
+ndims(space::AbstractSpace) = length(size(space))
+
+# Include file definitions of various spaces
+include("space/metrics.jl")
+include("space/abstract_lattices.jl")
+include("space/compact_lattices.jl")
+include("space/periodic_lattices.jl")
+include("space/lattice_augmentations.jl")

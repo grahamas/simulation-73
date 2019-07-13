@@ -22,7 +22,15 @@ export AbstractVariable, UnboundedVariable, BoundedVariable,
 	default_value, bounds, pops, MaybeVariable,
 	AbstractParameter
 
+# space.jl
 export AbstractSpace, AbstractLattice, coordinates
+
+export CompactLattice, PeriodicLattice,
+    Segment, Circle, Torus, Grid
+
+export RandomlyEmbeddedLattice
+
+export origin_idx, distances
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
