@@ -1,6 +1,6 @@
 "A AbstractModel specifies all parameters of a system."
-abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
-abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
+abstract type AbstractModel{T} <: AbstractParameter{T} end
+abstract type AbstractModelwithDelay{T} <: AbstractModel{T} end
 
 "A Solver holds the parameters of the differential equation solver."
 struct Solver{T,ALG<:Union{OrdinaryDiffEqAlgorithm,Nothing},DT<:Union{T,Nothing}}
@@ -190,14 +190,15 @@ function subsampling_idxs(model::AbstractModel, solver::Solver, space_subsampler
     return (x_dxs, 1, t_dxs)
 end
 
-function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T,1}}, space_subsampler::Subsampler, time_subsampler::Subsampler) where T
+function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T}}, space_subsampler::Subsampler, time_subsampler::Subsampler) where T
     subsampling_idxs(simulation.model, simulation.solver, space_subsampler, time_subsampler)
 end
-function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T,1}}, x_target::AbstractArray, t_target::AbstractArray) where T
-    return (subsampling_space_idxs(simulation.model, simulation.solver, x_target),
-            1,
-            subsampling_time_idxs(simulation.solver, t_target))
-end
+# FIXME bad assumptions
+# function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T}}, x_target::AbstractArray, t_target::AbstractArray) where T
+#     return (subsampling_space_idxs(simulation.model, simulation.solver, x_target)...,
+#             1,
+#             subsampling_time_idxs(simulation.solver, t_target))
+# end
 function subsampling_time_idxs(solver::Solver, t_target::AbstractArray)
     t_solver = time_span(solver)[1]:save_dt(solver):time_span(solver)[end]
     subsampling_idxs(t_target, t_solver)

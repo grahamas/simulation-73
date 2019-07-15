@@ -1,6 +1,11 @@
 
-"`AbstractSpace{T,D}` with distance-type `T` and dimension `D`"
-abstract type AbstractSpace{T,D} <: AbstractParameter{T} end
+"""
+    `AbstractSpace{T,N_ARR,N_CDT}`
+        with distance-type `T`,
+        storable in array of dimension `N_ARR`,
+        and with point-coordinates of dimension `N_CDT`.
+    """
+abstract type AbstractSpace{T,N_ARR,N_CDT} <: AbstractParameter{T} end
 
 """
     coordinates(space::AbstractSpace)
@@ -14,14 +19,13 @@ coordinates(space::AbstractSpace) = error("undefined.")
 
 Return the distances between every pair of points in `space`
 """
-function distances(space::AbstractSpace{T}) where T
+function differences(space::AbstractSpace{T}) where T
     edges = Iterators.product(coordinates(space), coordinates(space))
-    distances = distance_metric.(Ref(space), edges)
+    differences = difference.(Ref(space), edges)
 end
 
 # Extend Base methods to AbstractSpace types
 import Base: step, zero, length, size, ndims
-step(space::AbstractSpace{T}) where T = space.extent ./ (space.n_points .- 1)
 
 zero(::Type{NTuple{N,T}}) where {N,T} = NTuple{N,T}(zero(T) for _ in 1:N)
 zero(space::AbstractSpace{T}) where {T} = zeros(T,size(space)...)

@@ -30,7 +30,7 @@ export CompactLattice, PeriodicLattice,
 
 export RandomlyEmbeddedLattice
 
-export origin_idx, distances
+export origin_idx, differences
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,

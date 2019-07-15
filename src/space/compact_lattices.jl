@@ -1,14 +1,14 @@
 
-abstract type AbstractCompactLattice{T,D} <: AbstractLattice{T,D} end
+abstract type AbstractCompactLattice{T,N_ARR,N_CDT} <: AbstractLattice{T,N_ARR,N_CDT} end
 
 @doc """
 A Lattice of points with `extent` describing the length along each dimension and `n_points` describing the number of points representing each dimension.
 """
-@with_kw struct CompactLattice{T,N} <: AbstractCompactLattice{T,N}
-    extent::NTuple{N,T}
-    n_points::NTuple{N,Int}
+@with_kw struct CompactLattice{T,N_ARR} <: AbstractCompactLattice{T,N_ARR,N_ARR}
+    extent::NTuple{N_ARR,T}
+    n_points::NTuple{N_ARR,Int}
 end
-distance_metric(lattice::AbstractCompactLattice, edge) = euclidean_metric(edge)
+difference(lattice::AbstractCompactLattice, edge) = abs_difference(edge)
 Base.size(lattice::CompactLattice) = lattice.n_points
 
 const Segment{T} = CompactLattice{T,1}

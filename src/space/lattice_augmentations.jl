@@ -1,12 +1,12 @@
 
-abstract type AbstractAugmentedLattice{T,D,L} <: AbstractLattice{T,D} end
+abstract type AbstractAugmentedLattice{T,N_ARR,N_CDT,L} <: AbstractLattice{T,N_ARR,N_CDT} end
 
-struct RandomlyEmbeddedLattice{T,D,L<:AbstractLattice{T,D},E<:AbstractSpace{T},SUM_N} <: AbstractAugmentedLattice{T,D,L}
+struct RandomlyEmbeddedLattice{T,N_ARR,N_CDT,L<:AbstractLattice{T,N_ARR},E<:AbstractSpace{T}} <: AbstractAugmentedLattice{T,N_ARR,N_CDT,L}
     lattice::L
     embedded_lattice::E
-    coordinates::Array{NTuple{SUM_N,T},D}
+    coordinates::Array{NTuple{N_CDT,T},N_ARR}
 end
-function RandomlyEmbeddedLattice(; lattice::L, embedded_lattice::E) where {T,D,L<:AbstractLattice{T,D},E<:AbstractSpace{T}}
+function RandomlyEmbeddedLattice(; lattice::L, embedded_lattice::E) where {T,N_ARR,L<:AbstractLattice{T,N_ARR},E<:AbstractSpace{T}}
     embedded_coordinates = embed_randomly(lattice, embedded_lattice)
     RandomlyEmbeddedLattice(lattice, embedded_lattice, embedded_coordinates)
 end
@@ -15,4 +15,26 @@ function embed_randomly(lattice, embedded_lattice)
 end
 function sample(lattice::AbstractLattice)
     (rand(length(lattice.extent)...) .* lattice.extent) .- (lattice.extent ./ 2)
+end
+
+function coordinates(lattice::RandomlyEmbeddedLattice)
+    lattice.coordinates
+end
+function size(lattice::RandomlyEmbeddedLattice)
+    size(lattice.lattice)
+end
+
+function difference(aug_lattice::RandomlyEmbeddedLattice{T,N_ARR,N_CDT,L},
+                    edge::Tuple{PT,PT}) where {T,N_ARR,N_CDT,L_N_CDT,
+                                               L<:AbstractLattice{T,N_ARR,L_N_CDT},
+                                               PT<:NTuple{N_CDT,T}
+                                               }
+    edge_first_dims = (edge[1][1:L_N_CDT], edge[2][1:L_N_CDT])
+    edge_trailing_dims = (edge[1][L_N_CDT+1:end], edge[2][L_N_CDT+1:end])
+    return (difference(aug_lattice.lattice, edge_first_dims)...,
+        difference(aug_lattice.embedded_lattice, edge_trailing_dims)...)
+end
+
+function Base.step(aug_lattice::RandomlyEmbeddedLattice)
+    (step(aug_lattice.lattice)..., step(aug_lattice.embedded_lattice)...)
 end
