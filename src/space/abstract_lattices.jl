@@ -31,7 +31,7 @@ discrete_lattice(extent::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T} = Ite
     discrete_segment.(extent, n_points)...
 )
 coordinates(lattice::AbstractLattice) = discrete_lattice(lattice.extent, lattice.n_points)
-
+coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(lattice.extent, lattice.n_points)...,)
 """
     origin_idx(lattice)
 

@@ -23,14 +23,14 @@ export AbstractVariable, UnboundedVariable, BoundedVariable,
 	AbstractParameter
 
 # space.jl
-export AbstractSpace, AbstractLattice, coordinates
+export AbstractSpace, AbstractLattice
 
 export CompactLattice, PeriodicLattice,
     Segment, Circle, Torus, Grid
 
 export RandomlyEmbeddedLattice
 
-export origin_idx, differences
+export coordinates, origin_idx, differences, coordinate_axes
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
