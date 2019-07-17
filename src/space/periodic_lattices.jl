@@ -4,12 +4,22 @@ abstract type AbstractPeriodicLattice{T,N_ARR,N_CDT} <: AbstractLattice{T,N_ARR,
 @doc """
 A Lattice of points with `extent` describing the length along each dimension and `n_points` describing the number of points representing each dimension.
 """
-@with_kw struct PeriodicLattice{T,N_ARR} <: AbstractLattice{T,N_ARR,N_ARR}
+struct PeriodicLattice{T,N_ARR} <: AbstractLattice{T,N_ARR,N_ARR}
     extent::NTuple{N_ARR,T}
     n_points::NTuple{N_ARR,Int}
 end
+PeriodicLattice(; extent=nothing, n_points=nothing) = PeriodicLattice(extent, n_points)
 difference(p_lattice::PeriodicLattice, edge) = abs_difference_periodic(edge, p_lattice.extent)
 Base.size(p_lattice::PeriodicLattice) = p_lattice.n_points
 
 const Circle{T} = PeriodicLattice{T,1}
 const Torus{T} = PeriodicLattice{T,2}
+
+@recipe function f(lattice::Circle, values)
+    θ = coordinate_axes(lattice)[1] .* (2π / lattice.extent[1])
+    #y = values .* sin.(θ)
+    #x = values .* cos.(θ)
+    seriestype := :scatter
+    projection := :polar
+    (θ, values.+1.0)
+end

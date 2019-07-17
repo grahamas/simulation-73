@@ -38,3 +38,13 @@ end
 function Base.step(aug_lattice::RandomlyEmbeddedLattice)
     (step(aug_lattice.lattice)..., step(aug_lattice.embedded_lattice)...)
 end
+
+@recipe function f(lattice::RandomlyEmbeddedLattice, values)
+    layout := 2
+    @series begin
+        (lattice.lattice, values)
+    end
+    @series begin
+        (lattice.embedded_lattice, ones(lattice.embedded_lattice.n_points...))
+    end
+end

@@ -13,3 +13,16 @@ Base.size(lattice::CompactLattice) = lattice.n_points
 
 const Segment{T} = CompactLattice{T,1}
 const Grid{T} = CompactLattice{T,2}
+
+@recipe function f(lattice::Segment, values)
+    x := coordinate_axes(lattice)[1]
+    y := values
+    seriestype := :line
+    ()
+end
+
+@recipe function f(lattice::Grid{T}, values::Array{T,2}) where T
+    (x, y) = coordinate_axes(lattice)
+    seriestype := :heatmap
+    (x,y,values)
+end
