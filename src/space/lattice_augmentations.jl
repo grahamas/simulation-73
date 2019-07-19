@@ -1,7 +1,8 @@
 
 abstract type AbstractAugmentedLattice{T,N_ARR,N_CDT,L} <: AbstractLattice{T,N_ARR,N_CDT} end
+abstract type AbstractEmbeddedLattice{T,N_ARR,N_CDT,L} <: AbstractAugmentedLattice{T,N_ARR,N_CDT,L} end
 
-struct RandomlyEmbeddedLattice{T,N_ARR,N_CDT,L<:AbstractLattice{T,N_ARR},E<:AbstractSpace{T}} <: AbstractAugmentedLattice{T,N_ARR,N_CDT,L}
+struct RandomlyEmbeddedLattice{T,N_ARR,N_CDT,L<:AbstractLattice{T,N_ARR},E<:AbstractSpace{T}} <: AbstractEmbeddedLattice{T,N_ARR,N_CDT,L}
     lattice::L
     embedded_lattice::E
     coordinates::Array{NTuple{N_CDT,T},N_ARR}
@@ -39,8 +40,8 @@ function Base.step(aug_lattice::RandomlyEmbeddedLattice)
     (step(aug_lattice.lattice)..., step(aug_lattice.embedded_lattice)...)
 end
 
-@recipe function f(lattice::RandomlyEmbeddedLattice, values)
-    layout := 2
+using Plots: @layout
+@recipe function f(lattice::RandomlyEmbeddedLattice, values; layout=nothing, subplot=nothing)
     @series begin
         (lattice.lattice, values)
     end

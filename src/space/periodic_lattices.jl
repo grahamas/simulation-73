@@ -21,5 +21,5 @@ const Torus{T} = PeriodicLattice{T,2}
     #x = values .* cos.(θ)
     seriestype := :scatter
     projection := :polar
-    (θ, values.+1.0)
+    (collect(θ), values .+ 1.0)
 end
