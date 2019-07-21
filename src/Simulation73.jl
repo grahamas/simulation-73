@@ -10,6 +10,7 @@ import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler,
 #using RecipesBase
 using Parameters
 using RecipesBase
+using MacroTools: splitdef, combinedef, splitarg
 
 # ENV["GKSwstype"] = "100" # For headless plotting (on server)
 # ENV["MPLBACKEND"]="Agg"
@@ -29,7 +30,7 @@ export AbstractSpace, AbstractLattice
 export CompactLattice, PeriodicLattice,
     Segment, Circle, Torus, Grid
 
-export RandomlyEmbeddedLattice
+export RandomlyEmbeddedLattice, unembed_values
 
 export coordinates, origin_idx, differences, coordinate_axes
 
@@ -57,6 +58,7 @@ export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
 # # "exploring.jl"
 # export Search, SearchExecution, make_problem_generator, search, run_search
 
+include("helpers.jl")
 include("deconstructing.jl")
 include("variables.jl")
 include("subsampling.jl")

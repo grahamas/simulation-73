@@ -18,20 +18,21 @@ julia> seg[end] - seg[1] ≈ 5.0
 true
 ```
 """
-function discrete_segment(extent::T, n_points::Int) where {T <: Number}
-    n_points % 2 == 1 || @warn "n_points = $n_points is not odd, so the segment will not have the origin."
-    LinRange{T}(-(extent/2),(extent/2), n_points)
+function discrete_segment(start::T, stop::T, n_points::Int) where {T <: Number}
+    LinRange{T}(start, stop, n_points)
 end
 """
-    discrete_grid(extent, n_points)
+    coordinates(extent, n_points)
 
 Return an object containing `n_points` equidistant coordinates along each dimension of a grid of length `extent` along each dimension, centered at (0,0,...,0).
 """
-discrete_lattice(extent::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T} = Iterators.product(
-    discrete_segment.(extent, n_points)...
-)
-coordinates(lattice::AbstractLattice) = discrete_lattice(lattice.extent, lattice.n_points)
-coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(lattice.extent, lattice.n_points)...,)
+@memoize function coordinates(lattice::AbstractLattice)
+     Iterators.product(coordinate_axes(lattice)...)
+ end
+function coordinate_axes(lattice::AbstractLattice)
+    all(lattice.n_points .% 2 .== 1) || @warn "n_points = $n_points is not odd, so the segment will not have the origin."
+    (discrete_segment.((-).(lattice.extent ./ 2), lattice.extent ./ 2, lattice.n_points)...,)
+end
 """
     origin_idx(lattice)
 
@@ -59,3 +60,16 @@ true
 ```
 """
 origin_idx(lattice::AbstractLattice) = CartesianIndex(round.(Int, size(lattice) ./ 2, RoundNearestTiesUp))
+
+using Statistics
+@recipe function f(lattice::AbstractLattice, values::AbstractArray{<:AbstractArray,1})
+    standard_deviations = std.(values)
+    means = mean.(values)
+    up_stds = means .+ standard_deviations
+    down_stds = means .- standard_deviations
+    seriestype := :line
+    @series begin
+        linestyle := [:dot :dot :solid]
+        (lattice, hcat(up_stds, down_stds, means))
+    end
+end

@@ -15,7 +15,7 @@ function embed_randomly(lattice, embedded_lattice)
     [(lattice_coord..., sample(embedded_lattice)...) for lattice_coord in coordinates(lattice)]
 end
 function sample(lattice::AbstractLattice)
-    (rand(length(lattice.extent)...) .* lattice.extent) .- (lattice.extent ./ 2)
+    rand(coordinates(lattice) |> collect)
 end
 
 function coordinates(lattice::RandomlyEmbeddedLattice)
@@ -40,12 +40,19 @@ function Base.step(aug_lattice::RandomlyEmbeddedLattice)
     (step(aug_lattice.lattice)..., step(aug_lattice.embedded_lattice)...)
 end
 
+function unembed_values(lattice::RandomlyEmbeddedLattice{T,N_ARR,N_CDT}, values::AbstractArray{T,N_ARR}) where {T,N_ARR,N_CDT}
+    inner_coords = [coord[N_ARR+1:end] for coord in coordinates(lattice)]
+    return [values[findall(map((x) -> all(isapprox.(embedded_coord, x)), inner_coords))] for embedded_coord in coordinates(lattice.embedded_lattice)]
+end
+
 using Plots: @layout
-@recipe function f(lattice::RandomlyEmbeddedLattice, values; layout=nothing, subplot=nothing)
+@recipe function f(lattice::RandomlyEmbeddedLattice{T,N_ARR,N_CDT}, values::AbstractArray{T,N_ARR}; layout = 2, subplot = 1) where {T,N_ARR,N_CDT}
     @series begin
+        subplot := subplot
         (lattice.lattice, values)
     end
     @series begin
-        (lattice.embedded_lattice, ones(lattice.embedded_lattice.n_points...))
+        subplot := subplot + 1
+        (lattice.embedded_lattice, unembed_values(lattice, values))
     end
 end
