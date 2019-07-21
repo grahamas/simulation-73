@@ -31,5 +31,6 @@ end
         clim := val_lim
         zlim := val_lim
     end
+    aspect_ratio := :equal
     (x,y,values)
 end

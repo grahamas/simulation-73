@@ -36,5 +36,7 @@ const Torus{T} = PeriodicLattice{T,2}
     legend := :none
     projection := :polar
 
+    aspect_ratio := :equal
+
     (θ |> collect, r_values)
 end
