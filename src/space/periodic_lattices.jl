@@ -17,8 +17,12 @@ origin_idx(p_lattice::PeriodicLattice{T,N_ARR}) where{T,N_ARR} = CartesianIndex(
 const Circle{T} = PeriodicLattice{T,1}
 const Torus{T} = PeriodicLattice{T,2}
 
-@recipe function f(lattice::Circle{T}, values::AbstractArray{T}; val_lim = extrema(values)) where T
-    θ = coordinate_axes(lattice)[1] .* (2π / lattice.extent[1])
+@recipe function f(lattice::Circle{T}, values::AbstractArray{T};
+        val_lim = extrema(values)) where T
+    # catenate a copy of the first row to the end so the line wraps all the way
+    θ = vcat(coordinate_axes(lattice)[1] .* (2π / lattice.extent[1]), [2π])
+    values = vcat(values, values[1,:]')
+    n_lines = size(values, 2)
 
     r_min, r_max = abs.(val_lim)
     if r_min < r_max
