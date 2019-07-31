@@ -1,10 +1,7 @@
 # Meshes
 ```@docs
-Pops
-Segment
-Circle
-Grid
-Torus
+CompactLattice
+PeriodicLattice
 ```
 
 ```@autodocs

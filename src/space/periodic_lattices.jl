@@ -12,10 +12,7 @@ PeriodicLattice(; extent=nothing, n_points=nothing) = PeriodicLattice(extent, n_
 difference(p_lattice::PeriodicLattice, edge) = abs_difference_periodic(edge, p_lattice.extent)
 Base.size(p_lattice::PeriodicLattice) = p_lattice.n_points
 
-const Circle{T} = PeriodicLattice{T,1}
-const Torus{T} = PeriodicLattice{T,2}
-
-@recipe function f(lattice::Circle, values)
+@recipe function f(lattice::PeriodicLattice{T,1}, values) where T
     θ = coordinate_axes(lattice)[1] .* (2π / lattice.extent[1])
     #y = values .* sin.(θ)
     #x = values .* cos.(θ)

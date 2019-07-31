@@ -26,8 +26,7 @@ export AbstractVariable, UnboundedVariable, BoundedVariable,
 # space.jl
 export AbstractSpace, AbstractLattice
 
-export CompactLattice, PeriodicLattice,
-    Segment, Circle, Torus, Grid
+export CompactLattice, PeriodicLattice
 
 export RandomlyEmbeddedLattice
 
