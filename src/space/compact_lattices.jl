@@ -11,17 +11,14 @@ end
 difference(lattice::AbstractCompactLattice, edge) = abs_difference(edge)
 Base.size(lattice::CompactLattice) = lattice.n_points
 
-const Segment{T} = CompactLattice{T,1}
-const Grid{T} = CompactLattice{T,2}
-
-@recipe function f(lattice::Segment, values)
+@recipe function f(lattice::CompactLattice, values)
     x := coordinate_axes(lattice)[1] |> collect
     y := values
     seriestype := :line
     ()
 end
 
-@recipe function f(lattice::Grid{T}, values::Array{T,2}) where T
+@recipe function f(lattice::CompactLattice{T,2}, values::Array{T,2}) where T
     (x, y) = coordinate_axes(lattice) .|> collect
     seriestype := :heatmap
     (x,y,values)

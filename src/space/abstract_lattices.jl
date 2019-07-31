@@ -39,8 +39,8 @@ Return the coordinate of the zero point in `lattice`.
 
 # Example
 ```jldoctest
-julia> segment = Segment(10.0, 11)
-Segment{Float64}(10.0, 11)
+julia> segment = CompactLattice(10.0, 11)
+CompactLattice{Float64,1}(10.0, 11)
 
 julia> seg_origin_idx = origin_idx(segment)
 CartesianIndex(6,)
@@ -48,10 +48,10 @@ CartesianIndex(6,)
 julia> collect(coordinates(segment))[seg_origin_idx] == 0.0
 true
 
-julia> grid = Grid((10.0,50.0), (11, 13))
-Grid{Float64}((10.0, 50.0), (11, 13))
+julia> grid = CompactLattice((10.0,50.0), (11, 13))
+PeriodicLattice{Float64,2}((10.0, 50.0), (11, 13))
 
-julia> grid_origin_idx = origin_idx(Grid((10.0,50.0), (11, 13)))
+julia> grid_origin_idx = origin_idx(CompactLattice((10.0,50.0), (11, 13)))
 CartesianIndex(6, 7)
 
 julia> collect(coordinates(grid))[grid_origin_idx] == (0.0, 0.0)
