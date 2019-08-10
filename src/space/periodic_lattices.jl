@@ -20,3 +20,9 @@ Base.size(p_lattice::PeriodicLattice) = p_lattice.n_points
     projection := :polar
     (collect(θ), values .+ 1.0)
 end
+
+@recipe function f(lattice::PeriodicLattice{T,2}, values::Array{T,2}) where T
+    (x, y) = coordinate_axes(lattice) .|> collect
+    seriestype := :heatmap
+    (x,y,values)
+end
