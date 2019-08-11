@@ -47,7 +47,7 @@ export execute
 
 # "simulating.jl"
 export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
-	initial_value, history, time_span, save_dt, save_dx,
+	initial_value, history, time_span, saved_dt, saved_dx,
 	generate_problem, solve, run_simulation,
 	make_mutators, make_system_mutator,
 	saved_time_arr, saved_space_arr,

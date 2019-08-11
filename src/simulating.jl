@@ -17,11 +17,11 @@ function Solver{S}(; start_time::S=0.0, stop_time::S, dt::DT, time_save_every::I
     Solver{S,ALG,DT}((start_time, stop_time), algorithm, dt, time_save_every, space_save_every, stiffness)
 end
 """
-    save_dt(solver)
+    saved_dt(solver)
 
 Return the time step saved by a solver.
 """
-save_dt(s::Solver{T}) where T = s.simulated_dt * s.time_save_every
+saved_dt(s::Solver{T}) where T = s.simulated_dt * s.time_save_every
 
 """
     save_idxs(solver, space)
@@ -102,32 +102,32 @@ Return the "history" of the model prior to start time
 """
 history(simulation::Simulation) = history(simulation.model)
 """
-    space_saved_subsample_(arr, solver)
+    _coordinates(arr, solver)
 
 Return the part of `arr` that would have been saved by `solver`.
 """
-function _space_saved_subsample_(arr, solver::Solver)
+function _coordinates(arr, solver::Solver)
     collect(arr)[[StrideToEnd(i) for i in solver.space_save_every]...]
 end
 """
-    saved_space_arr(model, solver)
-    saved_space_arr(simulation)
+    coordinates(model, solver)
+    coordinates(simulation)
 
 Return the spatial coordinates of values saved by `solver`
 """
-saved_space_arr(model::AbstractModel, solver::Solver) = _space_saved_subsample_(coordinates(model.space), solver)
-saved_space_arr(sim::Simulation) = saved_space_arr(sim.model, sim.solver)
+coordinates(model::AbstractModel, solver::Solver) = _coordinates(coordinates(model.space), solver)
+coordinates(sim::Simulation) = coordinates(sim.model, sim.solver)
 """
-    saved_time_arr(solver)
-    saved_time_arr(simulation)
+    time_points(solver)
+    time_points(simulation)
 
 Return the times saved by `solver`.
 """
-function saved_time_arr(solver::Solver{T}) where T
+function time_points(solver::Solver{T}) where T
     start, stop = time_span(solver)
-    start:save_dt(solver):stop
+    start:saved_dt(solver):stop
 end
-saved_time_arr(sim::Simulation) = saved_time_arr(sim.solver)#sim.solution.t
+time_points(sim::Simulation) = time_points(sim.solver)#sim.solution.t
 
 """
     get_space_origin_idx(model)
@@ -146,9 +146,9 @@ function get_space_origin_idx(sim::Simulation)
     get_space_origin_idx(sim.model, sim.solver)
 end
 
-save_dt(sim::Simulation{T}) where T = save_dt(sim.solver)
-save_dx(model::AbstractModel, solver::Solver)= step(model.space) .* solver.space_save_every
-save_dx(sim::Simulation{T}) where T = save_dx(sim.model, sim.solver)
+saved_dt(sim::Simulation{T}) where T = saved_dt(sim.solver)
+saved_dx(model::AbstractModel, solver::Solver)= step(model.space) .* solver.space_save_every
+saved_dx(sim::Simulation{T}) where T = saved_dx(sim.model, sim.solver)
 Base.minimum(solution::DESolution) = minimum(map(minimum, solution.u))
 Base.maximum(solution::DESolution) = maximum(map(maximum, solution.u))
 
@@ -158,7 +158,7 @@ Base.maximum(solution::DESolution) = maximum(map(maximum, solution.u))
 
 Return IndexInfo for saved space array.
 """
-get_space_index_info(model::AbstractModel{T}, solver::Solver{T}) where T = IndexInfo(save_dx(model, solver), get_space_origin_idx(model, solver))
+get_space_index_info(model::AbstractModel{T}, solver::Solver{T}) where T = IndexInfo(saved_dx(model, solver), get_space_origin_idx(model, solver))
 get_space_index_info(sim::Simulation{T}) where T = get_space_index_info(sim.model, sim.solver)
 """
     get_time_index_info(solver)
@@ -166,7 +166,7 @@ get_space_index_info(sim::Simulation{T}) where T = get_space_index_info(sim.mode
 
 Return IndexInfo for saved time array.
 """
-get_time_index_info(solver::Solver{T}) where T = IndexInfo(save_dt(solver), (1,))
+get_time_index_info(solver::Solver{T}) where T = IndexInfo(saved_dt(solver), (1,))
 get_time_index_info(sim::Simulation{T}) where T = get_time_index_info(sim.solver)
 
 """
@@ -200,7 +200,7 @@ end
 #             subsampling_time_idxs(simulation.solver, t_target))
 # end
 function subsampling_time_idxs(solver::Solver, t_target::AbstractArray)
-    t_solver = time_span(solver)[1]:save_dt(solver):time_span(solver)[end]
+    t_solver = time_span(solver)[1]:saved_dt(solver):time_span(solver)[end]
     subsampling_idxs(t_target, t_solver)
 end
 function subsampling_space_idxs(model::AbstractModel, solver::Solver, x_target::AbstractArray)
@@ -249,13 +249,13 @@ function _solve(problem::ODEProblem, solver::Solver{T,Euler}, model::AbstractMod
     # TODO: Calculate save_idxs ACCOUNTING FOR pops
     @show "Solving Euler"
     solve(problem, Euler(), dt=solver.simulated_dt,
-            #saveat=save_dt(solver),
+            #saveat=saved_dt(solver),
             timeseries_steps=solver.time_save_every,
             save_idxs=save_idxs(model, solver))
 end
 function _solve(problem::ODEProblem, solver::Solver{T,Nothing}, model::AbstractModel{T}) where {T}
     @show "Solving with default ALG"
-    solve(problem, saveat=save_dt(solver), timeseries_steps=solver.time_save_every,
+    solve(problem, saveat=saved_dt(solver), timeseries_steps=solver.time_save_every,
         save_idxs=save_idxs(model, solver), alg_hints=[solver.stiffness])
 end
 

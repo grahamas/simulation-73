@@ -30,14 +30,14 @@ make_problem_generator() = error("undefined.")
 function _build_loss_objective(initial_problem, solver::Solver{T,Euler}, space, loss_fn, prob_generator) where T
     build_loss_objective(initial_problem, Euler(), loss_fn;
         prob_generator=prob_generator, dt=solver.simulated_dt,
-        save_at=save_dt(solver), save_idxs=save_idxs(solver, space))
+        save_at=saved_dt(solver), save_idxs=save_idxs(solver, space))
 end
 
 function _build_loss_objective(initial_problem, solver::Solver{T,Nothing}, space, loss_fn, prob_generator) where T
     initial_problem = problem_generator(nothing, initial_values)
     build_loss_objective(initial_problem, Tsit5(), loss_fn;
         prob_generator=prob_generator,
-        save_at=save_dt(solver),
+        save_at=saved_dt(solver),
         timeseries_steps=solver.time_save_every,
         save_idxs=save_idxs(solver, space),
         alg_hints=[solver.stiffness])
