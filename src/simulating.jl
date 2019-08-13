@@ -106,8 +106,10 @@ history(simulation::Simulation) = history(simulation.model)
 
 Return the part of `arr` that would have been saved by `solver`.
 """
-function _coordinates(arr, solver::Solver)
-    collect(arr)[[StrideToEnd(i) for i in solver.space_save_every]...]
+function _coordinates_(arr, solver::Solver)
+    @warn "not subsampling in _coordinates_"
+    arr
+#    collect(arr)[[StrideToEnd(i) for i in solver.space_save_every]...]
 end
 """
     coordinates(model, solver)
@@ -115,36 +117,39 @@ end
 
 Return the spatial coordinates of values saved by `solver`
 """
-coordinates(model::AbstractModel, solver::Solver) = _coordinates(coordinates(model.space), solver)
+coordinates(model::AbstractModel, solver::Solver) = _coordinates_(coordinates(model.space), solver)
 coordinates(sim::Simulation) = coordinates(sim.model, sim.solver)
+coordinates(ex::Execution) = coordinates(ex.simulation)
 """
-    time_points(solver)
-    time_points(simulation)
+    timepoints(solver)
+    timepoints(simulation)
 
 Return the times saved by `solver`.
 """
-function time_points(solver::Solver{T}) where T
+function timepoints(solver::Solver{T}) where T
     start, stop = time_span(solver)
     start:saved_dt(solver):stop
 end
-time_points(sim::Simulation) = time_points(sim.solver)#sim.solution.t
+timepoints(sim::Simulation) = timepoints(sim.solver)#sim.solution.t
+timepoints(ex::Execution) = ex.solution.t
 
 """
-    get_space_origin_idx(model)
-    get_space_origin_idx(model, solver)
-    get_space_origin_idx(simulation)
+    origin_idx(model)
+    origin_idx(model, solver)
+    origin_idx(simulation)
 
 Return the index of the spatial origin of `model`'s `space`.
 """
-function get_space_origin_idx(model::AbstractModel)
-    get_space_origin_idx(model.space)
+function origin_idx(model::AbstractModel)
+    origin_idx(model.space)
 end
-function get_space_origin_idx(model::AbstractModel, solver::Solver)  # TODO: Remove 1D assumption
-    CartesianIndex(round.(Int, Tuple(get_space_origin_idx(model)) ./ solver.space_save_every))
+function origin_idx(model::AbstractModel, solver::Solver)  # TODO: Remove 1D assumption
+    CartesianIndex(round.(Int, Tuple(origin_idx(model)) ./ solver.space_save_every))
 end
-function get_space_origin_idx(sim::Simulation)
-    get_space_origin_idx(sim.model, sim.solver)
+function origin_idx(sim::Simulation)
+    origin_idx(sim.model, sim.solver)
 end
+origin_idx(ex::Execution) = origin_idx(ex.simulation)
 
 saved_dt(sim::Simulation{T}) where T = saved_dt(sim.solver)
 saved_dx(model::AbstractModel, solver::Solver)= step(model.space) .* solver.space_save_every
@@ -158,7 +163,7 @@ Base.maximum(solution::DESolution) = maximum(map(maximum, solution.u))
 
 Return IndexInfo for saved space array.
 """
-get_space_index_info(model::AbstractModel{T}, solver::Solver{T}) where T = IndexInfo(saved_dx(model, solver), get_space_origin_idx(model, solver))
+get_space_index_info(model::AbstractModel{T}, solver::Solver{T}) where T = IndexInfo(saved_dx(model, solver), origin_idx(model, solver))
 get_space_index_info(sim::Simulation{T}) where T = get_space_index_info(sim.model, sim.solver)
 """
     get_time_index_info(solver)
@@ -204,7 +209,7 @@ function subsampling_time_idxs(solver::Solver, t_target::AbstractArray)
     subsampling_idxs(t_target, t_solver)
 end
 function subsampling_space_idxs(model::AbstractModel, solver::Solver, x_target::AbstractArray)
-    x_model = saved_space_arr(model, solver)
+    x_model = coordinates(model, solver)
     subsampling_idxs(x_target, x_model)
 end
 
@@ -212,8 +217,8 @@ function subsample(execution::Execution{T,<:Simulation{T,<:AbstractModel{T}}}; t
     simulation = execution.simulation
     solution = execution.solution
 
-    t = saved_time_arr(simulation)
-    x = saved_space_arr(simulation)
+    t = timepoints(simulation)
+    x = coordinates(simulation)
 
     x_dxs, pop_dxs, t_dxs = subsampling_idxs(simulation, space_subsampler, time_subsampler)
 
