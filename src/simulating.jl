@@ -2,40 +2,6 @@
 abstract type AbstractModel{T} <: AbstractParameter{T} end
 abstract type AbstractModelwithDelay{T} <: AbstractModel{T} end
 
-"A Solver holds the parameters of the differential equation solver."
-struct Solver{T,ALG<:Union{OrdinaryDiffEqAlgorithm,Nothing},DT<:Union{T,Nothing}}
-    tspan::Tuple{T,T}
-    algorithm::ALG
-    simulated_dt::DT
-    time_save_every::Int
-    space_save_every::Int # TODO: Remove 1D Assumption
-    stiffness::Symbol
-    #dense::Bool
-end
-
-function Solver{S}(; start_time::S=0.0, stop_time::S, dt::DT, time_save_every::Int=1, space_save_every=1, algorithm::ALG=nothing, stiffness=:auto) where {S, ALG, DT<:Union{S,Nothing}}
-    Solver{S,ALG,DT}((start_time, stop_time), algorithm, dt, time_save_every, space_save_every, stiffness)
-end
-"""
-    saved_dt(solver)
-
-Return the time step saved by a solver.
-"""
-saved_dt(s::Solver{T}) where T = s.simulated_dt * s.time_save_every
-
-"""
-    save_idxs(solver, space)
-
-Return the indices into space of the values that the solver saves.
-"""
-function save_idxs(model::AbstractModel{T}, solver::Solver{T}) where {T}#::Unio{P,n}{Nothing,Array{CartesianIndex}}
-    if all(solver.space_save_every .== 1)
-        return nothing
-    end
-    all_indices = CartesianIndices(initial_value(model))
-    space_saved_subsample(all_indices, solver)
-end
-
 "A Simulation holds an AbstractModel to be solved and a Solver to solve it."
 struct Simulation{T,M<:AbstractModel{T},S<:Solver{T}} <: AbstractParameter{T}
     model::M
@@ -80,137 +46,26 @@ DrWatson.savename(e::Execution) = savename(e.simulation)
 
 execute(s::Simulation) = Execution(s)
 
-"""
-    initial_value(model)
-    initial_value(simulation)
-
-Return the model's initial value (defaults to all zeros)
-"""
-initial_value(sim::Simulation) = initial_value(sim.model)
-"""
-    time_span(solver)
-    time_span(simulation)
-
-Return the time span over which the solver runs.
-"""
-time_span(solver::Solver{T}) where T = solver.tspan
+initial_value(sim::Simulation) = initial_value(sim.solver)
 time_span(sim::Simulation) = time_span(sim.solver)
-"""
-    history(model)
-    history(simulation)
-Return the "history" of the model prior to start time
-"""
-history(simulation::Simulation) = history(simulation.model)
-"""
-    _coordinates(arr, solver)
-
-Return the part of `arr` that would have been saved by `solver`.
-"""
-function _coordinates_(arr, solver::Solver)
-    @warn "not subsampling in _coordinates_"
-    arr
-#    collect(arr)[[StrideToEnd(i) for i in solver.space_save_every]...]
-end
-"""
-    coordinates(model, solver)
-    coordinates(simulation)
-
-Return the spatial coordinates of values saved by `solver`
-"""
-coordinates(model::AbstractModel, solver::Solver) = _coordinates_(coordinates(model.space), solver)
-coordinates(sim::Simulation) = coordinates(sim.model, sim.solver)
-coordinates(ex::Execution) = coordinates(ex.simulation)
-"""
-    timepoints(solver)
-    timepoints(simulation)
-
-Return the times saved by `solver`.
-"""
-function timepoints(solver::Solver{T}) where T
-    start, stop = time_span(solver)
-    start:saved_dt(solver):stop
-end
+history(simulation::Simulation) = history(simulation.solver)
+saved_coordinates(sim::Simulation) = saved_coordinates(sim.solver)
+saved_coordinates(ex::Execution) = saved_coordinates(ex.simulation)
 timepoints(sim::Simulation) = timepoints(sim.solver)#sim.solution.t
 timepoints(ex::Execution) = ex.solution.t
-
-"""
-    origin_idx(model)
-    origin_idx(model, solver)
-    origin_idx(simulation)
-
-Return the index of the spatial origin of `model`'s `space`.
-"""
-function origin_idx(model::AbstractModel)
-    origin_idx(model.space)
-end
-function origin_idx(model::AbstractModel, solver::Solver)  # TODO: Remove 1D assumption
-    CartesianIndex(round.(Int, Tuple(origin_idx(model)) ./ solver.space_save_every))
-end
 function origin_idx(sim::Simulation)
-    origin_idx(sim.model, sim.solver)
+    origin_idx(sim.solver)
 end
 origin_idx(ex::Execution) = origin_idx(ex.simulation)
-
 saved_dt(sim::Simulation{T}) where T = saved_dt(sim.solver)
-saved_dx(model::AbstractModel, solver::Solver)= step(model.space) .* solver.space_save_every
 saved_dx(sim::Simulation{T}) where T = saved_dx(sim.model, sim.solver)
-Base.minimum(solution::DESolution) = minimum(map(minimum, solution.u))
-Base.maximum(solution::DESolution) = maximum(map(maximum, solution.u))
+space_index_info(sim::Simulation{T}) where T = space_index_info(sim.solver)
+time_index_info(sim::Simulation{T}) where T = get_time_index_info(sim.solver)
 
-"""
-    get_space_index_info(model, solver)
-    get_space_index_info(simulation)
 
-Return IndexInfo for saved space array.
-"""
-get_space_index_info(model::AbstractModel{T}, solver::Solver{T}) where T = IndexInfo(saved_dx(model, solver), origin_idx(model, solver))
-get_space_index_info(sim::Simulation{T}) where T = get_space_index_info(sim.model, sim.solver)
-"""
-    get_time_index_info(solver)
-    get_time_index_info(simulation)
-
-Return IndexInfo for saved time array.
-"""
-get_time_index_info(solver::Solver{T}) where T = IndexInfo(saved_dt(solver), (1,))
-get_time_index_info(sim::Simulation{T}) where T = get_time_index_info(sim.solver)
-
-"""
-    pop_frame(solution, pop_dx, time_dx)
-
-Return spatial frame for a given population `pop_dx` and time `time_dx`.
-"""
-@generated function pop_frame(solution::ODESolution{T,NPT,<:AbstractArray{<:AbstractArray{T,NP},1}}, pop_dx::Int, time_dx::Int) where {T,NP,NPT}
-    N = NP - 1
-    colons = [:(:) for i in 1:N]
-    :(solution[pop_dx, $(colons...), time_dx])
-end
-
-function subsampling_idxs(model::AbstractModel, solver::Solver, space_subsampler, time_subsampler)
-    x_info = get_space_index_info(model, solver)
-    t_info = get_time_index_info(solver)
-
-    x_dxs = subsampling_idxs(x_info, space_subsampler)
-    t_dxs = subsampling_idxs(t_info, time_subsampler)
-
-    return (x_dxs, 1, t_dxs)
-end
 
 function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T}}, space_subsampler::Subsampler, time_subsampler::Subsampler) where T
     subsampling_idxs(simulation.model, simulation.solver, space_subsampler, time_subsampler)
-end
-# FIXME bad assumptions
-# function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T}}, x_target::AbstractArray, t_target::AbstractArray) where T
-#     return (subsampling_space_idxs(simulation.model, simulation.solver, x_target)...,
-#             1,
-#             subsampling_time_idxs(simulation.solver, t_target))
-# end
-function subsampling_time_idxs(solver::Solver, t_target::AbstractArray)
-    t_solver = time_span(solver)[1]:saved_dt(solver):time_span(solver)[end]
-    subsampling_idxs(t_target, t_solver)
-end
-function subsampling_space_idxs(model::AbstractModel, solver::Solver, x_target::AbstractArray)
-    x_model = coordinates(model, solver)
-    subsampling_idxs(x_target, x_model)
 end
 
 function subsample(execution::Execution{T,<:Simulation{T,<:AbstractModel{T}}}; time_subsampler, space_subsampler) where T
