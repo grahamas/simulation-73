@@ -10,6 +10,9 @@ import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler,
 #using RecipesBase
 using Parameters
 using RecipesBase
+using Lazy
+
+export StrideToEnd
 
 # ENV["GKSwstype"] = "100" # For headless plotting (on server)
 # ENV["MPLBACKEND"]="Agg"
@@ -30,7 +33,7 @@ export CompactLattice, PeriodicLattice
 
 export RandomlyEmbeddedLattice
 
-export coordinates, origin_idx, differences, coordinate_axes
+export coordinates, origin_idx, differences, coordinate_axes, timepoints
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
@@ -47,10 +50,9 @@ export execute
 
 # "simulating.jl"
 export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
-	initial_value, history, time_span, save_dt, save_dx,
+	initial_value, history, time_span, saved_dt, saved_dx,
 	generate_problem, solve, run_simulation,
 	make_mutators, make_system_mutator,
-	saved_time_arr, saved_space_arr,
 	pop_frame
 
 # # "exploring.jl"

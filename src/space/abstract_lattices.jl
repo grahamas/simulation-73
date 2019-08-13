@@ -27,9 +27,9 @@ end
 
 Return an object containing `n_points` equidistant coordinates along each dimension of a grid of length `extent` along each dimension, centered at (0,0,...,0).
 """
-discrete_lattice(extent::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T} = Iterators.product(
-    discrete_segment.(extent, n_points)...
-)
+function discrete_lattice(extent::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T}
+    Iterators.product(discrete_segment.(extent, n_points)...) |> collect
+end
 coordinates(lattice::AbstractLattice) = discrete_lattice(lattice.extent, lattice.n_points)
 coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(lattice.extent, lattice.n_points)...,)
 """
