@@ -37,6 +37,24 @@ zero(space::AbstractSpace{T}) where {T} = zeros(T,size(space)...)
 
 ndims(space::AbstractSpace) = length(size(space))
 
+"""
+    origin_idx(space)
+    origin_idx(simulation)
+    origin_idx(execution)
+
+Return the index of the spatial origin of `space`.
+"""
+function origin_idx(space::AbstractSpace{T}) where T
+    origin_idxs = findall(map((tup) -> tup .≈ zero(T), coordinates(space)))
+    if length(origin_idxs) > 1
+        error("Too many potential origins in $space")
+    elseif length(origin_idxs) == 0
+        error("No origin in $space")
+    else
+        return origin_idxs[1]
+    end
+end
+
 # Include file definitions of various spaces
 include("space/metrics.jl")
 include("space/abstract_lattices.jl")
