@@ -91,7 +91,7 @@ execute(s::Simulation) = Execution(s)
 Construct the differential function to be provided to the ODE solver.
 """
 function make_system_mutator(sim::SIM) where {SIM <: Simulation}
-    make_system_mutator(sim.model)
+    make_system_mutator(sim.model, sim.space)
 end
 
 """
