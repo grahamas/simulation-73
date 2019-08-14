@@ -86,9 +86,9 @@ end
 
 
 """
-    generate_problem(model, solver)
+    generate_problem(simulation)
 
-Return an ODEProblem of the `model` with time span specified by `solver`.
+Return an ODEProblem of the `simulation.model` with time span specified by `simulation.solver`.
 """
 function generate_problem(simulation::Simulation{T}) where {T}
     system_mutator! = make_system_mutator(simulation)
@@ -103,20 +103,7 @@ end
 
 function solve(simulation::Simulation)
     problem = generate_problem(simulation)
-    _solve(problem, simulation.solver, simulation.model)
-end
-function _solve(problem::ODEProblem, solver::Solver{T,Euler}, model::AbstractModel{T}) where {T}
-    # TODO: Calculate save_idxs ACCOUNTING FOR pops
-    @show "Solving Euler"
-    solve(problem, Euler(), dt=solver.simulated_dt,
-            #saveat=saved_dt(solver),
-            timeseries_steps=solver.time_save_every,
-            save_idxs=save_idxs(model, solver))
-end
-function _solve(problem::ODEProblem, solver::Solver{T,Nothing}, model::AbstractModel{T}) where {T}
-    @show "Solving with default ALG"
-    solve(problem, saveat=saved_dt(solver), timeseries_steps=solver.time_save_every,
-        save_idxs=save_idxs(model, solver), alg_hints=[solver.stiffness])
+    _solve(problem, simulation.solver)
 end
 
 """

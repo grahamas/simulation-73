@@ -131,3 +131,17 @@ function subsampling_space_idxs(solver::Solver, x_target::AbstractArray)
     x_model = coordinates(model, solver)
     subsampling_idxs(x_target, x_model)
 end
+
+function _solve(problem::ODEProblem, solver::Solver{T,Euler}) where {T}
+    # TODO: Calculate save_idxs ACCOUNTING FOR pops
+    @show "Solving Euler"
+    solve(problem, Euler(), dt=solver.simulated_dt,
+            #saveat=saved_dt(solver),
+            timeseries_steps=solver.time_save_every,
+            save_idxs=save_idxs(solver))
+end
+function _solve(problem::ODEProblem, solver::Solver{T,Nothing}) where {T}
+    @show "Solving with default ALG"
+    solve(problem, saveat=saved_dt(solver), timeseries_steps=solver.time_save_every,
+        save_idxs=save_idxs(solver), alg_hints=[solver.stiffness])
+end
