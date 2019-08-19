@@ -2,7 +2,7 @@ module Simulation73
 
 using DrWatson
 using Markdown # for doc_str
-using DifferentialEquations#, DiffEqParamEstim
+using DifferentialEquations, DiffEqBase#, DiffEqParamEstim
 #using BlackBoxOptim, Optim
 using StaticArrays
 using JLD2
@@ -37,7 +37,8 @@ export coordinates, origin_idx, differences, coordinate_axes, timepoints
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
-	subsampling_time_idxs, subsampling_space_idxs, Subsampler
+	subsampling_time_idxs, subsampling_space_idxs, AbstractSubsampler,
+    IndexSubsampler, ValueSubsampler, ValueWindower
 
 # "analysing.jl"
 export AbstractPlotSpecification, AbstractSpaceTimePlotSpecification, Analyses,

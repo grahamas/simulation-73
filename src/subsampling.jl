@@ -43,7 +43,6 @@ function getindex(A::AbstractArray{T,N}, VW::ValueWindower{N,T}) where {T,N}
 	value_window = VW.window
 	(findfirst((value_window[1] .< arr) .| (value_window[1] .≈ arr)), findlast((value_window[2] .> arr) .| (value_window[2] .≈ arr)))
 end
-function getindex(A::AbstractArray{T,N}, VS::ValueSubsampler{N,T}) where {T,N}
 
 
 # function subsampling_Δidx(Δsubsampled::T, Δsource::T) where T

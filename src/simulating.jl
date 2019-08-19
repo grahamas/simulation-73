@@ -1,16 +1,18 @@
 "A AbstractModel specifies all parameters of a system."
-abstract type AbstractModel{T} <: AbstractParameter{T} end
-abstract type AbstractModelwithDelay{T} <: AbstractModel{T} end
+abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
+abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
 
-"A Simulation holds an AbstractModel to be solved and a Solver to solve it."
+"A Simulation holds an AbstractModel to be solved, the space on which to solve it, the time for which to solve it, the initial value, and various solver options."
 struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractParameter{T}
     model::M
-    space::SP
+    space::S
     tspan::Tuple{T,T}
     initial_value::AbstractArray{T}
     solver_options
 end
-function Simulation(; model::M, space::S, tspan::T, initial_value=zero(space), opts...) where {T, M<:AbstractModel{T}, S<:Solver{T}}
+function Simulation(model::M; space::S, tspan, initial_value=zeros(T,P,size(space)...), opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
+    @show typeof(model)
+    @show typeof(space)
     Simulation{T,M,S}(model, space, tspan, initial_value, opts)
 end
 # function DrWatson.default_prefix(s::Simulation)
@@ -51,12 +53,11 @@ execute(s::Simulation) = Execution(s)
 # initial_value(sim::Simulation) = initial_value(sim.solver)
 # time_span(sim::Simulation) = time_span(sim.solver)
 # history(simulation::Simulation) = history(simulation.solver)
-# saved_coordinates(sim::Simulation) = saved_coordinates(sim.solver)
-# saved_coordinates(ex::Execution) = saved_coordinates(ex.simulation)
-# timepoints(sim::Simulation) = timepoints(sim.solver)#sim.solution.t
-# timepoints(ex::Execution) = ex.solution.t
-# origin_idx(sim::Simulation) = origin_idx(sim.space)
-# origin_idx(ex::Execution) = origin_idx(ex.simulation)
+coordinates(sim::Simulation) = coordinates(sim.space)
+coordinates(ex::Execution) = coordinates(ex.simulation)
+timepoints(ex::Execution) = ex.solution.t
+origin_idx(sim::Simulation) = origin_idx(sim.space)
+origin_idx(ex::Execution) = origin_idx(ex.simulation)
 # saved_dt(sim::Simulation{T}) where T = saved_dt(sim.solver)
 # saved_dx(sim::Simulation{T}) where T = saved_dx(sim.model, sim.solver)
 # space_index_info(sim::Simulation{T}) where T = space_index_info(sim.solver)
@@ -102,18 +103,18 @@ Return an ODEProblem of the `simulation.model` with time span specified by `simu
 function generate_problem(simulation::Simulation{T}) where {T}
     system_mutator! = make_system_mutator(simulation)
     ode_fn = convert(ODEFunction{true}, system_mutator!)
-    return ODEProblem(ode_fn, simulation.initial_value, simulation.time_span)
+    return ODEProblem(ode_fn, simulation.initial_value, simulation.tspan)
 end
 
 # TODO: Add history functionality
 # function generate_problem(simulation::Simulation{T,MwD}) where {T, MwD<:AbstractModelwithDelay}
 #     system_mutator! = make_system_mutator(simulation)
-#     return DDEProblem(system_mutator!, simulation.initial_value, history(simulation), simulation.timespan)
+#     return DDEProblem(system_mutator!, simulation.initial_value, history(simulation), simulation.tspan)
 # end
 
 function solve(simulation::Simulation)
     problem = generate_problem(simulation)
-    _solve(problem, simulation.solver)
+    solve(problem; simulation.solver_options...)
 end
 
 """
