@@ -10,7 +10,7 @@ jobs:
   include:
   - stage: Documentation
     script:
-    - julia -e 'using Pkg;
+    - julia --project="." -e 'using Pkg;
       Pkg.develop([PackageSpec(path=pwd())]);
       haskey(Pkg.installed(), "Documenter") || Pkg.add("Documenter");
       Pkg.instantiate();
