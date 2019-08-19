@@ -5,12 +5,11 @@ julia:
     - nightly
 os:
     - linux
-    - windows
 jobs:
   include:
   - stage: Documentation
     script:
-    - julia --project="." -e 'using Pkg;
+    - julia --project=docs/ -e 'using Pkg;
       Pkg.develop([PackageSpec(path=pwd())]);
       haskey(Pkg.installed(), "Documenter") || Pkg.add("Documenter");
       Pkg.instantiate();
