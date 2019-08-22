@@ -24,7 +24,7 @@ function Base.step(aug_lattice::AbstractEmbeddedLattice)
     (step(aug_lattice.lattice)..., step(aug_lattice.embedded_lattice)...)
 end
 
-function unembed_values(lattice::RandomlyEmbeddedLattice{T,N_ARR,N_CDT}, values::AbstractArray{T,N_ARR}) where {T,N_ARR,N_CDT}
+function unembed_values(lattice::AbstractEmbeddedLattice{T,N_ARR,N_CDT}, values::AbstractArray{T,N_ARR}) where {T,N_ARR,N_CDT}
     inner_coords = [coord[N_ARR+1:end] for coord in coordinates(lattice)]
     return [values[findall(map((x) -> all(isapprox.(embedded_coord, x)), inner_coords))] for embedded_coord in coordinates(lattice.embedded_lattice)]
 end

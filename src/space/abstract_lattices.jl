@@ -21,6 +21,9 @@ true
 function discrete_segment(start::T, stop::T, n_points::Int) where {T <: Number}
     LinRange{T}(start, stop, n_points)
 end
+function discrete_segment(extent::T, n_points::Int) where {T <: Number}
+    discrete_segment(-extent/2,extent/2,n_points)
+end
 """
     coordinates(extent, n_points)
 
