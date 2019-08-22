@@ -14,33 +14,20 @@ difference(p_lattice::PeriodicLattice, edge) = abs_difference_periodic(edge, p_l
 Base.size(p_lattice::PeriodicLattice) = p_lattice.n_points
 origin_idx(p_lattice::PeriodicLattice{T,N_ARR}) where{T,N_ARR} = CartesianIndex(zero(T) for _ in 1:N)
 
-const Circle{T} = PeriodicLattice{T,1}
-const Torus{T} = PeriodicLattice{T,2}
-
-@recipe function f(lattice::Circle{T}, values::AbstractArray{T};
-        val_lim = extrema(values)) where T
-    # catenate a copy of the first row to the end so the line wraps all the way
-    θ = vcat(coordinate_axes(lattice)[1] .* (2π / lattice.extent[1]), [2π])
-    values = vcat(values, values[1,:]')
-    n_lines = size(values, 2)
-
-    r_min, r_max = abs.(val_lim)
-    if r_min < r_max
-        r_axis = max(2 * r_min, r_max)
-    else
-        r_axis = 2 * r_min
-    end
-
-    lim = r_axis + r_max * 1.2
-    ylim := (-lim, lim)
-    xlim := (-lim, lim)
-
-    r_values = hcat(values, zeros(size(θ)...)) .+ r_axis
-
-    legend := :none
+@recipe function f(lattice::PeriodicLattice{T,1}, values) where T
+    θ = coordinate_axes(lattice)[1] .* (2π / lattice.extent[1])
+    #y = values .* sin.(θ)
+    #x = values .* cos.(θ)
+    seriestype := :scatter
     projection := :polar
 
     aspect_ratio := :equal
 
     (θ |> collect, r_values)
+end
+
+@recipe function f(lattice::PeriodicLattice{T,2}, values::Array{T,2}) where T
+    (x, y) = coordinate_axes(lattice) .|> collect
+    seriestype := :heatmap
+    (x,y,values)
 end

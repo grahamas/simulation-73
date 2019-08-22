@@ -2,6 +2,47 @@
 abstract type AbstractAugmentedLattice{T,N_ARR,N_CDT,L} <: AbstractLattice{T,N_ARR,N_CDT} end
 abstract type AbstractEmbeddedLattice{T,N_ARR,N_CDT,L} <: AbstractAugmentedLattice{T,N_ARR,N_CDT,L} end
 
+function coordinates(lattice::AbstractEmbeddedLattice)
+    lattice.coordinates
+end
+function size(lattice::AbstractEmbeddedLattice)
+    size(lattice.lattice)
+end
+
+function difference(aug_lattice::AbstractEmbeddedLattice{T,N_ARR,N_CDT,L},
+                    edge::Tuple{PT,PT}) where {T,N_ARR,N_CDT,L_N_CDT,
+                                               L<:AbstractLattice{T,N_ARR,L_N_CDT},
+                                               PT<:NTuple{N_CDT,T}
+                                               }
+    edge_first_dims = (edge[1][1:L_N_CDT], edge[2][1:L_N_CDT])
+    edge_trailing_dims = (edge[1][L_N_CDT+1:end], edge[2][L_N_CDT+1:end])
+    return (difference(aug_lattice.lattice, edge_first_dims)...,
+        difference(aug_lattice.embedded_lattice, edge_trailing_dims)...)
+end
+
+function Base.step(aug_lattice::AbstractEmbeddedLattice)
+    (step(aug_lattice.lattice)..., step(aug_lattice.embedded_lattice)...)
+end
+
+function unembed_values(lattice::RandomlyEmbeddedLattice{T,N_ARR,N_CDT}, values::AbstractArray{T,N_ARR}) where {T,N_ARR,N_CDT}
+    inner_coords = [coord[N_ARR+1:end] for coord in coordinates(lattice)]
+    return [values[findall(map((x) -> all(isapprox.(embedded_coord, x)), inner_coords))] for embedded_coord in coordinates(lattice.embedded_lattice)]
+end
+
+linear_next(num::Int) = num + 1
+using Plots: @layout
+@recipe function f(lattice::AbstractEmbeddedLattice, values; layout=nothing, subplot=nothing)
+    @series begin
+        subplot := subplot
+        (lattice.lattice, values)
+    end
+    @series begin
+        subplot := linear_next(subplot)
+        (lattice.embedded_lattice, unembed_values(lattice, values))
+    end
+end
+
+
 struct RandomlyEmbeddedLattice{T,N_ARR,N_CDT,L<:AbstractLattice{T,N_ARR},E<:AbstractSpace{T}} <: AbstractEmbeddedLattice{T,N_ARR,N_CDT,L}
     lattice::L
     embedded_lattice::E
@@ -15,44 +56,5 @@ function embed_randomly(lattice, embedded_lattice)
     [(lattice_coord..., sample(embedded_lattice)...) for lattice_coord in coordinates(lattice)]
 end
 function sample(lattice::AbstractLattice)
-    rand(coordinates(lattice) |> collect)
-end
-
-function coordinates(lattice::RandomlyEmbeddedLattice)
-    lattice.coordinates
-end
-function size(lattice::RandomlyEmbeddedLattice)
-    size(lattice.lattice)
-end
-
-function difference(aug_lattice::RandomlyEmbeddedLattice{T,N_ARR,N_CDT,L},
-                    edge::Tuple{PT,PT}) where {T,N_ARR,N_CDT,L_N_CDT,
-                                               L<:AbstractLattice{T,N_ARR,L_N_CDT},
-                                               PT<:NTuple{N_CDT,T}
-                                               }
-    edge_first_dims = (edge[1][1:L_N_CDT], edge[2][1:L_N_CDT])
-    edge_trailing_dims = (edge[1][L_N_CDT+1:end], edge[2][L_N_CDT+1:end])
-    return (difference(aug_lattice.lattice, edge_first_dims)...,
-        difference(aug_lattice.embedded_lattice, edge_trailing_dims)...)
-end
-
-function Base.step(aug_lattice::RandomlyEmbeddedLattice)
-    (step(aug_lattice.lattice)..., step(aug_lattice.embedded_lattice)...)
-end
-
-function unembed_values(lattice::RandomlyEmbeddedLattice{T,N_ARR,N_CDT}, values::AbstractArray{T,N_ARR}) where {T,N_ARR,N_CDT}
-    inner_coords = [coord[N_ARR+1:end] for coord in coordinates(lattice)]
-    return [values[findall(map((x) -> all(isapprox.(embedded_coord, x)), inner_coords))] for embedded_coord in coordinates(lattice.embedded_lattice)]
-end
-
-using Plots: @layout
-@recipe function f(lattice::RandomlyEmbeddedLattice{T,N_ARR,N_CDT}, values::AbstractArray{T,N_ARR}; layout = 2, subplot = 1) where {T,N_ARR,N_CDT}
-    @series begin
-        subplot := subplot
-        (lattice.lattice, values)
-    end
-    @series begin
-        subplot := subplot + 1
-        (lattice.embedded_lattice, unembed_values(lattice, values))
-    end
+    (rand(length(lattice.extent)...) .* lattice.extent) .- (lattice.extent ./ 2)
 end

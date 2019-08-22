@@ -2,7 +2,7 @@ module Simulation73
 
 using DrWatson
 using Markdown # for doc_str
-using DifferentialEquations#, DiffEqParamEstim
+using DifferentialEquations, DiffEqBase#, DiffEqParamEstim
 #using BlackBoxOptim, Optim
 using StaticArrays
 using JLD2
@@ -10,7 +10,9 @@ import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler,
 #using RecipesBase
 using Parameters
 using RecipesBase
-using MacroTools: splitdef, combinedef, splitarg
+using Lazy
+
+export StrideToEnd
 
 # ENV["GKSwstype"] = "100" # For headless plotting (on server)
 # ENV["MPLBACKEND"]="Agg"
@@ -25,18 +27,18 @@ export AbstractVariable, UnboundedVariable, BoundedVariable,
 	AbstractParameter
 
 # space.jl
-export AbstractSpace, AbstractLattice
+export AbstractSpace, AbstractLattice, AbstractEmbeddedLattice
 
-export CompactLattice, PeriodicLattice,
-    Segment, Circle, Torus, Grid
+export CompactLattice, PeriodicLattice
 
 export RandomlyEmbeddedLattice, unembed_values
 
-export coordinates, origin_idx, differences, coordinate_axes
+export coordinates, origin_idx, differences, coordinate_axes, timepoints
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
-	subsampling_time_idxs, subsampling_space_idxs, Subsampler
+	subsampling_time_idxs, subsampling_space_idxs, AbstractSubsampler,
+    IndexSubsampler, ValueSubsampler, ValueWindower
 
 # "analysing.jl"
 export AbstractPlotSpecification, AbstractSpaceTimePlotSpecification, Analyses,
@@ -49,10 +51,9 @@ export execute
 
 # "simulating.jl"
 export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
-	initial_value, history, time_span, save_dt, save_dx,
+	initial_value, history, time_span, saved_dt, saved_dx,
 	generate_problem, solve, run_simulation,
 	make_mutators, make_system_mutator,
-	saved_time_arr, saved_space_arr,
 	pop_frame
 
 # # "exploring.jl"
@@ -63,6 +64,8 @@ include("deconstructing.jl")
 include("variables.jl")
 include("subsampling.jl")
 include("space.jl")
+include("solutions.jl")
+#include("solvers.jl")
 include("simulating.jl")
 include("targets.jl")
 # include("exploring.jl")

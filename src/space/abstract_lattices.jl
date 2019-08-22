@@ -26,13 +26,11 @@ end
 
 Return an object containing `n_points` equidistant coordinates along each dimension of a grid of length `extent` along each dimension, centered at (0,0,...,0).
 """
-@memoize function coordinates(lattice::AbstractLattice)
-     Iterators.product(coordinate_axes(lattice)...)
- end
-function coordinate_axes(lattice::AbstractLattice)
-    all(lattice.n_points .% 2 .== 1) || @warn "n_points = $n_points is not odd, so the segment will not have the origin."
-    (discrete_segment.((-).(lattice.extent ./ 2), lattice.extent ./ 2, lattice.n_points)...,)
+function discrete_lattice(extent::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T}
+    Iterators.product(discrete_segment.(extent, n_points)...) |> collect
 end
+coordinates(lattice::AbstractLattice) = discrete_lattice(lattice.extent, lattice.n_points)
+coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(lattice.extent, lattice.n_points)...,)
 """
     origin_idx(lattice)
 
@@ -40,8 +38,8 @@ Return the coordinate of the zero point in `lattice`.
 
 # Example
 ```jldoctest
-julia> segment = Segment(10.0, 11)
-Segment{Float64}(10.0, 11)
+julia> segment = CompactLattice(10.0, 11)
+CompactLattice{Float64,1}(10.0, 11)
 
 julia> seg_origin_idx = origin_idx(segment)
 CartesianIndex(6,)
@@ -49,10 +47,10 @@ CartesianIndex(6,)
 julia> collect(coordinates(segment))[seg_origin_idx] == 0.0
 true
 
-julia> grid = Grid((10.0,50.0), (11, 13))
-Grid{Float64}((10.0, 50.0), (11, 13))
+julia> grid = CompactLattice((10.0,50.0), (11, 13))
+PeriodicLattice{Float64,2}((10.0, 50.0), (11, 13))
 
-julia> grid_origin_idx = origin_idx(Grid((10.0,50.0), (11, 13)))
+julia> grid_origin_idx = origin_idx(CompactLattice((10.0,50.0), (11, 13)))
 CartesianIndex(6, 7)
 
 julia> collect(coordinates(grid))[grid_origin_idx] == (0.0, 0.0)
