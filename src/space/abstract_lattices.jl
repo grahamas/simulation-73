@@ -1,7 +1,8 @@
 
 abstract type AbstractLattice{T,N_ARR,N_CONN} <: AbstractSpace{T,N_ARR,N_CONN} end
-Base.step(space::AbstractLattice{T}) where T = space.extent ./ (space.n_points .- 1)
-
+Base.step(space::AbstractLattice) = space.extent ./ (space.n_points .- 1)
+Base.size(lattice::AbstractLattice) = lattice.n_points
+Base.size(lattice::AbstractLattice, d::Int) = lattice.n_points[d]
 """
     discrete_segment(extent, n_points)
 

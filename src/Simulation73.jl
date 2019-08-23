@@ -27,7 +27,8 @@ export AbstractVariable, UnboundedVariable, BoundedVariable,
 	AbstractParameter
 
 # space.jl
-export AbstractSpace, AbstractLattice, AbstractEmbeddedLattice
+export AbstractSpace, AbstractLattice, AbstractPeriodicLattice, AbstractCompactLattice,
+	AbstractEmbeddedLattice
 
 export CompactLattice, PeriodicLattice
 

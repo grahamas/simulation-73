@@ -9,7 +9,6 @@ A Lattice of points with `extent` describing the length along each dimension and
     n_points::NTuple{N_ARR,Int}
 end
 difference(lattice::AbstractCompactLattice, edge) = abs_difference(edge)
-Base.size(lattice::CompactLattice) = lattice.n_points
 
 @recipe function f(lattice::CompactLattice, values)
     x := coordinate_axes(lattice)[1] |> collect
