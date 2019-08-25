@@ -2,6 +2,40 @@
 abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
 abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
 
+# FIXME not real dispatch, since it's just an alias
+@inline population(A::AbstractArray{T,N}, i) where {T,N} = view_slice_last(A, i)
+function population_coordinates(coordinates::AbstractArray{<:CartesianIndex,N}, P) where N
+    cat([[CartesianIndex(coord,i) for coord in coordinates] for i in 1:P]...; dims=N+1)
+end
+population_repeat(arr::AbstractArray{T,N}, P) where {T,N} = repeat(arr, outer=([1 for _ in 1:N]..., P))
+"""
+    population_timepoint(solution, pop_dx, time_dx)
+
+Return spatial frame for a given population `pop_dx` and time `time_dx`.
+"""
+@generated function population_timepoint(solution::DiffEqBase.AbstractODESolution{T,NPT}, pop_dx::Int, time_dx::Int) where {T,NPT}
+    N = NPT - 2 # N + pop + time
+    colons = [:(:) for i in 1:N]
+    :(solution[$(colons...), pop_dx, time_dx])
+end
+# @inline population(A::AbstractArray{T,N}, i) where {T,N} = view_slice_first(A, i)
+# function population_coordinates(coordinates::AbstractArray{CartesianIndex,N}, P) where N
+#     cat(reshape([CartesianIndex(i,coord) for coord in coordinates], (1, size(coordinates...))) for i in 1:P, dims=1)
+# end
+# population_repeat(arr::AbstractArray{T,N}, P) where {T,N} = repeat(reshape(arr, (1, size(arr)...)), outer=(P, [1 for _ in 1:N]...))
+# """
+#     population_timepoint(solution, pop_dx, time_dx)
+#
+# Return spatial frame for a given population `pop_dx` and time `time_dx`.
+# """
+# @generated function population_timepoint(solution::DiffEqBase.AbstractODESolution{T,NPT}, pop_dx::Int, time_dx::Int) where {T,NPT}
+#     N = NPT - 2 # N + pop + time
+#     colons = [:(:) for i in 1:N]
+#     :(solution[pop_dx, $(colons...), time_dx])
+# end
+
+initial_value(::AbstractModel{T,N,P}, space::AbstractSpace{T,N}) where {T,N,P} = population_repeat(zeros(T,size(space)...), P)
+
 "A Simulation holds an AbstractModel to be solved, the space on which to solve it, the time for which to solve it, the initial value, and various solver options."
 struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractParameter{T}
     model::M
@@ -10,9 +44,7 @@ struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractParamete
     initial_value::AbstractArray{T}
     solver_options
 end
-function Simulation(model::M; space::S, tspan, initial_value=zeros(T,P,size(space)...), opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
-    @show typeof(model)
-    @show typeof(space)
+function Simulation(model::M; space::S, tspan, initial_value=initial_value(model, space), opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
     Simulation{T,M,S}(model, space, tspan, initial_value, opts)
 end
 # function DrWatson.default_prefix(s::Simulation)
@@ -111,10 +143,22 @@ end
 #     system_mutator! = make_system_mutator(simulation)
 #     return DDEProblem(system_mutator!, simulation.initial_value, history(simulation), simulation.tspan)
 # end
+parse_save_idxs(simulation::Simulation, save_idx::Union{Number,AbstractArray}) = save_idx
+function parse_save_idxs(simulation::Simulation{T,M}, subsampler::AbstractSubsampler) where {T,N,P,M<:AbstractModel{T,N,P}}
+	one_pop_coordinates = coordinate_indices(simulation.space, subsampler)
+	population_coordinates(one_pop_coordinates, P)
+end
+
+function unpacking_solve(simulation::Simulation; save_idxs=nothing, solver_options...)
+    if save_idxs != nothing
+        solver_options = (solver_options..., save_idxs=parse_save_idxs(simulation,save_idxs))
+    end
+    problem = generate_problem(simulation)
+    solve(problem; solver_options...)
+end
 
 function solve(simulation::Simulation)
-    problem = generate_problem(simulation)
-    solve(problem; simulation.solver_options...)
+    unpacking_solve(simulation; simulation.solver_options...)
 end
 
 """
