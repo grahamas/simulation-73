@@ -1,5 +1,5 @@
 
-abstract type AbstractLattice{T,N_ARR,N_CONN} <: AbstractSpace{T,N_ARR,N_CONN} end
+abstract type AbstractLattice{T,N_ARR,N_CDT} <: AbstractSpace{T,N_ARR,N_CDT} end
 Base.step(space::AbstractLattice) = space.extent ./ (space.n_points .- 1)
 Base.size(lattice::AbstractLattice) = lattice.n_points
 Base.size(lattice::AbstractLattice, d::Int) = lattice.n_points[d]

@@ -39,7 +39,7 @@ export coordinates, origin_idx, differences, coordinate_axes, timepoints
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
 	subsampling_time_idxs, subsampling_space_idxs, AbstractSubsampler,
-    IndexSubsampler, ValueSubsampler, ValueWindower
+    IndexSubsampler, ValueSubsampler, ValueWindower, RadialSlice
 
 # "analysing.jl"
 export AbstractPlotSpecification, AbstractSpaceTimePlotSpecification, Analyses,
@@ -55,7 +55,7 @@ export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
 	initial_value, history, time_span, saved_dt, saved_dx,
 	generate_problem, solve, run_simulation,
 	make_mutators, make_system_mutator,
-	pop_frame
+	population, population_coordinates, population_repeat, population_timepoint
 
 # # "exploring.jl"
 # export Search, SearchExecution, make_problem_generator, search, run_search
@@ -63,8 +63,8 @@ export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
 include("helpers.jl")
 include("deconstructing.jl")
 include("variables.jl")
-include("subsampling.jl")
 include("space.jl")
+include("subsampling.jl") # depends on space.jl
 include("solutions.jl")
 #include("solvers.jl")
 include("simulating.jl")
