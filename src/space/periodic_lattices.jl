@@ -11,20 +11,23 @@ end
 coordinate_axes(p_lattice::PeriodicLattice) = (discrete_segment.(0.0, p_lattice.extent .- step(p_lattice), p_lattice.n_points)...,)
 difference(p_lattice::PeriodicLattice, edge) = abs_difference_periodic(edge, p_lattice.extent)
 
-@recipe function f(lattice::PeriodicLattice{T,1}, values) where T
+@recipe function f(lattice::PeriodicLattice{T,1}, values; val_lim=nothing) where T
     θ = coordinate_axes(lattice)[1] .* (2π / lattice.extent[1])
     #y = values .* sin.(θ)
     #x = values .* cos.(θ)
     seriestype := :scatter
     projection := :polar
+    @warn "val_lim unused"
 
     aspect_ratio := :equal
 
     (θ |> collect, r_values)
 end
 
-@recipe function f(lattice::PeriodicLattice{T,2}, values::Array{T,2}) where T
-    (x, y) = coordinate_axes(lattice) .|> collect
-    seriestype := :heatmap
-    (x,y,values)
-end
+# @recipe function f(lattice::PeriodicLattice{T,2}, values::Array{T,2}; val_lim=nothing) where T
+#     (x, y) = coordinate_axes(lattice) .|> collect
+#     seriestype := :heatmap
+#     if val_lim != nothing
+#
+#     (x,y,values)
+# end

@@ -75,3 +75,25 @@ using Statistics
         (lattice, hcat(up_stds, down_stds, means))
     end
 end
+
+
+@recipe function f(lattice::AbstractLattice{T,1}, values; val_lim=nothing) where T
+    x := coordinate_axes(lattice)[1] |> collect
+    y := values
+    seriestype := :line
+    if val_lim != nothing
+        ylim := val_lim
+    end
+    ()
+end
+
+@recipe function f(lattice::AbstractLattice{T,2}, values::Array{T,2}; val_lim=nothing) where T
+    (x, y) = coordinate_axes(lattice) .|> collect
+    seriestype := :heatmap
+    if val_lim != nothing
+        clim := val_lim
+        zlim := val_lim
+    end
+    aspect_ratio := :equal
+    (x,y,values)
+end

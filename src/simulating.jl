@@ -11,8 +11,6 @@ struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractParamete
     solver_options
 end
 function Simulation(model::M; space::S, tspan, initial_value=zeros(T,P,size(space)...), opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
-    @show typeof(model)
-    @show typeof(space)
     Simulation{T,M,S}(model, space, tspan, initial_value, opts)
 end
 # function DrWatson.default_prefix(s::Simulation)
