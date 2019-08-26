@@ -56,5 +56,5 @@ function embed_randomly(lattice, embedded_lattice)
     [(lattice_coord..., sample(embedded_lattice)...) for lattice_coord in coordinates(lattice)]
 end
 function sample(lattice::AbstractLattice)
-    (rand(length(lattice.extent)...) .* lattice.extent) .- (lattice.extent ./ 2)
+    (rand(length(extent(lattice))...) .* extent(lattice)) .- (extent(lattice) ./ 2)
 end

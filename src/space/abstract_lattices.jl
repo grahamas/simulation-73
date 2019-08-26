@@ -1,8 +1,8 @@
 
 abstract type AbstractLattice{T,N_ARR,N_CDT} <: AbstractSpace{T,N_ARR,N_CDT} end
-Base.step(space::AbstractLattice) = space.extent ./ (space.n_points .- 1)
-Base.size(lattice::AbstractLattice) = lattice.n_points
-Base.size(lattice::AbstractLattice, d::Int) = lattice.n_points[d]
+Base.step(space::AbstractLattice) = extent(space) ./ (size(space) .- 1)
+Base.size(lattice::AbstractLattice) = size(lattice.arr)
+Base.size(lattice::AbstractLattice, d::Int) = size(lattice.arr, d)
 """
     discrete_segment(extent, n_points)
 
@@ -33,8 +33,13 @@ Return an object containing `n_points` equidistant coordinates along each dimens
 function discrete_lattice(extent::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T}
     Iterators.product(discrete_segment.(extent, n_points)...) |> collect
 end
-coordinates(lattice::AbstractLattice) = discrete_lattice(lattice.extent, lattice.n_points)
-coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(lattice.extent, lattice.n_points)...,)
+extent(lattice::AbstractLattice) = lattice.arr[end] .- lattice.arr[1]
+coordinates(lattice::AbstractLattice) = discrete_lattice(extent(lattice), size(lattice))
+coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(extent(lattice), size(lattice))...,)
+
+# DEFAULT KEYWORD CONSTRUCTOR
+(t::Type{<:AbstractLattice})(; n_points, extent) = t(discrete_lattice(extent, n_points))
+
 """
     origin_idx(lattice)
 

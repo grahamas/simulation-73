@@ -13,10 +13,10 @@ population_repeat(arr::AbstractArray{T,N}, P) where {T,N} = repeat(arr, outer=([
 
 Return spatial frame for a given population `pop_dx` and time `time_dx`.
 """
-@generated function population_timepoint(solution::DiffEqBase.AbstractODESolution{T,NPT}, pop_dx::Int, time_dx::Int) where {T,NPT}
-    N = NPT - 2 # N + pop + time
+@generated function population_timepoint(solution::OrdinaryDiffEq.ODECompositeSolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}}, pop_dx::Int, time_dx::Int) where {T,NPT_FULL,NP_SAVED}
+    N = NP_SAVED - 1 # N + pops
     colons = [:(:) for i in 1:N]
-    :(solution[$(colons...), pop_dx, time_dx])
+    :(solution(solution.t[time_dx])[$(colons...), pop_dx])
 end
 # @inline population(A::AbstractArray{T,N}, i) where {T,N} = view_slice_first(A, i)
 # function population_coordinates(coordinates::AbstractArray{CartesianIndex,N}, P) where N
@@ -44,32 +44,9 @@ struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractParamete
     initial_value::AbstractArray{T}
     solver_options
 end
-function Simulation(model::M; space::S, tspan, initial_value=initial_value(model, space), opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
+function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
     Simulation{T,M,S}(model, space, tspan, initial_value, opts)
 end
-# function DrWatson.default_prefix(s::Simulation)
-#     space_dir = default_prefix(s.space)
-#     nonl_dir = default_prefix(s.nonlinearity)
-#     conn_dir = default_prefix(s.connectivity)
-#     stim_dir = default_prefix(s.stimulus)
-#     joinpath(space_dir, nonl_dir, conn_dir, stim_dir)
-# end
-# combine_names(name::Symbol, subname::Symbol) = (name, subname)
-# combine_names(name::Symbol, subnames::Tuple) = (name, subnames...)
-# function DrWatson.allaccess(ap::AbstractParameter)
-#     names = fieldnames(typeof(ap))
-#     all_names = []
-#     for name ∈ names
-#         @show typeof(getproperty(ap, name))
-#         subnames =  DrWatson.allaccess(getproperty(ap, name))
-#         if length(subnames) == 0
-#             push!(all_names, name)
-#         else
-#             push!(all_names, combine_names.(name, subnames)...)
-#         end
-#     end
-#     return all_names
-# end
 
 
 "An Execution holds a Simulation and the solution obtained by running the Simulation."
@@ -88,6 +65,9 @@ execute(s::Simulation) = Execution(s)
 coordinates(sim::Simulation) = coordinates(sim.space)
 coordinates(ex::Execution) = coordinates(ex.simulation)
 timepoints(ex::Execution) = ex.solution.t
+_space(sp::AbstractSpace, opts) = subsample(sp, get(opts, :save_idxs, nothing))
+space(sim::Simulation) = _space(sim.space, sim.solver_options)
+space(ex::Execution) = space(ex.simulation)
 origin_idx(sim::Simulation) = origin_idx(sim.space)
 origin_idx(ex::Execution) = origin_idx(ex.simulation)
 # saved_dt(sim::Simulation{T}) where T = saved_dt(sim.solver)

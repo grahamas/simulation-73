@@ -7,6 +7,7 @@ using DifferentialEquations, DiffEqBase#, DiffEqParamEstim
 using StaticArrays
 using JLD2
 import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
+using OrdinaryDiffEq
 #using RecipesBase
 using Parameters
 using RecipesBase
@@ -34,7 +35,7 @@ export CompactLattice, PeriodicLattice
 
 export RandomlyEmbeddedLattice, unembed_values
 
-export coordinates, origin_idx, differences, coordinate_axes, timepoints
+export coordinates, origin_idx, differences, coordinate_axes, timepoints, space, extent
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,

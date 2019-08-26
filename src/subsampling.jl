@@ -6,6 +6,7 @@
 # Optional, allow specifying "tstops" which forces non-interpolation.
 
 abstract type AbstractSubsampler{D} end
+subsample(space::AbstractSpace, ::Nothing) = space
 
 @with_kw struct IndexSubsampler{D} <: AbstractSubsampler{D}
 	strides::NTuple{D,Int}
@@ -17,6 +18,11 @@ end
 	window::NTuple{D,T}
 end
 struct RadialSlice <: AbstractSubsampler{2} end
+function subsample(lattice::AbstractLattice{T,2}, rs::RadialSlice) where T
+	dxs = coordinate_indices(lattice, rs)
+	slice_coords = lattice.arr[dxs]
+	CompactLattice{T,1}([(coord[2],) for coord in slice_coords])
+end
 
 "IndexInfo specifies the index of 0 and the stride (`Δ`) between indices."
 @with_kw struct IndexInfo{D,N}
@@ -48,5 +54,5 @@ end
 ## RadialSlice
 function coordinate_indices(space::AbstractLattice{T,2}, subsampler::RadialSlice) where T
 	origin = origin_idx(space)
-	[CartesianIndex(origin[1], x) for x in origin[2]:space.n_points[2]]
+	[CartesianIndex(origin[1], x) for x in origin[2]:size(space,2)]
 end
