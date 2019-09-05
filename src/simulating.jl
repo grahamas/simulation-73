@@ -13,7 +13,7 @@ population_repeat(arr::AbstractArray{T,N}, P) where {T,N} = repeat(arr, outer=([
 
 Return spatial frame for a given population `pop_dx` and time `time_dx`.
 """
-@generated function population_timepoint(solution::OrdinaryDiffEq.ODECompositeSolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}}, pop_dx::Int, time_dx::Int) where {T,NPT_FULL,NP_SAVED}
+@generated function population_timepoint(solution::Union{OrdinaryDiffEq.ODECompositeSolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}},DifferentialEquations.ODESolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}}}, pop_dx::Int, time_dx::Int) where {T,NPT_FULL,NP_SAVED}
     N = NP_SAVED - 1 # N + pops
     colons = [:(:) for i in 1:N]
     :(solution(solution.t[time_dx])[$(colons...), pop_dx])
