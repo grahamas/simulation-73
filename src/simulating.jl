@@ -42,10 +42,12 @@ struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractParamete
     space::S
     tspan::Tuple{T,T}
     initial_value::AbstractArray{T}
+    algorithm
+    dt::Union{T,Nothing}
     solver_options
 end
-function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
-    Simulation{T,M,S}(model, space, tspan, initial_value, opts)
+function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), dt=nothing, algorithm, opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
+    Simulation{T,M,S}(model, space, tspan, initial_value, algorithm, dt, opts)
 end
 
 
@@ -129,16 +131,19 @@ function parse_save_idxs(simulation::Simulation{T,M}, subsampler::AbstractSubsam
 	population_coordinates(one_pop_coordinates, P)
 end
 
-function unpacking_solve(simulation::Simulation; save_idxs=nothing, solver_options...)
+function unpacking_solve(simulation::Simulation, alg; save_idxs=nothing, dt, solver_options...)
     if save_idxs != nothing
         solver_options = (solver_options..., save_idxs=parse_save_idxs(simulation,save_idxs))
     end
+    if dt != nothing
+        solver_options = (solver_options..., dt=dt)
+    end
     problem = generate_problem(simulation)
-    solve(problem; solver_options...)
+    solve(problem, alg; solver_options...)
 end
 
 function solve(simulation::Simulation)
-    unpacking_solve(simulation; simulation.solver_options...)
+    unpacking_solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options...)
 end
 
 """
