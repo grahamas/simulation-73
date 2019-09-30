@@ -1,8 +1,13 @@
 
 abstract type AbstractLattice{T,N_ARR,N_CDT} <: AbstractSpace{T,N_ARR,N_CDT} end
+(t::Type{<:AbstractLattice})(n_points::Tuple, extent::Tuple) = t(discrete_lattice(extent, n_points))
+(t::Type{<:AbstractLattice{T,1}})(n_points::Number,extent::Number) where T = t((n_points,),(extent,))
+(t::Type{<:AbstractLattice})(; n_points, extent) = t(n_points, extent)
+
 Base.step(space::AbstractLattice) = extent(space) ./ (size(space) .- 1)
 Base.size(lattice::AbstractLattice) = size(lattice.arr)
 Base.size(lattice::AbstractLattice, d::Int) = size(lattice.arr, d)
+Base.zeros(lattice::AbstractLattice{T}) where T = zeros(T,size(lattice)...)
 """
     discrete_segment(extent, n_points)
 
@@ -37,8 +42,6 @@ extent(lattice::AbstractLattice) = lattice.arr[end] .- lattice.arr[1]
 coordinates(lattice::AbstractLattice) = discrete_lattice(extent(lattice), size(lattice))
 coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(extent(lattice), size(lattice))...,)
 
-# DEFAULT KEYWORD CONSTRUCTOR
-(t::Type{<:AbstractLattice})(; n_points, extent) = t(discrete_lattice(extent, n_points))
 
 """
     origin_idx(lattice)

@@ -19,13 +19,10 @@ export StrideToEnd
 # ENV["MPLBACKEND"]="Agg"
 # using Plots
 
-abstract type AbstractParameter{T} end
-DrWatson.default_allowed(c::AbstractParameter) = (Real, String, Symbol, AbstractParameter)
-
 # "variables.jl"
 export AbstractVariable, UnboundedVariable, BoundedVariable,
 	default_value, bounds, pops, MaybeVariable,
-	AbstractParameter
+	AbstractParameter, AbstractAction, AbstractSpaceAction
 
 # space.jl
 export AbstractSpace, AbstractLattice, AbstractPeriodicLattice, AbstractCompactLattice,
