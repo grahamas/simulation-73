@@ -2,39 +2,7 @@
 abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
 abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
 
-# FIXME not real dispatch, since it's just an alias
-@inline population(A::AbstractArray{T,N}, i) where {T,N} = view_slice_last(A, i)
-function population_coordinates(coordinates::AbstractArray{<:CartesianIndex,N}, P) where N
-    cat([[CartesianIndex(coord,i) for coord in coordinates] for i in 1:P]...; dims=N+1)
-end
-population_repeat(arr::AbstractArray{T,N}, P) where {T,N} = repeat(arr, outer=([1 for _ in 1:N]..., P))
-"""
-    population_timepoint(solution, pop_dx, time_dx)
-
-Return spatial frame for a given population `pop_dx` and time `time_dx`.
-"""
-@generated function population_timepoint(solution::Union{OrdinaryDiffEq.ODECompositeSolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}},DifferentialEquations.ODESolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}}}, pop_dx::Int, time_dx::Int) where {T,NPT_FULL,NP_SAVED}
-    N = NP_SAVED - 1 # N + pops
-    colons = [:(:) for i in 1:N]
-    :(solution(solution.t[time_dx])[$(colons...), pop_dx])
-end
-# @inline population(A::AbstractArray{T,N}, i) where {T,N} = view_slice_first(A, i)
-# function population_coordinates(coordinates::AbstractArray{CartesianIndex,N}, P) where N
-#     cat(reshape([CartesianIndex(i,coord) for coord in coordinates], (1, size(coordinates...))) for i in 1:P, dims=1)
-# end
-# population_repeat(arr::AbstractArray{T,N}, P) where {T,N} = repeat(reshape(arr, (1, size(arr)...)), outer=(P, [1 for _ in 1:N]...))
-# """
-#     population_timepoint(solution, pop_dx, time_dx)
-#
-# Return spatial frame for a given population `pop_dx` and time `time_dx`.
-# """
-# @generated function population_timepoint(solution::DiffEqBase.AbstractODESolution{T,NPT}, pop_dx::Int, time_dx::Int) where {T,NPT}
-#     N = NPT - 2 # N + pop + time
-#     colons = [:(:) for i in 1:N]
-#     :(solution[pop_dx, $(colons...), time_dx])
-# end
-
-initial_value(::AbstractModel{T,N,P}, space::AbstractSpace{T,N}) where {T,N,P} = population_repeat(zeros(T,size(space)...), P)
+initial_value(::AbstractModel{T,N,P}, space::AbstractSpace{T,N}) where {T,N,P} = population_repeat(zeros(space), P)
 
 "A Simulation holds an AbstractModel to be solved, the space on which to solve it, the time for which to solve it, the initial value, and various solver options."
 struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractParameter{T}
@@ -115,8 +83,8 @@ end
 Return an ODEProblem of the `simulation.model` with time span specified by `simulation.solver`.
 """
 function generate_problem(simulation::Simulation{T}) where {T}
-    system_mutator! = make_system_mutator(simulation)
-    ode_fn = convert(ODEFunction{true}, system_mutator!)
+    system_fn! = simulation.model(simulation.space)
+    ode_fn = convert(ODEFunction{true}, system_fn!)
     return ODEProblem(ode_fn, simulation.initial_value, simulation.tspan)
 end
 

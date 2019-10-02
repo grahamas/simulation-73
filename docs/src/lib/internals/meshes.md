@@ -1,4 +1,5 @@
 # Meshes
+
 ```@docs
 CompactLattice
 PeriodicLattice

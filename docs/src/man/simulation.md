@@ -1,5 +1,12 @@
 # Simulation
 
+```@meta
+DocTestSetup = quote
+    using Simulation73
+end
+```
+
+
 Run a simulation from a `.jl` specification file that defines [`Simulation`](@ref), [`Output`](@ref), and [`Analysis`](@ref) objects. Call [`run_simulation`](@ref) on the specification file, which will `include` the specification file, copy the file to the output directory for reproducibility, [`execute`](@ref) the simulation, and run the analyses.
 
 A `Simulation` is specified as

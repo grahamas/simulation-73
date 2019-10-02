@@ -13,19 +13,14 @@ using Parameters
 using RecipesBase
 using Lazy
 
-export StrideToEnd
-
 # ENV["GKSwstype"] = "100" # For headless plotting (on server)
 # ENV["MPLBACKEND"]="Agg"
 # using Plots
 
-abstract type AbstractParameter{T} end
-DrWatson.default_allowed(c::AbstractParameter) = (Real, String, Symbol, AbstractParameter)
-
 # "variables.jl"
 export AbstractVariable, UnboundedVariable, BoundedVariable,
 	default_value, bounds, pops, MaybeVariable,
-	AbstractParameter
+	AbstractParameter, AbstractAction, AbstractSpaceAction
 
 # space.jl
 export AbstractSpace, AbstractLattice, AbstractPeriodicLattice, AbstractCompactLattice,
@@ -35,7 +30,8 @@ export CompactLattice, PeriodicLattice
 
 export RandomlyEmbeddedLattice, unembed_values
 
-export coordinates, origin_idx, differences, coordinate_axes, timepoints, space, extent
+export coordinates, origin_idx, differences, coordinate_axes, timepoints, space,
+    extent, abs_difference, abs_difference_periodic, discrete_segment
 
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
@@ -72,5 +68,4 @@ include("simulating.jl")
 include("targets.jl")
 # include("exploring.jl")
 include("analysing.jl")
-
 end

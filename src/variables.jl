@@ -1,4 +1,10 @@
 
+
+abstract type AbstractParameter{T} end
+abstract type AbstractAction{T} end
+abstract type AbstractSpaceAction{T,N} end
+DrWatson.default_allowed(c::AbstractParameter) = (Real, String, Symbol, AbstractParameter)
+
 abstract type AbstractVariable{T<:Real} end
 
 "A parameter to vary, without bounds."
@@ -21,22 +27,6 @@ const MaybeVariable{T} = Union{T,AbstractVariable{T}}
 Base.zero(::Type{<:MaybeVariable{T}}) where T <: Number = zero(T)
 default_value(var::V) where V <: AbstractVariable = var.value
 bounds(var::V) where V <: BoundedVariable = var.bounds
-
-"Map a type over kwargs"
-function pops(t::Type{T}; kwargs...)::Array{T} where T
-    syms = keys(kwargs)
-    args = zip(values(kwargs)...)
-    new_kwargs = (zip(syms, arg) for arg in args)
-    return map((single_kwargs) -> t(;single_kwargs...), new_kwargs)
-end
-
-function pops(ts::AbstractArray{<:Type{T}}; kwargs...)::Array{T} where T
-	syms = keys(kwargs)
-	args = zip(values(kwargs)...)
-	new_kwargs = (zip(syms, args) for arg in args)
-	type_and_new_kwargs = zip(ts, new_kwargs)
-	return map((t, single_kwargs) -> t(; single_kwargs...), type_and_new_kwargs)
-end
 
 """
     deconstruct(ad::AbstractDeconstructor, param)

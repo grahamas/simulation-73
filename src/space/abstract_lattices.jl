@@ -1,8 +1,13 @@
 
 abstract type AbstractLattice{T,N_ARR,N_CDT} <: AbstractSpace{T,N_ARR,N_CDT} end
+(t::Type{<:AbstractLattice})(extent::Tuple, n_points::Tuple) = t(discrete_lattice(extent, n_points))
+(t::Type{<:AbstractLattice{T,1}})(extent::Number, n_points::Int) where T = t((extent,),(n_points,))
+(t::Type{<:AbstractLattice})(; extent,n_points) = t(extent,n_points)
+
 Base.step(space::AbstractLattice) = extent(space) ./ (size(space) .- 1)
 Base.size(lattice::AbstractLattice) = size(lattice.arr)
 Base.size(lattice::AbstractLattice, d::Int) = size(lattice.arr, d)
+Base.zeros(lattice::AbstractLattice{T}) where T = zeros(T,size(lattice)...)
 """
     discrete_segment(extent, n_points)
 
@@ -12,7 +17,7 @@ Return an object containing `n_points` equidistant coordinates of a segment of l
 ```jldoctest
 julia> seg = discrete_segment(5.0, 7);
 
-julia> length(seg) == 5
+julia> length(seg) == 7
 true
 
 julia> seg[end] - seg[1] ≈ 5.0
@@ -37,8 +42,6 @@ extent(lattice::AbstractLattice) = lattice.arr[end] .- lattice.arr[1]
 coordinates(lattice::AbstractLattice) = discrete_lattice(extent(lattice), size(lattice))
 coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(extent(lattice), size(lattice))...,)
 
-# DEFAULT KEYWORD CONSTRUCTOR
-(t::Type{<:AbstractLattice})(; n_points, extent) = t(discrete_lattice(extent, n_points))
 
 """
     origin_idx(lattice)
@@ -47,13 +50,13 @@ Return the coordinate of the zero point in `lattice`.
 
 # Example
 ```jldoctest
-julia> segment = CompactLattice(10.0, 11)
+julia> segment = CompactLattice{Float64,1}(10.0, 11)
 CompactLattice{Float64,1}(10.0, 11)
 
 julia> seg_origin_idx = origin_idx(segment)
 CartesianIndex(6,)
 
-julia> collect(coordinates(segment))[seg_origin_idx] == 0.0
+julia> collect(coordinates(segment))[seg_origin_idx] == (0.0,)
 true
 
 julia> grid = CompactLattice((10.0,50.0), (11, 13))

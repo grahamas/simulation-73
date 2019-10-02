@@ -26,10 +26,10 @@ Return the difference between two points in euclidean space as in abs_difference
 # Example
 ```jldoctest
 julia> abs_difference_periodic( (5,1), 3 )
-3
+-1
 
 julia> abs_difference_periodic( ((2,2), (5,-5)), (3,4) )
-(0, 3)
+(0, -3)
 ```
 """
 function abs_difference_periodic(edge::Tuple{T,T}, period::T) where T<:Number
