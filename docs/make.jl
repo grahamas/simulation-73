@@ -1,5 +1,5 @@
 using Documenter, Simulation73
-
+DocMeta.setdocmeta!(Simulation73, :DocTestSetup, :(using Simulation73); recursive=true)
 makedocs(
     sitename="Simulation73",
     modules=[Simulation73],
@@ -7,14 +7,6 @@ makedocs(
        "Home" => "index.md",
        "Manual" => Any[
            "man/simulation.md"
-           # "man/examples.md",
-           # "man/syntax.md",
-           # "man/doctests.md",
-           # "man/latex.md",
-           # hide("man/hosting.md", [
-           #     "man/hosting/walkthrough.md"
-           # ]),
-           # "man/other-formats.md",
        ],
        "Library" => Any[
            "Public" => "lib/public.md",

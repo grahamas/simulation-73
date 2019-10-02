@@ -1,11 +1,5 @@
 # Simulation73 Documentation
 
-```@meta
-DocTestSetup = quote
-    using Simulation73
-end
-```
-
 ## Manual
 
 ```@contents
