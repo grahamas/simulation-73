@@ -1,10 +1,5 @@
 
 
-abstract type AbstractParameter{T} end
-abstract type AbstractAction{T} end
-abstract type AbstractSpaceAction{T,N} end
-DrWatson.default_allowed(c::AbstractParameter) = (Real, String, Symbol, AbstractParameter)
-
 abstract type AbstractVariable{T<:Real} end
 
 "A parameter to vary, without bounds."

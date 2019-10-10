@@ -2,6 +2,8 @@
 abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
 abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
 
+n_populations(::AbstractModel{T,N,P}) where {T,N,P} = P
+
 initial_value(::AbstractModel{T,N,P}, space::AbstractSpace{T,N}) where {T,N,P} = population_repeat(zeros(space), P)
 
 "A Simulation holds an AbstractModel to be solved, the space on which to solve it, the time for which to solve it, the initial value, and various solver options."
