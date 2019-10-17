@@ -65,13 +65,17 @@ end
         pop_inputs = ones(10, 2)
         pop_inputs[:,2] .= 31.0
         pop_outputs = zeros(10, 2)
+        pop_outputs[:,2] .= 2.0
         pop_mult = pops(CrossMultiply; mul=[2.0 -7.0; 5.0 -17.0])
-
+        
         theoretical_result = zeros(10,2)
-        theoretical_result[:,1] .= 1.0 + (2.0) - (7.0 * 31.0)
-        theoretical_result[:,2] .= 31.0 + (5.0) - (17.0 * 31.0)
+        theoretical_result[:,1] .= (2.0) - (7.0 * 31.0)
+        theoretical_result[:,2] .= 2.0 + (5.0) - (17.0 * 31.0)
 
         pop_mult(pop_outputs, pop_inputs, 0.0)
+        same_input = ones(10,2)
+        same_input[:,2] .= 31.0
+        @test all(same_input .== pop_inputs)
 
         @show pop_outputs
         @show theoretical_result

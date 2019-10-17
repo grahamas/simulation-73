@@ -42,19 +42,19 @@ const PopAct{P,T} = Union{Array{<:AbstractPopulationActions,1},AbstractPopulatio
 const PopInteract{P,T} = Union{Array{<:AbstractPopulationInteractions,1},AbstractPopulationInteractions{P,T}}
 
 function array(p1d::AbstractPOneD{2})
-    [p1d.P1, p1d.P2]
+    [p1d.p1, p1d.p2]
 end
 
 function array(p2d::AbstractPTwoD{2})
-    [p2d.P11 p2d.P12;
-     p2d.P21 p2d.P22]
-end 
+    [p2d.p11 p2d.p12;
+     p2d.p21 p2d.p22]
+end
 
-struct PopulationActionsParameters2{P,P1<:P,P2<:P} <: AbstractPopulationActionsParameters{2,P} 
+struct PopulationActionsParameters2{P,P1<:P,P2<:P} <: AbstractPopulationActionsParameters{2,P}
     p1::P1
     p2::P2
     PopulationActionsParameters2(p1::P1,p2::P2) where {P1,P2} = new{typejoin(P1,P2),P1,P2}(p1,p2)
-    PopulationActionsParameters2{P,P1,P2}(p1::P1,p2::P2) where {P,P1<:P,P2<:P} = new(p1,p2) 
+    PopulationActionsParameters2{P,P1,P2}(p1::P1,p2::P2) where {P,P1<:P,P2<:P} = new(p1,p2)
 end
 (pp::PopulationActionsParameters2)(args...) = PopulationActions2(pp.p1(args...), pp.p2(args...))
 
@@ -71,22 +71,22 @@ end
 
 struct PopulationInteractionsParameters2{P,P11<:P,P12<:P,P21<:P,P22<:P} <: AbstractPopulationInteractionsParameters{2,P}
     p11::P11
+	p21::P21
     p12::P12
-    p21::P21
     p22::P22
-    PopulationInteractionsParameters2(p11::P11,p12::P12,p21::P21,p22::P22) where {P11,P12,P21,P22} = new{typejoin(P11,P12,P21,P22),P11,P12,P21,P22}(p11,p12,p21,p22)
+    PopulationInteractionsParameters2(p11::P11,p21::P21,p12::P12,p22::P22) where {P11,P12,P21,P22} = new{typejoin(P11,P12,P21,P22),P11,P12,P21,P22}(p11,p21,p12,p22)
 end
 struct PopulationInteractions2{P,P11<:P,P12<:P,P21<:P,P22<:P} <: AbstractPopulationInteractions{2,P}
     p11::P11
-    p12::P12
     p21::P21
+    p12::P12
     p22::P22
-    PopulationInteractions2(p11::P11,p12::P12,p21::P21,p22::P22) where {P11,P12,P21,P22} = new{typejoin(P11,P12,P21,P22),P11,P12,P21,P22}(p11,p12,p21,p22)
+    PopulationInteractions2(p11::P11,p21::P21,p12::P12,p22::P22) where {P11,P12,P21,P22} = new{typejoin(P11,P12,P21,P22),P11,P12,P21,P22}(p11,p21,p12,p22)
 end
-(pp::PopulationInteractionsParameters2)(args...) = PopulationInteractions2(pp.p11(args...), pp.p12(args...),
-                                                                           pp.p21(args...), pp.p22(args...))
+(pp::PopulationInteractionsParameters2)(args...) = PopulationInteractions2(pp.p11(args...), pp.p21(args...),
+                                                                           pp.p12(args...), pp.p22(args...))
 function (pop_interactions::PopulationInteractions2)(inplace::ARR1, source::ARR2, t::T) where {T,N,ARR1<:AbstractArray{T,N},ARR2<:AbstractArray{T,N}}
-    pop_interactions.p11(population(inplace, 1), population(source, 1), t)
+	pop_interactions.p11(population(inplace, 1), population(source, 1), t)
     pop_interactions.p12(population(inplace, 1), population(source, 2), t)
     pop_interactions.p21(population(inplace, 2), population(source, 1), t)
     pop_interactions.p22(population(inplace, 2), population(source, 2), t)
@@ -99,7 +99,8 @@ end
 
 PopulationActionsParameters(p1::AbstractParameter, p2) = PopulationActionsParameters2(p1, p2)
 PopulationActionsParameters(p1::AbstractAction, p2) = PopulationActions2(p1, p2)
-PopulationInteractionsParameters(p11,p12,p21,p22) = PopulationInteractionsParameters2(p11,p12,p21,p22)
+PopulationInteractionsParameters(p11::AbstractParameter,p21,p12,p22) = PopulationInteractionsParameters2(p11,p21,p12,p22)
+PopulationInteractionsParameters(p11::AbstractAction,p21,p12,p22) = PopulationInteractions2(p11,p21,p12,p22)
 
 function pops(t::Type{T}; kwargs...) where T
     syms = keys(kwargs)
