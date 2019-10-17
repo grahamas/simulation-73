@@ -63,9 +63,9 @@ struct PopulationActions2{P,P1<:P,P2<:P} <: AbstractPopulationActions{2,P}
     p2::P2
     PopulationActions2(p1::P1,p2::P2) where {P1,P2} = new{typejoin(P1,P2),P1,P2}(p1,p2)
 end
-function (pop_actions::PopulationActions2)(inplace::AbstractArray{T,N}, source::AbstractArray{T,N}, args...) where {T,N}
-    pop_actions.p1(population(inplace, 1), population(source, 1), args...)
-    pop_actions.p2(population(inplace, 2), population(source, 2), args...)
+function (pop_actions::PopulationActions2)(inplace::AbstractArray{T,N}, source::AbstractArray{T,N}, t::T) where {T,N}
+    pop_actions.p1(population(inplace, 1), population(source, 1), t)
+    pop_actions.p2(population(inplace, 2), population(source, 2), t)
 end
 
 
@@ -85,11 +85,11 @@ struct PopulationInteractions2{P,P11<:P,P12<:P,P21<:P,P22<:P} <: AbstractPopulat
 end
 (pp::PopulationInteractionsParameters2)(args...) = PopulationInteractions2(pp.p11(args...), pp.p12(args...),
                                                                            pp.p21(args...), pp.p22(args...))
-function (pop_interactions::PopulationInteractions2)(inplace::ARR1, source::ARR2, args...) where {T,N,ARR1<:AbstractArray{T,N},ARR2<:AbstractArray{T,N}}
-    pop_interactions.p11(population(inplace, 1), population(source, 1), args...)
-    pop_interactions.p12(population(inplace, 1), population(source, 2), args...)
-    pop_interactions.p21(population(inplace, 2), population(source, 1), args...)
-    pop_interactions.p22(population(inplace, 2), population(source, 2), args...)
+function (pop_interactions::PopulationInteractions2)(inplace::ARR1, source::ARR2, t::T) where {T,N,ARR1<:AbstractArray{T,N},ARR2<:AbstractArray{T,N}}
+    pop_interactions.p11(population(inplace, 1), population(source, 1), t)
+    pop_interactions.p12(population(inplace, 1), population(source, 2), t)
+    pop_interactions.p21(population(inplace, 2), population(source, 1), t)
+    pop_interactions.p22(population(inplace, 2), population(source, 2), t)
 end
 export PopulationInteractions2
 
