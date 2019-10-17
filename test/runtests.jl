@@ -11,6 +11,8 @@ line_dx1 = CompactLattice{Float64,1}(; n_points=(n_points_dx1,), extent=(extent_
 empty_circle_dx1 = zeros(size(circle_dx1)...)
 empty_line_dx1 = zeros(size(line_dx1)...)
 
+
+
 @testset "Stimulus" begin
     @testset "Non-stimulus" begin
         nostim = NoStimulusParameter{Float64}()
@@ -44,9 +46,36 @@ end
         nullstim_actions = nullstim_pops(line_dx1)
         single_pop = copy(empty_line_dx1)
         two_pops = population_repeat(single_pop, 2)
-        @test nullstim_actions(two_pops, two_pops, 0.0) != 0 
+        @test nullstim_actions(two_pops, two_pops, 0.0) != 0
     end
+    # TODO: need population interactions tests
+    struct CrossMultiply{T} <: AbstractInteraction{T}
+        mul::T
+    end
+    CrossMultiply(; mul) = CrossMultiply(mul)
+    (c::CrossMultiply)(inplace, source, t) = inplace .+= source .* c.mul
+    @testset "Interactions" begin
+        mult1 = CrossMultiply(5.0)
+        mult_input = ones(10)
+        mult_output = ones(10) .* 2
+        mult1(mult_output, mult_input, 0.0)
+        @assert all(mult_output .== (2.0 .+ 5.0 .* mult_input))
+        @assert all(mult_input .== ones(10))
+
+        pop_inputs = ones(10, 2)
+        pop_inputs[:,2] .= 31.0
+        pop_outputs = zeros(10, 2)
+        pop_mult = pops(CrossMultiply; mul=[2.0 -7.0; 5.0 -17.0])
+
+        theoretical_result = zeros(10,2)
+        theoretical_result[:,1] .= 1.0 + (2.0) - (7.0 * 31.0)
+        theoretical_result[:,2] .= 31.0 + (5.0) - (17.0 * 31.0)
+
+        pop_mult(pop_outputs, pop_inputs, 0.0)
+
+        @show pop_outputs
+        @show theoretical_result
+        @test all(pop_outputs .== theoretical_result)
+    end
+
 end
-
-
-
