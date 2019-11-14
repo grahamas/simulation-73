@@ -54,6 +54,9 @@ function origin_idx(space::AbstractSpace{T}) where T
         return origin_idxs[1]
     end
 end
+function fft_center_dx(space::AbstractSpace)
+    CartesianIndex(floor.(Ref(Int), size(space) ./ 2) .+ 1)
+end
 
 # Include file definitions of various spaces
 include("space/metrics.jl")

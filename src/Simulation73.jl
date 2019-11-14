@@ -32,7 +32,7 @@ export CompactLattice, PeriodicLattice
 export RandomlyEmbeddedLattice, unembed_values
 
 export coordinates, origin_idx, differences, coordinate_axes, timepoints, space,
-    extent, abs_difference, abs_difference_periodic, discrete_segment
+    extent, abs_difference, abs_difference_periodic, discrete_segment, fft_center_dx
 
 # "action.jl"
 export AbstractAction, AbstractInteraction, AbstractSpaceAction, AbstractSpaceInteraction
