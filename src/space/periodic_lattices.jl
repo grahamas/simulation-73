@@ -30,3 +30,21 @@ end
 #
 #     (x,y,values)
 # end
+
+# TODO: Should be completely uniform in periodic case?
+export simpson_weights
+function simpson_weights(lattice::PeriodicLattice{T,1}) where T
+    @assert all(size(lattice) .% 2 .== 0)
+    w = ones(T, size(lattice)...)
+    return w
+end
+function simpson_weights(lattice::PeriodicLattice{T,2}) where T
+    # http://mathfaculty.fullerton.edu/mathews/n2003/SimpsonsRule2DMod.html
+    @assert all(size(lattice) .% 2 .== 0)
+    w = ones(T, size(lattice)...)
+    w[1:2:end-1,:] .*= 4.0
+    w[2:2:end,:] .*= 2.0
+    w[:,1:2:end-1] .*= 4.0
+    w[:,2:2:end] .*= 2.0
+    return w
+end
