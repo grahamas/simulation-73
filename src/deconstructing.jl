@@ -69,10 +69,10 @@ function base_type(::Type{Tuple{T,S}}) where {T,S}
     return Tuple{BT,BS}
 end
 
-function base_type(::Type{SA}) where {N,M,T,TUP,SA<:Union{SArray{TUP,T,N,M},MArray{TUP,T,N,M},SizedArray{TUP,T,N,M}}}
-    BT = base_type(T)
-    return SArray{TUP,BT,N,M}
-end
+# function base_type(::Type{SA}) where {N,M,T,TUP,SA<:Union{SArray{TUP,T,N,M},MArray{TUP,T,N,M},SizedArray{TUP,T,N,M}}}
+#     BT = base_type(T)
+#     return SArray{TUP,BT,N,M}
+# end
 
 
 function reconstruct(tup::Tuple{Type,<:Union{Number,AbstractString}})
