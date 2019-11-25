@@ -4,7 +4,7 @@ using DrWatson
 using Markdown # for doc_str
 using DifferentialEquations, DiffEqBase#, DiffEqParamEstim
 #using BlackBoxOptim, Optim
-using StaticArrays
+#using StaticArrays
 using JLD2
 import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
 using OrdinaryDiffEq
