@@ -1,13 +1,15 @@
 "A AbstractModel specifies all parameters of a system."
 abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
 abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
+abstract type AbstractSimulation{T} <: AbstractParameter{T} end #prob unneces, but AbsExec...
+abstract type AbstractExecution{T} end 
 
 n_populations(::AbstractModel{T,N,P}) where {T,N,P} = P
 
 initial_value(::AbstractModel{T,N,P}, space::AbstractSpace{T,N}) where {T,N,P} = population_repeat(zeros(space), P)
 
 "A Simulation holds an AbstractModel to be solved, the space on which to solve it, the time for which to solve it, the initial value, and various solver options."
-struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractParameter{T}
+struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractSimulation{T}
     model::M
     space::S
     tspan::Tuple{T,T}
@@ -22,7 +24,7 @@ end
 
 
 "An Execution holds a Simulation and the solution obtained by running the Simulation."
-struct Execution{T,S<:Simulation{T},D<:DESolution}
+struct Execution{T,S<:AbstractSimulation{T},D<:DESolution} <: AbstractExecution{T}
     simulation::S
     solution::D
 end

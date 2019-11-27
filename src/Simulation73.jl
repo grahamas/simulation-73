@@ -4,7 +4,6 @@ using DrWatson
 using Markdown # for doc_str
 using DifferentialEquations, DiffEqBase#, DiffEqParamEstim
 #using BlackBoxOptim, Optim
-using StaticArrays
 using JLD2
 import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
 using OrdinaryDiffEq
@@ -64,7 +63,8 @@ export AbstractTarget, target_loss
 export execute
 
 # "simulating.jl"
-export AbstractModel, AbstractModelwithDelay, Solver, Simulation, Execution,
+export AbstractModel, AbstractModelwithDelay, Solver, Simulation, 
+    AbstractExecution, Execution,
 	initial_value, history, time_span, saved_dt, saved_dx,
 	generate_problem, solve, run_simulation,
 	make_mutators, make_system_mutator
