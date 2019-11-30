@@ -47,7 +47,7 @@ export AbstractPopulationActionsParameters, AbstractPopulationInteractionsParame
 # "subsampling.jl" (note: should probably be meshed with meshes)
 export scalar_to_idx_window, subsampling_Δidx, subsampling_idxs,
 	subsampling_time_idxs, subsampling_space_idxs, AbstractSubsampler,
-    IndexSubsampler, ValueSubsampler, ValueWindower, RadialSlice
+    IndexSubsampler, ValueSubsampler, ValueWindower, RadialSlice, StrideToEnd
 
 # "stimulus.jl"
 export AbstractStimulusParameter, AbstractStimulusAction,
