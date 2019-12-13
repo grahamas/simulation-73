@@ -18,6 +18,7 @@ end
 	window::NTuple{D,T}
 end
 struct RadialSlice <: AbstractSubsampler{2} end
+"Subsample a space down to a new space"
 function subsample(lattice::AbstractLattice{T,2}, rs::RadialSlice) where T
 	dxs = coordinate_indices(lattice, rs)
 	slice_coords = lattice.arr[dxs]
@@ -52,6 +53,7 @@ function getindex(A::AbstractArray{T,N}, VW::ValueWindower{N,T}) where {T,N}
 end
 
 ## RadialSlice
+"Get the coordinates of the subsample space within the larger space."
 function coordinate_indices(space::AbstractLattice{T,2}, subsampler::RadialSlice) where T
 	origin = origin_idx(space)
 	[CartesianIndex(origin[1], x) for x in origin[2]:size(space,2)]
