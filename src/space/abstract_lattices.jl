@@ -72,17 +72,17 @@ true
 origin_idx(lattice::AbstractLattice) = CartesianIndex(round.(Int, size(lattice) ./ 2, RoundNearestTiesUp))
 
 using Statistics
-@recipe function f(lattice::AbstractLattice, values::AbstractArray{<:AbstractArray,1})
-    standard_deviations = std.(values)
-    means = mean.(values)
-    up_stds = means .+ standard_deviations
-    down_stds = means .- standard_deviations
-    seriestype := :line
-    @series begin
-        linestyle := [:dot :dot :solid]
-        (lattice, hcat(up_stds, down_stds, means))
-    end
-end
+# @recipe function f(lattice::AbstractLattice, values::AbstractArray{<:AbstractArray,1})
+#     standard_deviations = std.(values)
+#     means = mean.(values)
+#     up_stds = means .+ standard_deviations
+#     down_stds = means .- standard_deviations
+#     seriestype := :line
+#     @series begin
+#         linestyle := [:dot :dot :solid]
+#         (lattice, hcat(up_stds, down_stds, means))
+#     end
+# end
 
 
 @recipe function f(lattice::AbstractLattice{T,1}, values; val_lim=nothing) where T

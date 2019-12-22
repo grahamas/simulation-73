@@ -36,8 +36,8 @@ execute(s::Simulation) = Execution(s)
 # initial_value(sim::Simulation) = initial_value(sim.solver)
 # time_span(sim::Simulation) = time_span(sim.solver)
 # history(simulation::Simulation) = history(simulation.solver)
-coordinates(sim::Simulation) = coordinates(sim.space)
-coordinates(ex::Execution) = coordinates(ex.simulation)
+coordinates(sim::Simulation) = coordinates(space(sim))
+coordinates(ex::AbstractExecution) = coordinates(space(ex))
 timepoints(ex::Execution) = ex.solution.t
 _space(sp::AbstractSpace, opts) = subsample(sp, get(opts, :save_idxs, nothing))
 space(sim::Simulation) = _space(sim.space, sim.solver_options)
@@ -131,4 +131,33 @@ function run_simulation(jl_filename::AbstractString)
     execution = execute(simulation)
     results = analyse.(analyses, Ref(execution), Ref(output))
     return (execution, results)
+end
+
+using DiffEqBase: AbstractTimeseriesSolution
+struct BareSolution{S,N,U<:Array{<:Array{<:S,N}},X,T} <: AbstractTimeseriesSolution{S,N}
+    u::U
+    x::X
+    t::T
+end
+BareSolution(; u::U, x::X, t::T) where {S,N,U<:Array{<:Array{<:S,N}},X,T} = BareSolution{S,N,U,X,T}(u,x,t)
+timepoints(bs::BareSolution) = bs.t
+coordinates(bs::BareSolution) = bs.x
+function Base.show(io::IO, A::BareSolution)
+  print(io,"t: ")
+  show(io, A.t)
+  println(io)
+  print(io,"u: ")
+  show(io, A.u)
+end
+function Base.show(io::IO, m::MIME"text/plain", A::BareSolution)
+  print(io,"t: ")
+  show(io,m,A.t)
+  println(io)
+  print(io,"u: ")
+  show(io,m,A.u)
+end
+@generated function Simulation73.population_timepoint(solution::BareSolution{T,NP}, pop_dx::Int, time_dx::Int) where {T,NP}
+    N = NP - 1 # N + pops
+    colons = [:(:) for i in 1:N]
+    :(solution[time_dx][$(colons...), pop_dx])
 end
