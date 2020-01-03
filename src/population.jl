@@ -115,3 +115,11 @@ function pops(t::Type{T}; kwargs...) where T
 		error("Weirdly shaped parameters.")
 	end
 end
+
+function pops(ps::Array{P,1}) where {P<:AbstractParameter}
+    PopulationActionsParameters(ps...)
+end
+function pops(ps::Array{P,2}) where {P<:AbstractParameter}
+    PopulationInteractionsParameters(ps...)
+end
+    
