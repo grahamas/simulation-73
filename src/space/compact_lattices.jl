@@ -30,5 +30,6 @@ function simpson_weights(lattice::CompactLattice{T,2}) where T
     w[:,3:2:end-2] .*= 2.0
     return w
 end
+Base.getindex(lat::CompactLattice, dx) = getindex(lat.arr, dx)
 
 # Use default lattice plotting
