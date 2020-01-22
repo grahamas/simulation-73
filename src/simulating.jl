@@ -1,8 +1,26 @@
 "A AbstractModel specifies all parameters of a system."
 abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
+abstract type AbstractODEModel{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
+abstract type AbstractNoisyModel{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractSimulation{T} <: AbstractParameter{T} end #prob unneces, but AbsExec...
 abstract type AbstractExecution{T} end 
+
+export AbstractNoisyModel, WeinerNoisyModel, AbstractODEModel
+
+struct WeinerNoisyModel{T,N,P,M<:AbstractModel{T,N,P}} <: AbstractNoisyModel{T,N,P}
+    noise_coefficient::Float64
+    model::M
+end
+function Base.getproperty(wnm::WeinerNoisyModel, sym::Symbol)
+    if sym ∈ [:noise_coefficient, :model]
+        return getfield(wnm, sym)
+    else
+        return getproperty(getfield(wnm, :model), sym)
+    end
+end
+
+(wnm::WeinerNoisyModel)(args...) = (wnm.model(args...), (du,u,p,t) -> (du .= wnm.noise_coefficient))
 
 n_populations(::AbstractModel{T,N,P}) where {T,N,P} = P
 
@@ -87,10 +105,15 @@ end
 
 Return an ODEProblem of the `simulation.model` with time span specified by `simulation.solver`.
 """
-function generate_problem(simulation::Simulation{T}) where {T}
+function generate_problem(simulation::Simulation{T,<:AbstractODEModel}) where {T}
     system_fn! = simulation.model(simulation.space)
     ode_fn = convert(ODEFunction{true}, system_fn!)
     return ODEProblem(ode_fn, simulation.initial_value, simulation.tspan)
+end
+
+function generate_problem(simulation::Simulation{T,<:AbstractNoisyModel}) where {T}
+    system_fn!, noise_fn! = simulation.model(simulation.space)
+    return SDEProblem(system_fn!, noise_fn!, simulation.initial_value, simulation.tspan)
 end
 
 # TODO: Add history functionality
@@ -134,12 +157,23 @@ function run_simulation(jl_filename::AbstractString)
 end
 
 using DiffEqBase: AbstractTimeseriesSolution
-struct BareSolution{S,N,U<:Array{<:Array{<:S,N}},X,T} <: AbstractTimeseriesSolution{S,N}
+struct BareSolution{S,N,U<:Array{<:Array{<:S,N}},X,T} <: AbstractTimeseriesSolution{S,N,U}
     u::U
     x::X
     t::T
+    tslocation::Int
 end
-BareSolution(; u::U, x::X, t::T) where {S,N,U<:Array{<:Array{<:S,N}},X,T} = BareSolution{S,N,U,X,T}(u,x,t)
+BareSolution(; u::U, x::X, t::T) where {S,N,ELT<:Union{S,Array{<:S,N}},U<:Array{ELT},X,T} = BareSolution{S,N,U,X,T}(u,x,t,0)
+function Base.getproperty(bs::BareSolution, sym::Symbol)
+    if sym ∈ [:dense, :prob]
+        return false
+    else
+        return Base.getfield(bs, sym)
+    end
+end
+function DiffEqBase.add_labels!(labels,x,dims,sol::BareSolution)
+    return
+end
 timepoints(bs::BareSolution) = bs.t
 coordinates(bs::BareSolution) = bs.x
 function Base.show(io::IO, A::BareSolution)

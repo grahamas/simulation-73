@@ -1,3 +1,5 @@
+const ModelSolution{T,NPT_FULL,NP_SAVED} = Union{OrdinaryDiffEq.ODECompositeSolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}},DifferentialEquations.ODESolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}},DifferentialEquations.RODESolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}}}
+
 # FIXME not real dispatch, since it's just an alias
 @inline population(A::AbstractArray{T,N}, i) where {T,N} = view_slice_last(A, i)
 function population_coordinates(coordinates::AbstractArray{<:CartesianIndex,N}, P) where N
@@ -9,7 +11,7 @@ population_repeat(arr::AbstractArray{T,N}, P) where {T,N} = repeat(arr, outer=([
 
 Return spatial frame for a given population `pop_dx` and time `time_dx`.
 """
-@generated function population_timepoint(solution::Union{OrdinaryDiffEq.ODECompositeSolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}},DifferentialEquations.ODESolution{T,NPT_FULL,<:Array{<:Array{T,NP_SAVED}}}}, pop_dx::Int, time_dx::Int) where {T,NPT_FULL,NP_SAVED}
+@generated function population_timepoint(solution::ModelSolution{T,NPT_FULL,NP_SAVED}, pop_dx::Int, time_dx::Int) where {T,NPT_FULL,NP_SAVED}
     N = NP_SAVED - 1 # N + pops
     colons = [:(:) for i in 1:N]
     :(solution(solution.t[time_dx])[$(colons...), pop_dx])
