@@ -7,21 +7,25 @@ A Lattice of points with `extent` describing the length along each dimension and
 struct PeriodicLattice{T,N_ARR} <: AbstractPeriodicLattice{T,N_ARR,N_ARR}
     arr::Array{NTuple{N_ARR,T},N_ARR}
 end
-coordinate_axes(p_lattice::PeriodicLattice) = (discrete_segment.(0.0, extent(p_lattice) .- step(p_lattice), size(p_lattice))...,)
+coordinate_axes(p_lattice::PeriodicLattice) = (discrete_segment.(.-extent(p_lattice)./2, extent(p_lattice)./2 .- step(p_lattice), size(p_lattice))...,)
 difference(p_lattice::PeriodicLattice, edge) = abs_difference_periodic(edge, extent(p_lattice))
 
-@recipe function f(lattice::PeriodicLattice{T,1}, values; val_lim=nothing) where T
-    θ = coordinate_axes(lattice)[1] .* (2π / extent(lattice)[1])
-    #y = values .* sin.(θ)
-    #x = values .* cos.(θ)
-    seriestype := :scatter
-    projection := :polar
-    @warn "val_lim unused"
+# @recipe function f(lattice::PeriodicLattice{T,1}, values; val_lim=(0.0, 1.0)) where T
+#     θ = coordinate_axes(lattice)[1] .* (2π / extent(lattice)[1])
+#     #y = values .* sin.(θ)
+#     #x = values .* cos.(θ)
+#     seriestype := :scatter
+#     projection := :polar
+#     min_val, max_val = val_lim
+#     min_r = max(abs(min_val), abs(max_val))
+#     inner_r = min_r * 2
+#     r_values = values .+ inner_r
+#     #lims := (0, inner_r + max_val)
 
-    aspect_ratio := :equal
+#     aspect_ratio := :equal
 
-    (θ |> collect, r_values)
-end
+#     (θ |> collect, r_values)
+# end
 
 # @recipe function f(lattice::PeriodicLattice{T,2}, values::Array{T,2}; val_lim=nothing) where T
 #     (x, y) = coordinate_axes(lattice) .|> collect
