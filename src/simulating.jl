@@ -3,8 +3,12 @@ abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
 abstract type AbstractODEModel{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractNoisyModel{T,N,P} <: AbstractModel{T,N,P} end
-abstract type AbstractSimulation{T} <: AbstractParameter{T} end #prob unneces, but AbsExec...
+abstract type AbstractSimulation{T} <: AbstractParameter{T} end 
 abstract type AbstractExecution{T} end 
+
+struct FailedExecution{T,S<:AbstractSimulation{T}} <: AbstractExecution{T}
+    sim::S
+end
 
 export AbstractNoisyModel, WeinerNoisyModel, AbstractODEModel
 
@@ -47,13 +51,20 @@ struct Execution{T,S<:AbstractSimulation{T},D<:DESolution} <: AbstractExecution{
     solution::D
 end
 Execution(s::S) where {T,S <: Simulation{T}} = Execution(s,solve(s))
-# DrWatson.savename(e::Execution) = savename(e.simulation)
 
-execute(s::Simulation) = Execution(s)
-
-# initial_value(sim::Simulation) = initial_value(sim.solver)
-# time_span(sim::Simulation) = time_span(sim.solver)
-# history(simulation::Simulation) = history(simulation.solver)
+function execute(s::Simulation)
+    exec = try
+        Execution(s)
+    catch e
+        if e isa DomainError
+            FailedExecution(s)
+        else
+            throw(e)
+        end
+    end
+    return exec
+end
+            
 coordinates(sim::Simulation) = coordinates(space(sim))
 coordinates(ex::AbstractExecution) = coordinates(space(ex))
 timepoints(ex::Execution) = ex.solution.t
@@ -63,33 +74,6 @@ space(ex::Execution) = space(ex.simulation)
 origin_idx(sim::Simulation) = origin_idx(sim.space)
 origin_idx(ex::Execution) = origin_idx(ex.simulation)
 extrema(ex::AbstractExecution) = extrema(ex.solution.u)
-# saved_dt(sim::Simulation{T}) where T = saved_dt(sim.solver)
-# saved_dx(sim::Simulation{T}) where T = saved_dx(sim.model, sim.solver)
-# space_index_info(sim::Simulation{T}) where T = space_index_info(sim.solver)
-# time_index_info(sim::Simulation{T}) where T = get_time_index_info(sim.solver)
-#
-#
-#
-# function subsampling_idxs(simulation::Simulation{T,<:AbstractModel{T}}, space_subsampler::Subsampler, time_subsampler::Subsampler) where T
-#     subsampling_idxs(simulation.model, simulation.solver, space_subsampler, time_subsampler)
-# end
-#
-# function subsample(execution::Execution{T,<:Simulation{T,<:AbstractModel{T}}}; time_subsampler, space_subsampler) where T
-#     simulation = execution.simulation
-#     solution = execution.solution
-#
-#     t = timepoints(simulation)
-#     x = coordinates(simulation)
-#
-#     x_dxs, pop_dxs, t_dxs = subsampling_idxs(simulation, space_subsampler, time_subsampler)
-#
-#     t = t[t_dxs]
-#     x = x[x_dxs] # TODO: Remove 1D return assumption
-#     wave = solution[x_dxs,pop_dxs,t_dxs]
-#
-#     return (t,x,wave)
-# end
-
 
 """
     make_system_mutator(simulation)
@@ -134,7 +118,7 @@ function unpacking_solve(simulation::Simulation, alg; save_idxs=nothing, dt, sol
     if dt != nothing
         solver_options = (solver_options..., dt=dt)
     end
-    problem = generate_problem(simulation)
+    solution = generate_problem(simulation)
     solve(problem, alg; solver_options...)
 end
 
