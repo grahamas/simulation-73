@@ -69,6 +69,9 @@ Execution(s::S) where {T,S <: Simulation{T}} = Execution(s,solve(s))
 function execute(s::Simulation)
     return Execution(s)
 end
+function execute(s::FailedSimulation)
+    return FailedExecution(s)
+end
             
 coordinates(sim::Simulation) = coordinates(space(sim))
 coordinates(ex::AbstractExecution) = coordinates(space(ex))
