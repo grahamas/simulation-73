@@ -99,10 +99,19 @@ function (arr::Array{<:AbstractPopulationP})(args...)
 	[p(args...) for p in arr]
 end
 
-PopulationActionsParameters(p1::AbstractParameter, p2) = PopulationActionsParameters2(p1, p2)
-PopulationActionsParameters(p1::AbstractAction, p2) = PopulationActions2(p1, p2)
-PopulationInteractionsParameters(p11::AbstractParameter,p21,p12,p22) = PopulationInteractionsParameters2(p11,p21,p12,p22)
-PopulationInteractionsParameters(p11::AbstractAction,p21,p12,p22) = PopulationInteractions2(p11,p21,p12,p22)
+PopulationActionsParameters(p1::AbstractParameter, p2::AbstractParameter) = PopulationActionsParameters2(p1, p2)
+PopulationActionsParameters(p1::AbstractAction, p2::AbstractParameter) = PopulationActions2(p1, p2)
+PopulationInteractionsParameters(p11::AbstractParameter,p21::AbstractParameter,p12::AbstractParameter,p22::AbstractParameter) = PopulationInteractionsParameters2(p11,p21,p12,p22)
+PopulationInteractionsParameters(p11::AbstractAction,p21::AbstractParameter,p12::AbstractParameter,p22::AbstractParameter) = PopulationInteractions2(p11,p21,p12,p22)
+
+const MissingAP = Union{Missing, <:AbstractParameter}
+const MissingAA = Union{Missing, <:AbstractAction}
+
+PopulationActionsParameters(p1::MissingAP, p2::MissingAP) = missing
+PopulationInteractionsParameters(p11::MissingAP, p21::MissingAP, p12::MissingAP, p22::MissingAP) = missing
+
+PopulationActionsParameters(p1::MissingAA, p2::MissingAA) = missing
+PopulationInteractionsParameters(p11::MissingAA, p21::MissingAA, p12::MissingAA, p22::MissingAA) = missing
 
 function pops(t::Type{T}; kwargs...) where T
     syms = keys(kwargs)

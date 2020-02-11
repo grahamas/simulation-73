@@ -6,6 +6,18 @@ abstract type AbstractNoisyModel{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractSimulation{T} <: AbstractParameter{T} end 
 abstract type AbstractExecution{T} end 
 
+function (am::Type{<:AbstractModel})(fallback_args...; fallback_kwargs...)
+    @warn """Model $am undefined!
+    ---------------------
+    $fallback_args
+    
+    $fallback_kwargs
+    ---------------------   
+    """
+    missing
+end
+
+struct FailedSimulation{T} <: AbstractSimulation{T} end
 struct FailedExecution{T,S<:AbstractSimulation{T}} <: AbstractExecution{T}
     sim::S
 end
@@ -41,9 +53,11 @@ struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractSimulati
     solver_options
 end
 function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), dt=nothing, algorithm, opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
-    Simulation{T,M,S}(model, space, tspan, initial_value, algorithm, dt, opts)
+    return Simulation{T,M,S}(model, space, tspan, initial_value, algorithm, dt, opts)
 end
-
+function Simulation(model::Missing; kwargs...)
+    return FailedSimulation{Missing}()
+end
 
 "An Execution holds a Simulation and the solution obtained by running the Simulation."
 struct Execution{T,S<:AbstractSimulation{T},D<:DESolution} <: AbstractExecution{T}
@@ -53,16 +67,7 @@ end
 Execution(s::S) where {T,S <: Simulation{T}} = Execution(s,solve(s))
 
 function execute(s::Simulation)
-    exec = try
-        Execution(s)
-    catch e
-        if e isa DomainError
-            FailedExecution(s)
-        else
-            throw(e)
-        end
-    end
-    return exec
+    return Execution(s)
 end
             
 coordinates(sim::Simulation) = coordinates(space(sim))
@@ -118,7 +123,7 @@ function unpacking_solve(simulation::Simulation, alg; save_idxs=nothing, dt, sol
     if dt != nothing
         solver_options = (solver_options..., dt=dt)
     end
-    solution = generate_problem(simulation)
+    problem = generate_problem(simulation)
     solve(problem, alg; solver_options...)
 end
 
@@ -126,19 +131,19 @@ function solve(simulation::Simulation)
     unpacking_solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options...)
 end
 
-"""
-    run_simulation(jl_filename)
+# """
+#     run_simulation(jl_filename)
 
-Loads a simulation object defined in `jl_filename`, and save the parameters.
-"""
-function run_simulation(jl_filename::AbstractString)
-    include(jl_filename)
-    filecopy(simulation.output, jl_filename, basename(jl_filename))
-    @assert all([@isdefined(simulation), @isdefined(output), @isdefined(analysis)])
-    execution = execute(simulation)
-    results = analyse.(analyses, Ref(execution), Ref(output))
-    return (execution, results)
-end
+# Loads a simulation object defined in `jl_filename`, and save the parameters.
+# """
+# function run_simulation(jl_filename::AbstractString)
+#     include(jl_filename)
+#     filecopy(simulation.output, jl_filename, basename(jl_filename))
+#     @assert all([@isdefined(simulation), @isdefined(output), @isdefined(analysis)])
+#     execution = execute(simulation)
+#     results = analyse.(analyses, Ref(execution), Ref(output))
+#     return (execution, results)
+# end
 
 using DiffEqBase: AbstractTimeseriesSolution
 struct BareSolution{S,N,U<:Array{<:Array{<:S,N}},X,T} <: AbstractTimeseriesSolution{S,N,U}
