@@ -5,6 +5,12 @@ Base.maximum(solution::DESolution) = maximum(map(maximum, solution.u))
 using DiffEqBase: AbstractTimeseriesSolution
 
 struct MissingSolution <: AbstractTimeseriesSolution{Missing,Missing,Missing} end
+function Base.show(io::IO, A::MissingSolution)
+  print(io,"MissingSolution")
+end
+function Base.show(io::IO, m::MIME"text/plain", A::MissingSolution)
+  print(io,"MissingSolution")
+end
 
 
 struct BareSolution{S,N,U<:Array{<:Array{<:S,N}},X,T} <: AbstractTimeseriesSolution{S,N,U}
