@@ -3,6 +3,7 @@ abstract type AbstractModel{T,N,P} <: AbstractParameter{T} end
 abstract type AbstractODEModel{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractNoisyModel{T,N,P} <: AbstractModel{T,N,P} end
+abstract type AbstractNoisySpaceAction{T,N} <: AbstractSpaceAction{T,N} end
 abstract type AbstractSimulation{T} <: AbstractParameter{T} end 
 abstract type AbstractExecution{T} end 
 
@@ -22,21 +23,35 @@ struct FailedExecution{T,S<:AbstractSimulation{T}} <: AbstractExecution{T}
     sim::S
 end
 
-export AbstractNoisyModel, WeinerNoisyModel, AbstractODEModel
+export AbstractNoisyModel, NoisyInputModel, NoisyInputAction, AbstractODEModel
 
-struct WeinerNoisyModel{T,N,P,M<:AbstractModel{T,N,P}} <: AbstractNoisyModel{T,N,P}
-    noise_coefficient::Float64
+struct NoisyInputModel{T,N,P,M<:AbstractModel{T,N,P}} <: AbstractNoisyModel{T,N,P}
     model::M
+    noise_process::NoiseProcess
 end
-function Base.getproperty(wnm::WeinerNoisyModel, sym::Symbol)
-    if sym ∈ [:noise_coefficient, :model]
+function Base.getproperty(wnm::NoisyInputModel, sym::Symbol)
+    if sym ∈ [:noise_process, :model]
         return getfield(wnm, sym)
     else
         return getproperty(getfield(wnm, :model), sym)
     end
 end
 
-(wnm::WeinerNoisyModel)(args...) = (wnm.model(args...), (du,u,p,t) -> (du .= wnm.noise_coefficient))
+struct NoisyInputAction{T,N,SA<:AbstractSpaceAction{T,N}} <: AbstractNoisySpaceAction{T,N}
+    space_action::SA
+    noise_process::NoiseProcess
+end
+function (act::NoisyInputAction)(du, u, p, t, W)
+    du .= W
+    act.space_action(du, u, p, t)
+end
+
+
+function (nim::NoisyInputModel)(args...) 
+    inner_fn = nim.model(args...)
+    NoisyInputAction(inner_fn, nim.noise_process)
+end
+    
 
 n_populations(::AbstractModel{T,N,P}) where {T,N,P} = P
 
@@ -104,8 +119,8 @@ function generate_problem(simulation::Simulation{T,<:AbstractODEModel}) where {T
 end
 
 function generate_problem(simulation::Simulation{T,<:AbstractNoisyModel}) where {T}
-    system_fn!, noise_fn! = simulation.model(simulation.space)
-    return SDEProblem(system_fn!, noise_fn!, simulation.initial_value, simulation.tspan)
+    system_fn! = simulation.model(simulation.space)
+    return RODEProblem(system_fn!, simulation.initial_value, simulation.tspan, noise=simulation.model.noise_process, noise_prototype=zeros(size(simulation.initial_value)...))
 end
 
 # TODO: Add history functionality
