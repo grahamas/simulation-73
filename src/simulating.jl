@@ -97,6 +97,9 @@ space(ex::Execution) = space(ex.simulation)
 origin_idx(sim::Simulation) = origin_idx(sim.space)
 origin_idx(ex::Execution) = origin_idx(ex.simulation)
 extrema(ex::AbstractExecution) = extrema(ex.solution.u)
+stimulus_center(mod::AbstractModel) = center(mod.stimulus)
+stimulus_center(sim::Simulation) = stimulus_center(sim.model)
+export stimulus_center--
 
 """
     make_system_mutator(simulation)

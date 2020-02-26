@@ -1,13 +1,18 @@
 
 abstract type AbstractLattice{T,N_ARR,N_CDT} <: AbstractSpace{T,N_ARR,N_CDT} end
-(t::Type{<:AbstractLattice})(extent::Tuple, n_points::Tuple) = t(discrete_lattice(extent, n_points))
-(t::Type{<:AbstractLattice{T,1}})(extent::Number, n_points::Int) where T = t((extent,),(n_points,))
-(t::Type{<:AbstractLattice})(; extent,n_points) = t(extent,n_points)
+(t::Type{<:AbstractLattice})(start::Tuple, stop::Tuple, n_points::Tuple) = t(discrete_lattice(start, stop, n_points))
+(t::Type{<:AbstractLattice{T,1}})(start::Number, stop::Number, n_points::Int) where T = t((start,),(stop,),(n_points,))
+(t::Type{<:AbstractLattice})(; extent, n_points) = t(.-extent ./ 2, extent ./ 2, n_points)
 
 Base.step(space::AbstractLattice) = extent(space) ./ (size(space) .- 1)
 Base.size(lattice::AbstractLattice) = size(lattice.arr)
 Base.size(lattice::AbstractLattice, d::Int) = size(lattice.arr, d)
 Base.zeros(lattice::AbstractLattice{T}) where T = zeros(T,size(lattice)...)
+start(space::AbstractLattice) = space.arr[1]
+stop(space::AbstractLattice) = space.arr[end]
+extent(space::AbstractLattice) = stop(space) .- start(space)
+
+
 """
     discrete_segment(extent, n_points)
 
@@ -27,49 +32,22 @@ true
 function discrete_segment(start::T, stop::T, n_points::Int) where {T <: Number}
     LinRange{T}(start, stop, n_points)
 end
-function discrete_segment(extent::T, n_points::Int) where {T <: Number}
-    discrete_segment(-extent/2,extent/2,n_points)
-end
+# function discrete_segment(extent::T, n_points::Int) where {T <: Number}
+#     discrete_segment(-extent/2,extent/2,n_points)
+# end
 """
     coordinates(extent, n_points)
 
 Return an object containing `n_points` equidistant coordinates along each dimension of a grid of length `extent` along each dimension, centered at (0,0,...,0).
 """
-function discrete_lattice(extent::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T}
-    Iterators.product(discrete_segment.(extent, n_points)...) |> collect
+# function discrete_lattice(extent::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T}
+#     Iterators.product(discrete_segment.(extent, n_points)...) |> collect
+# end
+function discrete_lattice(start::NTuple{N,T}, stop::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T}
+    Iterators.product(discrete_segment.(start, stop, n_points)...) |> collect
 end
-extent(lattice::AbstractLattice) = lattice.arr[end] .- lattice.arr[1]
-coordinates(lattice::AbstractLattice) = discrete_lattice(extent(lattice), size(lattice))
-coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(extent(lattice), size(lattice))...,)
-
-
-"""
-    origin_idx(lattice)
-
-Return the coordinate of the zero point in `lattice`.
-
-# Example
-```jldoctest
-julia> segment = CompactLattice{Float64,1}(10.0, 11)
-CompactLattice{Float64,1}(10.0, 11)
-
-julia> seg_origin_idx = origin_idx(segment)
-CartesianIndex(6,)
-
-julia> collect(coordinates(segment))[seg_origin_idx] == (0.0,)
-true
-
-julia> grid = CompactLattice((10.0,50.0), (11, 13))
-PeriodicLattice{Float64,2}((10.0, 50.0), (11, 13))
-
-julia> grid_origin_idx = origin_idx(CompactLattice((10.0,50.0), (11, 13)))
-CartesianIndex(6, 7)
-
-julia> collect(coordinates(grid))[grid_origin_idx] == (0.0, 0.0)
-true
-```
-"""
-origin_idx(lattice::AbstractLattice) = CartesianIndex(round.(Int, size(lattice) ./ 2, RoundNearestTiesUp))
+coordinates(lattice::AbstractLattice) = lattice.arr
+coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(start(lattice), stop(lattice), size(lattice))...,)
 
 using Statistics
 # @recipe function f(lattice::AbstractLattice, values::AbstractArray{<:AbstractArray,1})
