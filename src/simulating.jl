@@ -99,7 +99,7 @@ origin_idx(ex::Execution) = origin_idx(ex.simulation)
 extrema(ex::AbstractExecution) = extrema(ex.solution.u)
 stimulus_center(mod::AbstractModel) = center(mod.stimulus)
 stimulus_center(sim::Simulation) = stimulus_center(sim.model)
-export stimulus_center--
+export stimulus_center
 
 """
     make_system_mutator(simulation)
@@ -131,15 +131,28 @@ end
 #     system_mutator! = make_system_mutator(simulation)
 #     return DDEProblem(system_mutator!, simulation.initial_value, history(simulation), simulation.tspan)
 # end
-parse_save_idxs(simulation::Simulation, save_idx::Union{Number,AbstractArray}) = save_idx
+parse_save_idxs(simulation::Simulation, save_idx::Union{Number,AbstractArray{<:Number}}) = save_idx
 function parse_save_idxs(simulation::Simulation{T,M}, subsampler::AbstractSubsampler) where {T,N,P,M<:AbstractModel{T,N,P}}
 	one_pop_coordinates = coordinate_indices(simulation.space, subsampler)
 	population_coordinates(one_pop_coordinates, P)
 end
+function parse_save_idxs(simulation::Simulation{T,M}, subsampler_arr::AbstractArray{<:AbstractSubsampler}) where {T,N,P,M<:AbstractModel{T,N,P}}
+    idxs_arr = map(subsampler_arr) do subsampler
+        coordinate_indices(simulation.space, subsampler)
+    end
+    all_keep = ones(Bool, size(simulation.space)...)
+    for idxs in idxs_arr
+        keep = zeros(Bool, size(simulation.space)...)
+        keep[idxs] .= true
+        all_keep .&= keep
+    end
+    all_indices = CartesianIndices(simulation.space)
+    return population_coordinates(all_indices[all_keep],P)
+end
 
-function unpacking_solve(simulation::Simulation, alg; save_idxs=nothing, dt, solver_options...)
+function solve(simulation::Simulation, alg; save_idxs=nothing, dt=nothing, solver_options...)
     if save_idxs != nothing
-        solver_options = (solver_options..., save_idxs=parse_save_idxs(simulation,save_idxs))
+        solver_options = (solver_options..., save_idxs=parse_save_idxs(simulation, save_idxs))
     end
     if dt != nothing
         solver_options = (solver_options..., dt=dt)
@@ -149,7 +162,7 @@ function unpacking_solve(simulation::Simulation, alg; save_idxs=nothing, dt, sol
 end
 
 function solve(simulation::Simulation)
-    unpacking_solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options...)
+    solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options...)
 end
 
 # """

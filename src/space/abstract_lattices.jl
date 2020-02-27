@@ -4,6 +4,7 @@ abstract type AbstractLattice{T,N_ARR,N_CDT} <: AbstractSpace{T,N_ARR,N_CDT} end
 (t::Type{<:AbstractLattice{T,1}})(start::Number, stop::Number, n_points::Int) where T = t((start,),(stop,),(n_points,))
 (t::Type{<:AbstractLattice})(; extent, n_points) = t(.-extent ./ 2, extent ./ 2, n_points)
 
+Base.CartesianIndices(lattice::AbstractLattice) = CartesianIndices(lattice.arr)
 Base.step(space::AbstractLattice) = extent(space) ./ (size(space) .- 1)
 Base.size(lattice::AbstractLattice) = size(lattice.arr)
 Base.size(lattice::AbstractLattice, d::Int) = size(lattice.arr, d)
