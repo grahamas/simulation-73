@@ -132,22 +132,9 @@ end
 #     return DDEProblem(system_mutator!, simulation.initial_value, history(simulation), simulation.tspan)
 # end
 parse_save_idxs(simulation::Simulation, save_idx::Union{Number,AbstractArray{<:Number}}) = save_idx
-function parse_save_idxs(simulation::Simulation{T,M}, subsampler::AbstractSubsampler) where {T,N,P,M<:AbstractModel{T,N,P}}
+function parse_save_idxs(simulation::Simulation{T,M}, subsampler::Union{AbstractSubsampler,AbstractArray{<:AbstractSubsampler}}) where {T,N,P,M<:AbstractModel{T,N,P}}
 	one_pop_coordinates = coordinate_indices(simulation.space, subsampler)
 	population_coordinates(one_pop_coordinates, P)
-end
-function parse_save_idxs(simulation::Simulation{T,M}, subsampler_arr::AbstractArray{<:AbstractSubsampler}) where {T,N,P,M<:AbstractModel{T,N,P}}
-    idxs_arr = map(subsampler_arr) do subsampler
-        coordinate_indices(simulation.space, subsampler)
-    end
-    all_keep = ones(Bool, size(simulation.space)...)
-    for idxs in idxs_arr
-        keep = zeros(Bool, size(simulation.space)...)
-        keep[idxs] .= true
-        all_keep .&= keep
-    end
-    all_indices = CartesianIndices(simulation.space)
-    return population_coordinates(all_indices[all_keep],P)
 end
 
 function solve(simulation::Simulation, alg; save_idxs=nothing, dt=nothing, solver_options...)

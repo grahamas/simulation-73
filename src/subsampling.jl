@@ -9,18 +9,25 @@
 import Base: to_indices, _maybetail, @_inline_meta, tail, getindex
 
 abstract type AbstractSubsampler{D} end
-function subsample(obj, sub_arr::AbstractArray)
-    for sub in sub_arr
-        obj = subsample(obj, sub)
+function coordinate_indices(lattice::LATTICE, subsampler_arr::AbstractArray{<:AbstractSubsampler}) where {LATTICE<:AbstractLattice}
+     idxs_arr = map(subsampler_arr) do subsampler
+        coordinate_indices(lattice, subsampler)
     end
-    return obj
+    all_keep = ones(Bool, size(lattice)...)
+    for idxs in idxs_arr
+        keep = zeros(Bool, size(lattice)...)
+        keep[idxs] .= true
+        all_keep .&= keep
+    end
+    all_indices = CartesianIndices(lattice)
+    return all_indices[all_keep]
 end
-function subsample(lattice::LATTICE, sub::AbstractSubsampler{D}) where {T,D,LATTICE<:AbstractLattice{T,D}}
+function subsample(lattice::LATTICE, sub::Union{AbstractSubsampler,AbstractArray{<:AbstractSubsampler}}) where {LATTICE<:AbstractLattice}
     idxs = coordinate_indices(lattice, sub)
     LATTICE(lattice.arr[idxs])
 end
 subsample(space::AbstractSpace, ::Nothing) = space
-function getindex(lattice::LATTICE, sub::AbstractSubsampler{D}) where {T,D,LATTICE<:AbstractLattice{T,D}}
+function getindex(lattice::LATTICE, sub::Union{AbstractSubsampler,AbstractArray{<:AbstractSubsampler}}) where {T,D,LATTICE<:AbstractLattice{T,D}}
     idxs = coordinate_indices(lattice, sub)
     LATTICE(lattice.arr[idxs])
 end
@@ -57,21 +64,11 @@ struct StrideToEnd
 	start::Int
 	StrideToEnd(stride::Int, start::Int=1) = new(stride, start)
 end
-# struct StrideToEnd{D}
-#     stride::CartesianIndex{D}
-# 	start::CartesianIndex{D}
-# 	StrideToEnd(stride::CartesianIndex{D}, start::CartesianIndex{D}=CartesianIndex{D}(1)) where D = new{D}(stride, start)
-# end
-#end
 to_indices(A, inds, I::Tuple{StrideToEnd, Vararg{Any}})=
 	(@_inline_meta; (I[1].start:I[1].stride:inds[1][end], to_indices(A, _maybetail(inds), tail(I))...))
 to_indices(A, inds, I::Tuple{NTuple{N,StrideToEnd}, Vararg{Any}}) where N = to_indices(A, inds, (I[1]..., _maybetail(I)...))
 getindex(A::AbstractArray, S::StrideToEnd) = getindex(A, to_indices(A, (S,))...)
 
-# function getindex(A::AbstractArray{T,N}, VW::ValueWindower{N,T}) where {T,N}
-# 	value_window = VW.window
-# 	(findfirst((value_window[1] .< arr) .| (value_window[1] .≈ arr)), findlast((value_window[2] .> arr) .| (value_window[2] .≈ arr)))
-# end
 
 ## RadialSlice
 "Get the coordinates of the subsample space within the larger space."
