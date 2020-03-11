@@ -67,7 +67,7 @@ struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractSimulati
     dt::Union{T,Nothing}
     solver_options
 end
-function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), dt=nothing, algorithm, opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
+function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), algorithm, dt=nothing, opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
     return Simulation{T,M,S}(model, space, tspan, initial_value, algorithm, dt, opts)
 end
 function Simulation(model::Missing; kwargs...)
@@ -115,15 +115,15 @@ end
 
 Return an ODEProblem of the `simulation.model` with time span specified by `simulation.solver`.
 """
-function generate_problem(simulation::Simulation{T,<:AbstractODEModel}) where {T}
+function generate_problem(simulation::Simulation{T,<:AbstractODEModel}; callback=nothing) where {T}
     system_fn! = simulation.model(simulation.space)
     ode_fn = convert(ODEFunction{true}, system_fn!)
-    return ODEProblem(ode_fn, simulation.initial_value, simulation.tspan)
+    return ODEProblem(ode_fn, simulation.initial_value, simulation.tspan, callback=callback)
 end
 
-function generate_problem(simulation::Simulation{T,<:AbstractNoisyModel}) where {T}
+function generate_problem(simulation::Simulation{T,<:AbstractNoisyModel}; callback=nothing) where {T}
     system_fn! = simulation.model(simulation.space)
-    return RODEProblem(system_fn!, simulation.initial_value, simulation.tspan, noise=simulation.model.noise_process, noise_prototype=zeros(size(simulation.initial_value)...))
+    return RODEProblem(system_fn!, simulation.initial_value, simulation.tspan, noise=simulation.model.noise_process, noise_prototype=zeros(size(simulation.initial_value)...), callback=callback)
 end
 
 # TODO: Add history functionality
@@ -137,19 +137,24 @@ function parse_save_idxs(simulation::Simulation{T,M}, subsampler::Union{Abstract
 	population_coordinates(one_pop_coordinates, P)
 end
 
-function solve(simulation::Simulation, alg; save_idxs=nothing, dt=nothing, solver_options...)
+function solve(simulation::Simulation, alg; callback=nothing, save_idxs=nothing, dt=nothing, solver_options...)
     if save_idxs != nothing
         solver_options = (solver_options..., save_idxs=parse_save_idxs(simulation, save_idxs))
     end
     if dt != nothing
         solver_options = (solver_options..., dt=dt)
     end
-    problem = generate_problem(simulation)
+    problem = generate_problem(simulation; callback=callback)
     solve(problem, alg; solver_options...)
 end
 
-function solve(simulation::Simulation)
-    solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options...)
+function solve(simulation::Simulation; callback=nothing, solver_opts...)
+    callback = if :callback ∈ keys(simulation.solver_options)
+        CallbackSet(callback, pop!(simulation.solver_options, :callback))
+    else
+        callback
+    end
+    solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options..., solver_opts..., callback=callback)
 end
 
 # """
