@@ -58,17 +58,18 @@ n_populations(::AbstractModel{T,N,P}) where {T,N,P} = P
 initial_value(::AbstractModel{T,N,P}, space::AbstractSpace{T,N}) where {T,N,P} = population_repeat(zeros(space), P)
 
 "A Simulation holds an AbstractModel to be solved, the space on which to solve it, the time for which to solve it, the initial value, and various solver options."
-struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T}} <: AbstractSimulation{T}
+struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T},SV<:Union{Tuple{Function,DataType},Nothing}} <: AbstractSimulation{T}
     model::M
     space::S
     tspan::Tuple{T,T}
     initial_value::AbstractArray{T}
     algorithm
     dt::Union{T,Nothing}
+    reduction::SV
     solver_options
 end
-function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), algorithm, dt=nothing, opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N}}
-    return Simulation{T,M,S}(model, space, tspan, initial_value, algorithm, dt, opts)
+function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), algorithm, dt=nothing, reduction::SV=nothing, opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N},SV}
+    return Simulation{T,M,S,SV}(model, space, tspan, initial_value, algorithm, dt, reduction, opts)
 end
 function Simulation(model::Missing; kwargs...)
     return FailedSimulation{Missing}()
@@ -79,10 +80,21 @@ struct Execution{T,S<:AbstractSimulation{T},D<:DESolution} <: AbstractExecution{
     simulation::S
     solution::D
 end
-Execution(s::S) where {T,S <: Simulation{T}} = Execution(s,solve(s))
-
+struct ReducedExecution{T,S<:AbstractSimulation{T},SV<:SavedValues} <: AbstractExecution{T}
+    simulation::S
+    saved_values::SV
+end
+struct AugmentedExecution{T,S<:AbstractSimulation{T},D<:DESolution,SV<:SavedValues} <: AbstractExecution{T}
+    simulation::S
+    solution::D
+    saved_values::SV
+end
+make_execution(s::S, sol::DESolution) where {T,S <: Simulation{T}} = Execution(s,sol)
+make_execution(s::S, sv::SavedValues) where {T,S <: Simulation{T}} = ReducedExecution(s,sv)
+make_execution(s::S, (sol,sv)::Tuple{<:DESolution,<:SavedValues}) where {T,S <: Simulation{T}} = AugmentedExecution(s,sol,sv)
+export ReducedExecution, AugmentedExecution,make_execution
 function execute(s::Simulation)
-    return Execution(s)
+    return make_execution(s, solve(s))
 end
 function execute(s::FailedSimulation)
     return FailedExecution(s)
@@ -93,7 +105,7 @@ coordinates(ex::AbstractExecution) = coordinates(space(ex))
 timepoints(ex::Execution) = ex.solution.t
 _space(sp::AbstractSpace, opts) = subsample(sp, get(opts, :save_idxs, nothing))
 space(sim::Simulation) = _space(sim.space, sim.solver_options)
-space(ex::Execution) = space(ex.simulation)
+space(ex::AbstractExecution) = space(ex.simulation)
 origin_idx(sim::Simulation) = origin_idx(sim.space)
 origin_idx(ex::Execution) = origin_idx(ex.simulation)
 extrema(ex::AbstractExecution) = extrema(ex.solution.u)
@@ -148,14 +160,34 @@ function solve(simulation::Simulation, alg; callback=nothing, save_idxs=nothing,
     solve(problem, alg; solver_options...)
 end
 
-function solve(simulation::Simulation; callback=nothing, solver_opts...)
-    callback = if :callback ∈ keys(simulation.solver_options)
-        CallbackSet(callback, pop!(simulation.solver_options, :callback))
-    else
-        callback
+function solve(simulation::Simulation{A,B,C,Nothing}; callback=nothing, solver_opts...) where {A,B,C}
+    if :callback ∈ keys(simulation.solver_options)
+        callback = CallbackSet(callback, simulation.solver_options[:callback])
     end
-    solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options..., solver_opts..., callback=callback)
+    
+    sol = solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options..., solver_opts..., callback=callback)
+    return sol
 end
+
+function solve(simulation::Simulation{T,A,B,<:Tuple{<:Function,DataType}}; callback=nothing, solver_opts...) where {T,A,B}
+    save_func, save_type = simulation.reduction
+    sv = SavedValues(T,save_type)
+    all_callbacks = SavingCallback(save_func, sv)
+        
+    if :callback ∈ keys(simulation.solver_options)
+        all_callbacks = CallbackSet(simulation.solver_options[:callback], all_callbacks)
+    end
+    
+    if callback !== nothing
+        all_callbacks = CallbackSet(callback, all_callbacks)
+    end
+    # save_callback has all callbacks
+    
+    sol = solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options..., solver_opts..., callback=all_callbacks)
+    return (sol, sv)
+end
+
+
 
 # """
 #     run_simulation(jl_filename)
