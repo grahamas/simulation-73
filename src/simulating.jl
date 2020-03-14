@@ -65,11 +65,12 @@ struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T},SV<:Union{Tuple{Func
     initial_value::AbstractArray{T}
     algorithm
     dt::Union{T,Nothing}
-    reduction::SV
+    step_reduction::SV
+    global_reduction::Function
     solver_options
 end
-function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), algorithm, dt=nothing, reduction::SV=nothing, opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N},SV}
-    return Simulation{T,M,S,SV}(model, space, tspan, initial_value, algorithm, dt, reduction, opts)
+function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), algorithm, dt=nothing, step_reduction::SV=nothing, global_reduction=identity, opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N},SV}
+    return Simulation{T,M,S,SV}(model, space, tspan, initial_value, algorithm, dt, step_reduction, global_reduction, opts)
 end
 function Simulation(model::Missing; kwargs...)
     return FailedSimulation{Missing}()
@@ -169,8 +170,8 @@ function solve(simulation::Simulation{A,B,C,Nothing}; callback=nothing, solver_o
     return sol
 end
 
-function solve(simulation::Simulation{T,A,B,<:Tuple{<:Function,DataType}}; callback=nothing, solver_opts...) where {T,A,B}
-    save_func, save_type = simulation.reduction
+function solve(simulation::Simulation{T,A,B,<:Tuple}; callback=nothing, solver_opts...) where {T,A,B}
+    save_func, save_type = simulation.step_reduction
     sv = SavedValues(T,save_type)
     all_callbacks = SavingCallback(save_func, sv)
         
