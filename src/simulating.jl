@@ -164,16 +164,12 @@ function solve(simulation::Simulation, alg; callback=nothing, save_idxs=nothing,
     solve(problem, alg; solver_options...)
 end
 
-function solve(simulation::Simulation{A,B,C,Nothing}; callback=nothing, solver_opts...) where {A,B,C}
-    if :callback ∈ keys(simulation.solver_options)
-        callback = CallbackSet(callback, simulation.solver_options[:callback])
-    end
-    
-    sol = solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options..., solver_opts..., callback=callback)
+function solve(simulation::Simulation{A,B,C,Nothing}) where {A,B,C}
+    sol = solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options...)
     return sol
 end
 
-function solve(simulation::Simulation{T,A,B,<:Tuple}; callback=nothing, solver_opts...) where {T,A,B}
+function solve(simulation::Simulation{T,A,B,<:Tuple}) where {T,A,B}
     save_func, save_type = simulation.step_reduction
     sv = SavedValues(T,save_type)
     all_callbacks = SavingCallback(save_func, sv)
@@ -181,13 +177,9 @@ function solve(simulation::Simulation{T,A,B,<:Tuple}; callback=nothing, solver_o
     if :callback ∈ keys(simulation.solver_options)
         all_callbacks = CallbackSet(simulation.solver_options[:callback], all_callbacks)
     end
-    
-    if callback !== nothing
-        all_callbacks = CallbackSet(callback, all_callbacks)
-    end
     # save_callback has all callbacks
     
-    sol = solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options..., solver_opts..., callback=all_callbacks)
+    sol = solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options..., callback=all_callbacks)
     return (sol, sv)
 end
 
