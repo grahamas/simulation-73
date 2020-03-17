@@ -6,6 +6,9 @@ abstract type AbstractNoisyModel{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractNoisySpaceAction{T,N} <: AbstractSpaceAction{T,N} end
 abstract type AbstractSimulation{T} <: AbstractParameter{T} end 
 abstract type AbstractExecution{T} end 
+abstract type AbstractFullExecution{T,SIM} <: AbstractExecution{T} end
+export AbstractFullExecution
+
 
 function (am::Type{<:AbstractModel})(fallback_args...; fallback_kwargs...)
     #@warn """Model $am undefined!
@@ -77,7 +80,7 @@ function Simulation(model::Missing; kwargs...)
 end
 
 "An Execution holds a Simulation and the solution obtained by running the Simulation."
-struct Execution{T,S<:AbstractSimulation{T},D<:DESolution} <: AbstractExecution{T}
+struct Execution{T,S<:AbstractSimulation{T},D<:DESolution} <: AbstractFullExecution{T,S}
     simulation::S
     solution::D
 end
@@ -85,7 +88,7 @@ struct ReducedExecution{T,S<:AbstractSimulation{T},SV<:SavedValues} <: AbstractE
     simulation::S
     saved_values::SV
 end
-struct AugmentedExecution{T,S<:AbstractSimulation{T},D<:DESolution,SV<:SavedValues} <: AbstractExecution{T}
+struct AugmentedExecution{T,S<:AbstractSimulation{T},D<:DESolution,SV<:SavedValues} <: AbstractFullExecution{T,S}
     simulation::S
     solution::D
     saved_values::SV
@@ -103,13 +106,13 @@ end
             
 coordinates(sim::Simulation) = coordinates(space(sim))
 coordinates(ex::AbstractExecution) = coordinates(space(ex))
-timepoints(ex::Execution) = ex.solution.t
+timepoints(ex::AbstractFullExecution) = ex.solution.t
 _space(sp::AbstractSpace, opts) = subsample(sp, get(opts, :save_idxs, nothing))
 space(sim::Simulation) = _space(sim.space, sim.solver_options)
 space(ex::AbstractExecution) = space(ex.simulation)
 origin_idx(sim::Simulation) = origin_idx(sim.space)
-origin_idx(ex::Execution) = origin_idx(ex.simulation)
-extrema(ex::AbstractExecution) = extrema(ex.solution.u)
+origin_idx(ex::AbstractExecution) = origin_idx(ex.simulation)
+extrema(ex::AbstractFullExecution) = extrema(ex.solution.u)
 stimulus_center(mod::AbstractModel) = center(mod.stimulus)
 stimulus_center(sim::Simulation) = stimulus_center(sim.model)
 export stimulus_center
