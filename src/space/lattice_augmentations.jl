@@ -30,7 +30,6 @@ function unembed_values(lattice::AbstractEmbeddedLattice{T,N_ARR,N_CDT}, values:
 end
 
 linear_next(num::Int) = num + 1
-using Plots: @layout
 @recipe function f(lattice::AbstractEmbeddedLattice, values; layout=nothing, subplot=nothing)
     @series begin
         subplot := subplot
