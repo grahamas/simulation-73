@@ -61,19 +61,32 @@ n_populations(::AbstractModel{T,N,P}) where {T,N,P} = P
 initial_value(::AbstractModel{T,N,P}, space::AbstractSpace{T,N}) where {T,N,P} = population_repeat(zeros(space), P)
 
 "A Simulation holds an AbstractModel to be solved, the space on which to solve it, the time for which to solve it, the initial value, and various solver options."
-struct Simulation{T,M<:AbstractModel{T},S<:AbstractSpace{T},SV<:Union{Tuple{Function,DataType},Nothing}} <: AbstractSimulation{T}
+struct Simulation{
+        T,
+        M<:AbstractModel{T},
+        S<:AbstractSpace{T},
+        IV<:AbstractArray{T},
+        ALG,
+        DT<:Union{T,Nothing},
+        SV_IDX<:Union{AbstractArray,Nothing},
+        SR<:Union{Tuple{Function,DataType},Nothing},
+        GR<:Function} <: AbstractSimulation{T}
     model::M
     space::S
     tspan::Tuple{T,T}
-    initial_value::AbstractArray{T}
-    algorithm
-    dt::Union{T,Nothing}
-    step_reduction::SV
-    global_reduction::Function
+    initial_value::IV
+    algorithm::ALG
+    dt::DT
+    save_idxs::SV_IDX
+    step_reduction::SR
+    global_reduction::GR
     solver_options
 end
-function Simulation(model::M; space::S, tspan, initial_value=initial_value(model,space), algorithm, dt=nothing, step_reduction::SV=nothing, global_reduction=identity, opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N},SV}
-    return Simulation{T,M,S,SV}(model, space, tspan, initial_value, algorithm, dt, step_reduction, global_reduction, opts)
+function Simulation(model::M; space::S, tspan, initial_value::IV=initial_value(model,space), 
+        algorithm::ALG, dt::DT=nothing, save_idxs=nothing, step_reduction::SR=nothing, global_reduction::GR=identity, 
+        opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N},IV,ALG,DT,SV_IDX,SR,GR}
+    save_idxs = parse_save_idxs(space, P, save_idxs)
+    return Simulation{T,M,S,IV,ALG,DT,typeof(save_idxs),SR,GR}(model, space, tspan, initial_value, algorithm, dt, save_idxs, step_reduction, global_reduction, opts)
 end
 function Simulation(model::Missing; kwargs...)
     return FailedSimulation{Missing}()
@@ -109,7 +122,7 @@ coordinates(ex::AbstractExecution) = coordinates(space(ex))
 timepoints(ex::AbstractFullExecution) = ex.solution.t
 _reduced_space(sp::AbstractSpace, opts) = subsample(sp, get(opts, :save_idxs, nothing))
 reduced_space(sim::Simulation) = _reduced_space(sim.space, sim.solver_options)
-reduced_space(ex::AbstractExecution) = space(ex.simulation)
+reduced_space(ex::AbstractExecution) = reduced_space(ex.simulation)
 origin_idx(sim::Simulation) = origin_idx(sim.space)
 origin_idx(ex::AbstractExecution) = origin_idx(ex.simulation)
 extrema(ex::AbstractFullExecution) = extrema(ex.solution.u)
@@ -147,16 +160,14 @@ end
 #     system_mutator! = make_system_mutator(simulation)
 #     return DDEProblem(system_mutator!, simulation.initial_value, history(simulation), simulation.tspan)
 # end
-parse_save_idxs(simulation::Simulation, save_idx::Union{Number,AbstractArray{<:Number}}) = save_idx
-function parse_save_idxs(simulation::Simulation{T,M}, subsampler::Union{AbstractSubsampler,AbstractArray{<:AbstractSubsampler}}) where {T,N,P,M<:AbstractModel{T,N,P}}
-	one_pop_coordinates = coordinate_indices(simulation.space, subsampler)
+parse_save_idxs(::Any, P, save_idx) = save_idx
+function parse_save_idxs(space::AbstractSpace, P, subsampler::Union{AbstractSubsampler,AbstractArray{<:AbstractSubsampler}})
+	one_pop_coordinates = coordinate_indices(space, subsampler)
 	population_coordinates(one_pop_coordinates, P)
 end
 
-function solve(simulation::Simulation, alg; callback=nothing, save_idxs=nothing, dt=nothing, solver_options...)
-    if save_idxs != nothing
-        solver_options = (solver_options..., save_idxs=parse_save_idxs(simulation, save_idxs))
-    end
+# TODO this could probably all be better served by dispatch; but that gets difficult
+function solve(simulation::Simulation, alg; callback=nothing, dt=nothing, solver_options...)
     if dt != nothing
         solver_options = (solver_options..., dt=dt)
     end
@@ -164,12 +175,12 @@ function solve(simulation::Simulation, alg; callback=nothing, save_idxs=nothing,
     solve(problem, alg; solver_options...)
 end
 
-function solve(simulation::Simulation{A,B,C,Nothing}) where {A,B,C}
+function solve(simulation::Simulation{T,M,S,IV,ALG,DT,SV_IDX,Nothing,GR}) where {T,M,S,IV,ALG,DT,SV_IDX,GR}
     sol = solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options...)
     return sol
 end
 
-function solve(simulation::Simulation{T,A,B,<:Tuple}) where {T,A,B}
+function solve(simulation::Simulation{T,M,S,IV,ALG,DT,SV_IDX,<:Tuple,GR}) where {T,M,S,IV,ALG,DT,SV_IDX,GR}
     save_func, save_type = simulation.step_reduction
     sv = SavedValues(T,save_type)
     all_callbacks = SavingCallback(save_func, sv)
@@ -179,7 +190,7 @@ function solve(simulation::Simulation{T,A,B,<:Tuple}) where {T,A,B}
     end
     # save_callback has all callbacks
     
-    sol = solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options..., callback=all_callbacks)
+    sol = solve(simulation, simulation.algorithm; dt=simulation.dt, save_idxs=simulation.save_idxs, simulation.solver_options..., callback=all_callbacks)
     return (sol, sv)
 end
 
