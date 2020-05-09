@@ -120,8 +120,7 @@ end
 coordinates(sim::Simulation) = coordinates(space(sim))
 coordinates(ex::AbstractExecution) = coordinates(space(ex))
 timepoints(ex::AbstractFullExecution) = ex.solution.t
-_reduced_space(sp::AbstractSpace, opts) = subsample(sp, get(opts, :save_idxs, nothing))
-reduced_space(sim::Simulation) = _reduced_space(sim.space, sim.solver_options)
+reduced_space(sim::Simulation) = subsample(sim.space, sim.save_idxs)
 reduced_space(ex::AbstractExecution) = reduced_space(ex.simulation)
 origin_idx(sim::Simulation) = origin_idx(sim.space)
 origin_idx(ex::AbstractExecution) = origin_idx(ex.simulation)

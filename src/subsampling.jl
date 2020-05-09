@@ -9,7 +9,8 @@
 import Base: to_indices, _maybetail, @_inline_meta, tail, getindex
 
 abstract type AbstractSubsampler{D} end
-function coordinate_indices(lattice::LATTICE, subsampler_arr::AbstractArray{<:AbstractSubsampler}) where {LATTICE<:AbstractLattice}
+function coordinate_indices(lattice::LATTICE, 
+        subsampler_arr::AbstractArray{<:AbstractSubsampler}) where {LATTICE<:AbstractLattice}
      idxs_arr = map(subsampler_arr) do subsampler
         coordinate_indices(lattice, subsampler)
     end
@@ -22,12 +23,12 @@ function coordinate_indices(lattice::LATTICE, subsampler_arr::AbstractArray{<:Ab
     all_indices = CartesianIndices(lattice)
     return all_indices[all_keep]
 end
-function subsample(lattice::LATTICE, sub::Union{AbstractSubsampler,AbstractArray{<:AbstractSubsampler}}) where {LATTICE<:AbstractLattice}
+function subsample(lattice::LATTICE, sub) where {LATTICE<:AbstractLattice}
     idxs = coordinate_indices(lattice, sub)
     LATTICE(lattice.arr[idxs])
 end
 subsample(space::AbstractSpace, ::Nothing) = space
-function getindex(lattice::LATTICE, sub::Union{AbstractSubsampler,AbstractArray{<:AbstractSubsampler}}) where {T,D,LATTICE<:AbstractLattice{T,D}}
+function getindex(lattice::LATTICE, sub) where {T,D,LATTICE<:AbstractLattice{T,D}}
     idxs = coordinate_indices(lattice, sub)
     LATTICE(lattice.arr[idxs])
 end
@@ -88,4 +89,9 @@ end
 
 function coordinate_indices(::Any, subsampler::IndexSubsampler{D}) where D
     return StrideToEnd.(subsampler.strides, 1)
+end
+
+function coordinate_indices(lattice, sub_dxs::AbstractArray{<:CartesianIndex}) 
+    @warn "subsampling one pop"
+    idxs = population(sub_dxs, 1)
 end
