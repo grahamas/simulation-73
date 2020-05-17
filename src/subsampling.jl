@@ -27,7 +27,7 @@ function subsample(lattice::LATTICE, sub) where {LATTICE<:AbstractLattice}
     idxs = coordinate_indices(lattice, sub)
     LATTICE(lattice.arr[idxs])
 end
-subsample(space::AbstractSpace, ::Nothing) = space
+subsample(space::AbstractLattice, ::Nothing) = space
 function getindex(lattice::LATTICE, sub) where {T,D,LATTICE<:AbstractLattice{T,D}}
     idxs = coordinate_indices(lattice, sub)
     LATTICE(lattice.arr[idxs])

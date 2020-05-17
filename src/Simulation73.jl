@@ -68,7 +68,7 @@ export AbstractModel, AbstractModelwithDelay, Solver, Simulation,
 	initial_value, history, time_span, saved_dt, saved_dx,
 	generate_problem, solve, run_simulation,
 	make_mutators, make_system_mutator,
-    BareSolution
+    BareSolution, reduced_space
 
 # # "exploring.jl"
 # export Search, SearchExecution, make_problem_generator, search, run_search
