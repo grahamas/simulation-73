@@ -44,7 +44,7 @@ Return an object containing `n_points` equidistant coordinates along each dimens
 # function discrete_lattice(extent::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T}
 #     Iterators.product(discrete_segment.(extent, n_points)...) |> collect
 # end
-function discrete_lattice(start::NTuple{N,T}, stop::NTuple{N,T}, n_points::NTuple{N,Int}) where {N,T}
+function discrete_lattice(start::Tup, stop::Tup, n_points::IntTup) where {Nminusone,T,Tup<:Tuple{T,Vararg{T,Nminusone}},IT<:Int,IntTup<:Tuple{IT,Vararg{IT,Nminusone}}}
     Iterators.product(discrete_segment.(start, stop, n_points)...) |> collect
 end
 coordinates(lattice::AbstractLattice) = lattice.arr

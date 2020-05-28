@@ -14,7 +14,7 @@ julia> abs_difference( ((2,2), (5,-5)) )
 """
 abs_difference(edge::Tuple{T,T}) where T<:Number = abs(edge[1] - edge[2])
 # FIXME should really be L2 norm
-abs_difference(edge::Tuple{Tup,Tup}) where {T,N,Tup<:NTuple{N,T}} = abs.(edge[1] .- edge[2])
+abs_difference(edge::Tuple{Tup,Tup}) where {Nminusone,T,Tup<:Tuple{T,Vararg{T,Nminusone}}} = abs.(edge[1] .- edge[2])
 
 
 
@@ -40,7 +40,7 @@ function abs_difference_periodic(edge::Tuple{T,T}, period::T) where T<:Number
         return diff
     end
 end
-function abs_difference_periodic(edge::Tuple{Tup,Tup}, periods::Tup) where {N,T,Tup<:NTuple{N,T}}
+function abs_difference_periodic(edge::Tuple{Tup,Tup}, periods::Tup) where {Nminusone,T,Tup<:Tuple{T,Vararg{T,Nminusone}}}
     diffs = abs_difference(edge)
     diffs = map(zip(diffs, periods)) do (diff, period)
         if diff > period / 2

@@ -2,6 +2,8 @@ using Test, Documenter, Simulation73
 #DocMeta.setdocmeta!(Simulation73, :DocTestSetup, :(using Simulation73); recursive=true)
 #doctest(Simulation73)
 
+include("src/test_sanity.jl")
+
 n_points_dx1 = 1001
 extent_dx1 = 300.0
 dx = extent_dx1 / n_points_dx1
