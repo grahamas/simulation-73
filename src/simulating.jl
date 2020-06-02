@@ -6,6 +6,7 @@ abstract type AbstractNoisyModel{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractNoisySpaceAction{T,N} <: AbstractSpaceAction{T,N} end
 abstract type AbstractSimulation{T} <: AbstractParameter{T} end 
 abstract type AbstractExecution{T} end 
+# FIXME shouldn't the second type of full execution be the type of the solution?
 abstract type AbstractFullExecution{T,SIM} <: AbstractExecution{T} end
 export AbstractFullExecution
 
@@ -97,11 +98,11 @@ struct Execution{T,S<:AbstractSimulation{T},D<:DESolution} <: AbstractFullExecut
     simulation::S
     solution::D
 end
-struct ReducedExecution{T,S<:AbstractSimulation{T},SV<:SavedValues} <: AbstractExecution{T}
+struct ReducedExecution{T,ST,S<:AbstractSimulation{T},SV<:SavedValues{T,ST}} <: AbstractExecution{T}
     simulation::S
     saved_values::SV
 end
-struct AugmentedExecution{T,S<:AbstractSimulation{T},D<:DESolution,SV<:SavedValues} <: AbstractFullExecution{T,S}
+struct AugmentedExecution{T,ST,S<:AbstractSimulation{T},D<:DESolution,SV<:SavedValues{T,ST}} <: AbstractFullExecution{T,S}
     simulation::S
     solution::D
     saved_values::SV
@@ -192,20 +193,4 @@ function solve(simulation::Simulation{T,M,S,IV,ALG,DT,SV_IDX,<:Tuple,GR}) where 
     sol = solve(simulation, simulation.algorithm; dt=simulation.dt, save_idxs=simulation.save_idxs, simulation.solver_options..., callback=all_callbacks)
     return (sol, sv)
 end
-
-
-
-# """
-#     run_simulation(jl_filename)
-
-# Loads a simulation object defined in `jl_filename`, and save the parameters.
-# """
-# function run_simulation(jl_filename::AbstractString)
-#     include(jl_filename)
-#     filecopy(simulation.output, jl_filename, basename(jl_filename))
-#     @assert all([@isdefined(simulation), @isdefined(output), @isdefined(analysis)])
-#     execution = execute(simulation)
-#     results = analyse.(analyses, Ref(execution), Ref(output))
-#     return (execution, results)
-# end
 
