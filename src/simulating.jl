@@ -176,7 +176,7 @@ function solve(simulation::Simulation, alg; callback=nothing, dt=nothing, solver
 end
 
 function solve(simulation::Simulation{T,M,S,IV,ALG,DT,SV_IDX,Nothing,GR}) where {T,M,S,IV,ALG,DT,SV_IDX,GR}
-    sol = solve(simulation, simulation.algorithm; dt=simulation.dt, simulation.solver_options...)
+    sol = solve(simulation, simulation.algorithm; dt=simulation.dt, save_idxs=simulation.save_idxs, simulation.solver_options...)
     return sol
 end
 
