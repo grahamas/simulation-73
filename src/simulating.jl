@@ -5,9 +5,9 @@ abstract type AbstractModelwithDelay{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractNoisyModel{T,N,P} <: AbstractModel{T,N,P} end
 abstract type AbstractNoisySpaceAction{T,N} <: AbstractSpaceAction{T,N} end
 abstract type AbstractSimulation{T} <: AbstractParameter{T} end 
-abstract type AbstractExecution{T} end 
+abstract type AbstractExecution{T,SIM} end 
 # FIXME shouldn't the second type of full execution be the type of the solution?
-abstract type AbstractFullExecution{T,SIM} <: AbstractExecution{T} end
+abstract type AbstractFullExecution{T,SIM} <: AbstractExecution{T,SIM} end
 export AbstractFullExecution
 
 
@@ -23,7 +23,7 @@ function (am::Type{<:AbstractModel})(fallback_args...; fallback_kwargs...)
 end
 
 struct FailedSimulation{T} <: AbstractSimulation{T} end
-struct FailedExecution{T,S<:AbstractSimulation{T}} <: AbstractExecution{T}
+struct FailedExecution{T,S<:FailedSimulation{T}} <: AbstractExecution{T,S}
     sim::S
 end
 
@@ -98,7 +98,7 @@ struct Execution{T,S<:AbstractSimulation{T},D<:DESolution} <: AbstractFullExecut
     simulation::S
     solution::D
 end
-struct ReducedExecution{T,ST,S<:AbstractSimulation{T},SV<:SavedValues{T,ST}} <: AbstractExecution{T}
+struct ReducedExecution{T,ST,S<:AbstractSimulation{T},SV<:SavedValues{T,ST}} <: AbstractExecution{T,S}
     simulation::S
     saved_values::SV
 end
@@ -123,6 +123,7 @@ coordinates(ex::AbstractExecution) = coordinates(space(ex))
 timepoints(ex::AbstractFullExecution) = ex.solution.t
 reduced_space(sim::Simulation) = subsample(sim.space, sim.save_idxs)
 reduced_space(ex::AbstractExecution) = reduced_space(ex.simulation)
+frame_xs(exec::AbstractExecution{T,<:Simulation{T,<:M}}) where {T,M<:AbstractModel{T,1}} = [x[1] for x in reduced_space(exec).arr]
 origin_idx(sim::Simulation) = origin_idx(sim.space)
 origin_idx(ex::AbstractExecution) = origin_idx(ex.simulation)
 extrema(ex::AbstractFullExecution) = extrema(ex.solution.u)

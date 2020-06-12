@@ -92,6 +92,7 @@ function coordinate_indices(::Any, subsampler::IndexSubsampler{D}) where D
 end
 
 function coordinate_indices(lattice, sub_dxs::AbstractArray{<:CartesianIndex}) 
-    @warn "subsampling one pop"
+    #@warn "subsampling one pop"
+    #FIXME don't subsample one pop
     idxs = population(sub_dxs, 1)
 end
