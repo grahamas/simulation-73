@@ -41,13 +41,11 @@ end
 end
 export RightCutFromValue
 
-struct RadialSlice <: AbstractSubsampler{2} end
-"Subsample a space down to a new space"
-function subsample(lattice::AbstractLattice{T,2}, rs::RadialSlice) where T
-	dxs = coordinate_indices(lattice, rs)
-	slice_coords = lattice.arr[dxs]
-	CompactLattice{T,1}([(coord[2],) for coord in slice_coords])
+@with_kw struct RightCutProportionFromValue{D,T} <: AbstractSubsampler{D}
+    cut::NTuple{D,T}
+    proportion::NTuple{D,T}
 end
+export RightCutProportionFromValue
 
 "IndexInfo specifies the index of 0 and the stride (`Δ`) between indices."
 @with_kw struct IndexInfo{D,N}
@@ -60,23 +58,19 @@ end
 
 StrideToEnd is a custom index type that acts like `start:stride:end`, to circumvent the fact that you can't put `start:stride:end` into a variable.
 """
-struct StrideToEnd
+struct StrideToEnd{STOP}
     stride::Int
 	start::Int
-	StrideToEnd(stride::Int, start::Int=1) = new(stride, start)
+    stop::STOP
+    StrideToEnd{STOP}(stride::Int, start::Int=1, stop::STOP=nothing) where {STOP<:Union{Nothing,Int}} = new(stride, start,stop)
 end
-to_indices(A, inds, I::Tuple{StrideToEnd, Vararg{Any}})=
+StrideToEnd(stride, start, stop::S=nothing) where S = StrideToEnd{S}(stride, start, stop)
+to_indices(A, inds, I::Tuple{StrideToEnd{Int}, Vararg{Any}})=
+(@_inline_meta; (I[1].start:I[1].stride:I[1].stop, to_indices(A, _maybetail(inds), tail(I))...))
+to_indices(A, inds, I::Tuple{StrideToEnd{Nothing}, Vararg{Any}})=
 	(@_inline_meta; (I[1].start:I[1].stride:inds[1][end], to_indices(A, _maybetail(inds), tail(I))...))
 to_indices(A, inds, I::Tuple{NTuple{N,StrideToEnd}, Vararg{Any}}) where N = to_indices(A, inds, (I[1]..., _maybetail(I)...))
 getindex(A::AbstractArray, S::StrideToEnd) = getindex(A, to_indices(A, (S,))...)
-
-
-## RadialSlice
-"Get the coordinates of the subsample space within the larger space."
-function coordinate_indices(space::AbstractLattice{T,2}, subsampler::RadialSlice) where T
-	origin = origin_idx(space)
-	[CartesianIndex(origin[1], x) for x in origin[2]:size(space,2)]
-end
 
 function coordinate_indices(lattice::AbstractLattice{T}, subsampler::RightCutFromValue{D,T}) where {T,D}
     axis_dxs = map(zip(subsampler.cut, coordinate_axes(lattice))) do (value, axis)
@@ -85,6 +79,16 @@ function coordinate_indices(lattice::AbstractLattice{T}, subsampler::RightCutFro
     stride = 1
     cuts = Tuple(axis_dxs)
     return StrideToEnd.(stride, cuts)
+end
+function coordinate_indices(lattice::AbstractLattice{T}, subsampler::RightCutProportionFromValue{D,T}) where {T,D}
+    start_stop = map(zip(subsampler.cut, subsampler.proportion, coordinate_axes(lattice))) do (value, proportion, axis)
+        axis_begin = findfirst(axis .>= value)
+        remaining_span = length(axis) - axis_begin
+        axis_end = floor(Int, axis_begin + remaining_span * proportion)
+        (axis_begin, axis_end)
+    end
+    axis_starts, axis_stops = zip(start_stop...)
+    return StrideToEnd.(1, axis_starts, axis_stops)
 end
 
 function coordinate_indices(::Any, subsampler::IndexSubsampler{D}) where D
