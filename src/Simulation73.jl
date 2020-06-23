@@ -73,11 +73,12 @@ export AbstractModel, AbstractModelwithDelay, Solver, Simulation,
 # # "exploring.jl"
 # export Search, SearchExecution, make_problem_generator, search, run_search
 
+abstract type AbstractParameter{T} end
 include("helpers.jl")
 include("deconstructing.jl")
-include("parameter.jl")
 include("variables.jl")
 include("space.jl")
+include("parameter.jl")
 include("action.jl")
 include("population.jl")
 include("subsampling.jl") # depends on space.jl

@@ -11,16 +11,16 @@ abstract type AbstractFullExecution{T,SIM} <: AbstractExecution{T,SIM} end
 export AbstractFullExecution
 
 
-function (am::Type{<:AbstractModel})(fallback_args...; fallback_kwargs...)
-    #@warn """Model $am undefined!
-    #---------------------
-    #$fallback_args
-   # 
-    #$fallback_kwargs
-    #---------------------   
-    #"""
-    missing
-end
+#function (am::Type{<:AbstractModel})(fallback_args...; fallback_kwargs...)
+#    @warn """Model $am undefined!
+#    ---------------------
+#    $fallback_args
+#    
+#    $fallback_kwargs
+#    ---------------------   
+#    """
+#    missing
+#end
 
 struct FailedSimulation{T} <: AbstractSimulation{T} end
 struct FailedExecution{T,S<:FailedSimulation{T}} <: AbstractExecution{T,S}

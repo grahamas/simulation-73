@@ -135,10 +135,16 @@ function pops(t::Type{T}; kwargs...) where T
 	end
 end
 
-function pops(ps::Array{P,1}) where {P<:AbstractParameter}
+function pops(ps::Vector)# where {P<:AbstractParameter}
     PopulationActionsParameters(ps...)
 end
-function pops(ps::Array{P,2}) where {P<:AbstractParameter}
+function pops(ps::Matrix)# where {P<:AbstractParameter}
     PopulationInteractionsParameters(ps...)
 end
-    
+
+function pops(ps::Vector{A}) where {A <: AbstractPopulationInteractionsParameters}
+    @show ps
+    @show array.(ps)
+    PopulationInteractionsParameters([CompositeParameter([pop_params...]) for pop_params in zip(array.(ps)...)]...)
+end
+
