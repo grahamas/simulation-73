@@ -30,16 +30,16 @@ function unembed_values(lattice::AbstractEmbeddedLattice{T,N_ARR,N_CDT}, values:
 end
 
 linear_next(num::Int) = num + 1
-@recipe function f(lattice::AbstractEmbeddedLattice, values; layout=nothing, subplot=nothing)
-    @series begin
-        subplot := subplot
-        (lattice.lattice, values)
-    end
-    @series begin
-        subplot := linear_next(subplot)
-        (lattice.embedded_lattice, unembed_values(lattice, values))
-    end
-end
+#@recipe function f(lattice::AbstractEmbeddedLattice, values; layout=nothing, subplot=nothing)
+#    @series begin
+#        subplot := subplot
+#        (lattice.lattice, values)
+#    end
+#    @series begin
+#        subplot := linear_next(subplot)
+#        (lattice.embedded_lattice, unembed_values(lattice, values))
+#    end
+#end
 
 
 struct RandomlyEmbeddedLattice{T,N_ARR,N_CDT,L<:AbstractLattice{T,N_ARR},E<:AbstractSpace{T}} <: AbstractEmbeddedLattice{T,N_ARR,N_CDT,L}
