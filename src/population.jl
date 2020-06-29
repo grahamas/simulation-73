@@ -143,8 +143,6 @@ function pops(ps::Matrix)# where {P<:AbstractParameter}
 end
 
 function pops(ps::Vector{A}) where {A <: AbstractPopulationInteractionsParameters}
-    @show ps
-    @show array.(ps)
     PopulationInteractionsParameters([CompositeParameter([pop_params...]) for pop_params in zip(array.(ps)...)]...)
 end
 

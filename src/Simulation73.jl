@@ -9,8 +9,9 @@ import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler,
 using OrdinaryDiffEq
 #using RecipesBase
 using Parameters
-using RecipesBase
 using Lazy
+using AxisIndices
+using AbstractPlotting
 
 # ENV["GKSwstype"] = "100" # For headless plotting (on server)
 # ENV["MPLBACKEND"]="Agg"

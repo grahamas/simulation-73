@@ -52,7 +52,7 @@ function heatmap_slices_execution(exec::AbstractExecution, n_slices=5, resolutio
     return (scene, layout)
 end
 
-function animate_execution(filename, execution::AbstractFullExecution{T,<:Simulation{T}}; fps=20, kwargs...) where T
+function animate_execution(filename, execution::AbstractFullExecution{T,<:Simulation{T,M}}; fps=20, kwargs...) where {T, M<:AbstractModel{T,1}}
     solution = execution.solution
     pop_names = execution.simulation.model.pop_names
     x = coordinate_axes(Simulation73.reduced_space(execution))[1]
@@ -70,3 +70,72 @@ function animate_execution(filename, execution::AbstractFullExecution{T,<:Simula
         time_idx_node[] = time_idx
     end
 end
+
+function animate_execution(filename, execution::AbstractFullExecution{T,<:Simulation{T,M}}; fps=20, kwargs...) where {T, M<:AbstractModel{T,2}}
+    solution = execution.solution
+    pop_names = execution.simulation.model.pop_names
+    x,y = coordinate_axes(Simulation73.reduced_space(execution))
+    t = timepoints(execution)
+    max_val = maximum(solution)
+	min_val = minimum(solution)
+    
+    scene = Scene();
+    time_idx_node = Node(1)
+    single_pop = lift(idx -> population_timepoint(solution, 1, idx), time_idx_node)
+    @assert size(single_pop[]) == (length(x), length(y))
+    heatmap!(scene, x, y, single_pop, colorrange=(min_val,max_val))
+    
+    record(scene, filename, 1:length(t); framerate=fps) do time_idx # TODO @views
+        time_idx_node[] = time_idx
+    end
+end
+
+function mean_skip_missing(A::AbstractArray; dims)
+    missings = ismissing.(A)
+    zeroed = copy(A)
+    zeroed[missings] .= 0
+    nonmissingsum = sum(zeroed; dims=dims)
+    nonmissingmean = nonmissingsum ./ sum(.!missings; dims=dims)
+    return nonmissingmean
+end
+
+function avg_across_dims(arr, dims)
+    avgd = mean_skip_missing(arr, dims=dims)
+    squeezed = dropdims(avgd, dims=dims)
+    return collect(squeezed)
+end
+
+using IterTools
+export sweep_2D_slice_heatmaps
+function sweep_2D_slice_heatmaps(A::NamedAxisArray; 
+                       plot_color = :magma, title = "")
+    mod_names = [string(name) for name in keys(named_axes(A))]
+    mod_values = keys.(values(named_axes(A))) 
+    all_dims = 1:length(mod_names)
+    slices_2d = IterTools.subsets(all_dims, Val{2}())
+    plot_side_size = 350 * (length(all_dims) - 1)
+    plot_size = (plot_side_size, plot_side_size)
+    scene, layout = layoutscene(resolution=plot_size, title=title)
+
+    heatmaps = map(slices_2d) do (x,y)
+        (x,y) = x < y ? (x,y) : (y,x)
+        collapsed_dims = Tuple(setdiff(all_dims, (x,y)))
+        mean_values = avg_across_dims(A, collapsed_dims)
+        my = mod_values[y] |> collect
+        mx = mod_values[x] |> collect
+        
+        @assert size(mean_values) == length.((mod_values[x], mod_values[y]))
+        
+        layout[x,y] = ax = LAxis(scene); 
+        tightlimits!(ax)
+        heatmap!(ax, my, mx, mean_values', colorrange=(0,1), color=plot_color)
+            #xlab=mod_names[y], ylab=mod_names[x], color=plot_color, title="prop epileptic"),
+    end
+    layout[:,1] = LText.(Ref(scene), mod_names[1:end-1], tellheight=false, rotation=pi/2)
+    layout[end+1,2:end] = LText.(scene, mod_names[2:end], tellwidth=false)
+    layout[0, :] = LText(scene, title, textsize = 30)
+    cbar = layout[2:end-1, end+1] = LColorbar(scene, heatmaps[1], label = "Proportion classified")
+    cbar.width = 25
+    return scene
+end
+
