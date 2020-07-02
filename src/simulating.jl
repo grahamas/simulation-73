@@ -184,7 +184,6 @@ function _solve(simulation::Simulation, alg, ensemble_alg; prob_func::Function, 
         solver_options = (solver_options..., dt=dt)
     end
     initial_problem = generate_problem(simulation; callback=callback)
-    @show u_init
     ensemble_problem = EnsembleProblem(initial_problem;
                     output_func=output_func,
                     prob_func=prob_func,
