@@ -7,7 +7,9 @@ A Lattice of points with `extent` describing the length along each dimension and
 struct PeriodicLattice{T,N_ARR} <: AbstractPeriodicLattice{T,N_ARR,N_ARR}
     arr::Array{NTuple{N_ARR,T},N_ARR}
 end
-(t::Type{<:PeriodicLattice})(; extent, n_points) = t(.-extent ./ 2, extent ./ 2 .- (extent ./ n_points), n_points)
+function (t::Type{<:PeriodicLattice})(; extent, n_points)
+    t(.-extent ./ 2, extent ./ 2 .- (extent ./ n_points), n_points)
+end
 difference(p_lattice::PeriodicLattice, edge) = abs_difference_periodic(edge, extent(p_lattice))
 
 # @recipe function f(lattice::PeriodicLattice{T,1}, values; val_lim=(0.0, 1.0)) where T
