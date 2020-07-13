@@ -12,7 +12,6 @@ jobs:
     script:
     - julia --project=docs/ -e 'using Pkg;
       Pkg.develop([PackageSpec(path=pwd())]);
-      haskey(Pkg.installed(), "Documenter") || Pkg.add("Documenter");
       Pkg.instantiate();
       include("docs/make.jl")'
     after_success: skip
