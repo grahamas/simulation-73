@@ -21,7 +21,7 @@ Return an object containing `n_points` equidistant coordinates of a segment of l
 
 # Example
 ```jldoctest
-julia> seg = discrete_segment(5.0, 7);
+julia> seg = discrete_segment(0.0, 5.0, 7);
 
 julia> length(seg) == 7
 true
