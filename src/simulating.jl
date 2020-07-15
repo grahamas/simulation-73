@@ -88,7 +88,7 @@ struct Simulation{
     solver_options
 end
 function Simulation(model::M; space::S, tspan, initial_value::IV=initial_value(model,space), 
-                    algorithm::ALG=nothing, dt::DT=nothing, save_idxs::SV_IDX=nothing, step_reduction::SR=nothing, global_reduction::GR=(sol,i) -> (sol, false), 
+                    algorithm::ALG=nothing, dt::DT=nothing, save_idxs::SV_IDX=nothing, step_reduction::SR=nothing, global_reduction::GR=identity, 
         opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N},IV,ALG,DT,SV_IDX,SR,GR}
     save_idxs = parse_save_idxs(space, P, save_idxs)
     return Simulation{T,M,S,IV,ALG,DT,typeof(save_idxs),SR,GR}(model, space, tspan, initial_value, algorithm, dt, save_idxs, step_reduction, global_reduction, opts)
