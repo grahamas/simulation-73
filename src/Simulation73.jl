@@ -91,6 +91,8 @@ include("targets.jl")
 # include("exploring.jl")
 include("analysing.jl")
 include("plotting.jl")
-export heatmap_slices_execution, animate_execution
+export heatmap_slices_execution, animate_execution,
+    exec_heatmap, exec_heatmap!,
+    exec_heatmap_slices
 
 end
