@@ -22,7 +22,7 @@ function heatmap_slices_execution(exec::AbstractExecution, n_slices=5, resolutio
     heatmaps = map(1:length(pop_names)) do idx_pop
         ax = hm_axes[idx_pop]
         pop_activity = cat(population.(soln.u, idx_pop)..., dims=2)
-        heatmap!(ax, t[t_idx_subs], xs[xs_idx_subs], pop_activity[xs_idx_subs,t_idx_subs]')
+        heatmap!(ax, t[t_idx_subs], xs[xs_idx_subs], pop_activity[xs_idx_subs,t_idx_subs].parent')
     end
     tightlimits!.(hm_axes)
     linkaxes!(hm_axes...)
@@ -52,7 +52,7 @@ function heatmap_slices_execution(exec::AbstractExecution, n_slices=5, resolutio
     return (scene, layout)
 end
 
-function animate_execution(filename, execution::AbstractFullExecution{T,<:Simulation{T,M}}; fps=20, kwargs...) where {T, M<:AbstractModel{T,1}}
+function animate_execution(filename::AbstractString, execution::AbstractFullExecution{T,<:Simulation{T,M}}; fps=20, kwargs...) where {T, M<:AbstractModel{T,1}}
     solution = execution.solution
     pop_names = execution.simulation.model.pop_names
     x = coordinate_axes(Simulation73.reduced_space(execution))[1]
@@ -71,7 +71,7 @@ function animate_execution(filename, execution::AbstractFullExecution{T,<:Simula
     end
 end
 
-function animate_execution(filename, execution::AbstractFullExecution{T,<:Simulation{T,M}}; fps=20, kwargs...) where {T, M<:AbstractModel{T,2}}
+function animate_execution(filename::AbstractString, execution::AbstractFullExecution{T,<:Simulation{T,M}}; fps=20, kwargs...) where {T, M<:AbstractModel{T,2}}
     solution = execution.solution
     pop_names = execution.simulation.model.pop_names
     x,y = coordinate_axes(Simulation73.reduced_space(execution))
@@ -90,6 +90,46 @@ function animate_execution(filename, execution::AbstractFullExecution{T,<:Simula
     end
 end
 
+function exec_heatmap(exec::AbstractExecution; kwargs...)
+    scene, layout = layoutscene(resolution=(1200, 1200))
+    layout[1,1] = exec_heatmap!(scene, exec; kwargs...)
+    return scene
+end
+
+function exec_heatmap!(scene::Scene, exec::AbstractExecution; 
+                       clims=nothing, no_labels=false)
+    layout = GridLayout()
+    soln = exec.solution
+    t = soln.t
+    xs = coordinate_axes(Simulation73.reduced_space(exec))[1] |> collect
+    pop_names = exec.simulation.model.pop_names
+
+    hm_axes = layout[1,1:length(pop_names)] = [LAxis(scene, title = "$pop_name activity") for pop_name in pop_names]
+    heatmaps = map(1:length(pop_names)) do idx_pop
+        ax = hm_axes[idx_pop]
+        pop_activity = cat(population.(soln.u, idx_pop)..., dims=2)
+        #if clims !== nothing
+        htmp = heatmap!(ax, t, xs, pop_activity.parent')
+        #else
+        #    heatmap!(ax, t, xs, pop_activity.parent', clims=clims)
+        #end
+        ax.xticks = [0, floor(Int,t[end])]
+        htmp
+    end
+    tightlimits!.(hm_axes)
+    linkaxes!(hm_axes...)
+    hideydecorations!.(hm_axes[2:end])
+    cbar = layout[:, length(pop_names) + 1] = LColorbar(scene, heatmaps[1])
+    cbar.width = 25
+  
+    @show no_labels
+    if !no_labels
+        ylabel = layout[:,0] = LText(scene, "space (μm)", rotation=pi/2, tellheight=false)
+        xlabel = layout[end+1,2:3] = LText(scene, "time (ms)")
+    end
+    return layout
+end 
+
 function mean_skip_missing(A::AbstractArray; dims)
     missings = ismissing.(A)
     zeroed = copy(A)
@@ -107,15 +147,17 @@ end
 
 using IterTools
 export sweep_2D_slice_heatmaps
-function sweep_2D_slice_heatmaps(A::NamedAxisArray; 
-                       plot_color = :magma, title = "")
+
+
+function sweep_2D_slice_heatmaps(scene, A::NamedAxisArray; 
+                       plot_color = :magma, title = "FILLER")
     mod_names = [string(name) for name in keys(named_axes(A))]
     mod_values = keys.(values(named_axes(A))) 
     all_dims = 1:length(mod_names)
     slices_2d = IterTools.subsets(all_dims, Val{2}())
-    plot_side_size = 350 * (length(all_dims) - 1)
-    plot_size = (plot_side_size, plot_side_size)
-    scene, layout = layoutscene(resolution=plot_size, title=title)
+    #plot_side_size = 350 * (length(all_dims) - 1)
+    #plot_size = (plot_side_size, plot_side_size)
+    layout = GridLayout()
 
     heatmaps = map(slices_2d) do (x,y)
         (x,y) = x < y ? (x,y) : (y,x)
@@ -136,80 +178,6 @@ function sweep_2D_slice_heatmaps(A::NamedAxisArray;
     layout[0, :] = LText(scene, title, textsize = 30)
     cbar = layout[2:end-1, end+1] = LColorbar(scene, heatmaps[1], label = "Proportion classified")
     cbar.width = 25
-    return scene
+    return layout
 end
-
-
-function exec_heatmap_slices(exec::AbstractExecution, n_slices=5, resolution=(1600,1200))
-    @warn  "exec_heatmap_slices"
-    scene, layout = layoutscene(resolution=resolution)
-    
-    # adding timepoint slices
-    soln = exec.solution
-    t = soln.t
-    xs = coordinate_axes(Simulation73.reduced_space(exec))[1] |> collect
-    pop_names = exec.simulation.model.pop_names
-    pop_idxs = 1:length(pop_names)
-    
-    n_x, n_p, n_t = size(soln)
-    step = (length(soln.t)) ÷ n_slices
-    t_idxs = 2:step:length(soln.t)
-    
-    hm_axes = [LAxis(scene, title = "$pop_name activity", aspect=1.0) for pop_name in pop_names]
-    heatmaps = map(1:length(pop_names)) do idx_pop
-        ax = hm_axes[idx_pop]
-        pop_activity = cat(population.(soln.u, idx_pop)..., dims=2)
-        heatmap!(ax, t, xs, pop_activity.parent')
-    end
-    tightlimits!.(hm_axes)
-    linkaxes!(hm_axes...)
-    hideydecorations!.(hm_axes[2:end])
-    
-    layout[2,pop_idxs] = map(pop_idxs) do pop_idx
-        slices_layout = GridLayout(rowsizes=[Auto()], alignmode=Outside(10), tellheight=true)
-        slice_axes = slices_layout[:h] = map(t_idxs) do t_idx
-            ax = LAxis(scene, aspect=1.0, tellheight=true)
-            lines!(ax, xs, soln[:,pop_idx,t_idx])
-            tightlimits!(ax)
-            hideydecorations!(ax)
-            hidexdecorations!(ax)
-            ax
-        end
-        linkaxes!(slice_axes...)
-        slices_layout[2,1:length(t_idxs)] = [LText(scene, "t=$(round(time, digits=1))", textsize=14, tellwidth=false) for time in t[t_idxs]]
-        trim!(slices_layout)
-        slices_layout        
-    end
-    layout[1,pop_idxs] = hm_axes
-    cbar = layout[1, end+1] = LColorbar(scene, heatmaps[1], label = "Activity Level")
-    cbar.width = 25
-
-    ylabel = layout[:,0] = LText(scene, "space (μm)", rotation=pi/2, tellheight=false)
-    xlabel = layout[end+1,2:3] = LText(scene, "time (ms)")
-    return (scene, layout)
-end
-
-function exec_heatmap(exec::AbstractExecution)
-    scene, layout = layoutscene(resolution=(1200, 1200))
-    soln = exec.solution
-    t = soln.t
-    xs = coordinate_axes(Simulation73.reduced_space(exec))[1] |> collect
-    pop_names = exec.simulation.model.pop_names
-
-    hm_axes = layout[1,1:length(pop_names)] = [LAxis(scene, title = "$pop_name activity") for pop_name in pop_names]
-    heatmaps = map(1:length(pop_names)) do idx_pop
-        ax = hm_axes[idx_pop]
-        pop_activity = cat(population.(soln.u, idx_pop)..., dims=2)
-        heatmap!(ax, t, xs, pop_activity.parent')
-    end
-    tightlimits!.(hm_axes)
-    linkaxes!(hm_axes...)
-    hideydecorations!.(hm_axes[2:end])
-    cbar = layout[:, length(pop_names) + 1] = LColorbar(scene, heatmaps[1], label = "Activity Level")
-    cbar.width = 25
-  
-    ylabel = layout[:,0] = LText(scene, "space (μm)", rotation=pi/2, tellheight=false)
-    xlabel = layout[end+1,2:3] = LText(scene, "time (ms)")
-    return (scene, layout)
-end 
 
