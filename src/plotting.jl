@@ -122,7 +122,6 @@ function exec_heatmap!(scene::Scene, exec::AbstractExecution;
     cbar = layout[:, length(pop_names) + 1] = LColorbar(scene, heatmaps[1])
     cbar.width = 25
   
-    @show no_labels
     if !no_labels
         ylabel = layout[:,0] = LText(scene, "space (μm)", rotation=pi/2, tellheight=false)
         xlabel = layout[end+1,2:3] = LText(scene, "time (ms)")
@@ -142,7 +141,7 @@ end
 function avg_across_dims(arr, dims)
     avgd = mean_skip_missing(arr, dims=dims)
     squeezed = dropdims(avgd, dims=dims)
-    return collect(squeezed)
+    return squeezed
 end
 
 using IterTools
