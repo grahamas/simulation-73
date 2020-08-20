@@ -11,11 +11,6 @@ using OrdinaryDiffEq
 using Parameters
 using Lazy
 using AxisIndices
-using AbstractPlotting
-
-# ENV["GKSwstype"] = "100" # For headless plotting (on server)
-# ENV["MPLBACKEND"]="Agg"
-# using Plots
 
 # "variables.jl"
 export AbstractVariable, UnboundedVariable, BoundedVariable,
@@ -90,9 +85,5 @@ include("simulating.jl")
 include("targets.jl")
 # include("exploring.jl")
 include("analysing.jl")
-include("plotting.jl")
-export heatmap_slices_execution, animate_execution,
-    exec_heatmap, exec_heatmap!,
-    exec_heatmap_slices
 
 end
