@@ -1,16 +1,12 @@
 module Simulation73
 
 using DrWatson
-using Markdown # for doc_str
 using DifferentialEquations, DiffEqBase#, DiffEqParamEstim
-#using BlackBoxOptim, Optim
-using JLD2
 import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
 using OrdinaryDiffEq
-#using RecipesBase
-using Parameters
 using Lazy
 using AxisIndices
+using Parameters
 
 # "variables.jl"
 export AbstractVariable, UnboundedVariable, BoundedVariable,
