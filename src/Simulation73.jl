@@ -1,21 +1,12 @@
 module Simulation73
 
 using DrWatson
-using Markdown # for doc_str
 using DifferentialEquations, DiffEqBase#, DiffEqParamEstim
-#using BlackBoxOptim, Optim
-using JLD2
 import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
 using OrdinaryDiffEq
-#using RecipesBase
-using Parameters
 using Lazy
 using AxisIndices
-using AbstractPlotting
-
-# ENV["GKSwstype"] = "100" # For headless plotting (on server)
-# ENV["MPLBACKEND"]="Agg"
-# using Plots
+using Parameters
 
 # "variables.jl"
 export AbstractVariable, UnboundedVariable, BoundedVariable,
@@ -90,9 +81,5 @@ include("simulating.jl")
 include("targets.jl")
 # include("exploring.jl")
 include("analysing.jl")
-# include("plotting.jl")
-export heatmap_slices_execution, animate_execution,
-    exec_heatmap, exec_heatmap!,
-    exec_heatmap_slices
 
 end
