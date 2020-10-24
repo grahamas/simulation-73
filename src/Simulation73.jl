@@ -1,8 +1,9 @@
 module Simulation73
 
 using DrWatson
-using DifferentialEquations, DiffEqBase#, DiffEqParamEstim
-import DifferentialEquations: DESolution, OrdinaryDiffEqAlgorithm, solve, Euler, ODEProblem
+using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks#, DiffEqParamEstim
+import OrdinaryDiffEq: OrdinaryDiffEqAlgorithm, ODEProblem, Euler
+import DiffEqBase: DESolution, solve, ODEProblem
 using OrdinaryDiffEq
 using Lazy
 using AxisIndices
@@ -55,7 +56,8 @@ export AbstractTarget, target_loss
 export execute
 
 # "simulating.jl"
-export AbstractModel, AbstractModelwithDelay, Solver, Simulation, 
+export AbstractModel, AbstractODEModel,
+     AbstractModelwithDelay, Solver, Simulation, 
     AbstractExecution, Execution, FailedExecution,
 	initial_value, history, time_span, saved_dt, saved_dx,
 	generate_problem, solve, run_simulation,

@@ -27,34 +27,34 @@ struct FailedExecution{T,S<:FailedSimulation{T}} <: AbstractExecution{T,S}
     sim::S
 end
 
-export AbstractNoisyModel, NoisyInputModel, NoisyInputAction, AbstractODEModel
+# export AbstractNoisyModel, NoisyInputModel, NoisyInputAction, AbstractODEModel
 
-struct NoisyInputModel{T,N,P,M<:AbstractModel{T,N,P}} <: AbstractNoisyModel{T,N,P}
-    model::M
-    noise_process::NoiseProcess
-end
-function Base.getproperty(wnm::NoisyInputModel, sym::Symbol)
-    if sym ∈ [:noise_process, :model]
-        return getfield(wnm, sym)
-    else
-        return getproperty(getfield(wnm, :model), sym)
-    end
-end
+# struct NoisyInputModel{T,N,P,M<:AbstractModel{T,N,P}} <: AbstractNoisyModel{T,N,P}
+#     model::M
+#     noise_process::NoiseProcess
+# end
+# function Base.getproperty(wnm::NoisyInputModel, sym::Symbol)
+#     if sym ∈ [:noise_process, :model]
+#         return getfield(wnm, sym)
+#     else
+#         return getproperty(getfield(wnm, :model), sym)
+#     end
+# end
 
-struct NoisyInputAction{T,N,SA<:AbstractSpaceAction{T,N}} <: AbstractNoisySpaceAction{T,N}
-    space_action::SA
-    noise_process::NoiseProcess
-end
-function (act::NoisyInputAction)(du, u, p, t, W)
-    du .= W
-    act.space_action(du, u, p, t)
-end
+# struct NoisyInputAction{T,N,SA<:AbstractSpaceAction{T,N}} <: AbstractNoisySpaceAction{T,N}
+#     space_action::SA
+#     noise_process::NoiseProcess
+# end
+# function (act::NoisyInputAction)(du, u, p, t, W)
+#     du .= W
+#     act.space_action(du, u, p, t)
+# end
 
 
-function (nim::NoisyInputModel)(args...) 
-    inner_fn = nim.model(args...)
-    NoisyInputAction(inner_fn, nim.noise_process)
-end
+# function (nim::NoisyInputModel)(args...) 
+#     inner_fn = nim.model(args...)
+#     NoisyInputAction(inner_fn, nim.noise_process)
+# end
     
 
 n_populations(::AbstractModel{T,N,P}) where {T,N,P} = P
@@ -155,10 +155,10 @@ function generate_problem(simulation::Simulation{T,<:AbstractODEModel}; callback
     return ODEProblem(ode_fn, simulation.initial_value, simulation.tspan, callback=callback)
 end
 
-function generate_problem(simulation::Simulation{T,<:AbstractNoisyModel}; callback=nothing) where {T}
-    system_fn! = make_system_mutator(simulation)# simulation.model(simulation.space)
-    return RODEProblem(system_fn!, simulation.initial_value, simulation.tspan, noise=simulation.model.noise_process, noise_prototype=zeros(size(simulation.initial_value)...), callback=callback)
-end
+# function generate_problem(simulation::Simulation{T,<:AbstractNoisyModel}; callback=nothing) where {T}
+#     system_fn! = make_system_mutator(simulation)# simulation.model(simulation.space)
+#     return RODEProblem(system_fn!, simulation.initial_value, simulation.tspan, noise=simulation.model.noise_process, noise_prototype=zeros(size(simulation.initial_value)...), callback=callback)
+# end
 
 # TODO: Add history functionality
 # function generate_problem(simulation::Simulation{T,MwD}) where {T, MwD<:AbstractModelwithDelay}
