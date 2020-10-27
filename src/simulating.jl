@@ -74,7 +74,7 @@ struct Simulation{
         ALG,
         DT<:Union{T,Nothing},
         SV_IDX<:Union{AbstractArray,Nothing},
-        SR<:Union{Tuple{Function,DataType},Nothing},
+        CB<:Union{Tuple{Function,NamedTuple},Tuple{DECallback,NamedTuple},Nothing},
         GR<:Function} <: AbstractSimulation{T}
     model::M
     space::S
@@ -83,15 +83,15 @@ struct Simulation{
     algorithm::ALG
     dt::DT
     save_idxs::SV_IDX
-    step_reduction::SR
+    callback::CB
     global_reduction::GR
     solver_options
 end
 function Simulation(model::M; space::S, tspan, initial_value::IV=initial_value(model,space), 
-                    algorithm::ALG=nothing, dt::DT=nothing, save_idxs::SV_IDX=nothing, step_reduction::SR=nothing, global_reduction::GR=identity, 
-        opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N},IV,ALG,DT,SV_IDX,SR,GR}
+                    algorithm::ALG=nothing, dt::DT=nothing, save_idxs::SV_IDX=nothing, callback::CB=nothing, global_reduction::GR=identity, 
+        opts...) where {T,N,P,M<:AbstractModel{T,N,P}, S<:AbstractSpace{T,N},IV,ALG,DT,SV_IDX,CB,GR}
     save_idxs = parse_save_idxs(space, P, save_idxs)
-    return Simulation{T,M,S,IV,ALG,DT,typeof(save_idxs),SR,GR}(model, space, tspan, initial_value, algorithm, dt, save_idxs, step_reduction, global_reduction, opts)
+    return Simulation{T,M,S,IV,ALG,DT,typeof(save_idxs),CB,GR}(model, space, tspan, initial_value, algorithm, dt, save_idxs, callback, global_reduction, opts)
 end
 function Simulation(model::Missing; kwargs...)
     return FailedSimulation{Missing}()
@@ -128,6 +128,7 @@ timepoints(ex::AbstractFullExecution) = ex.solution.t
 reduced_space(sim::Simulation) = subsample(sim.space, sim.save_idxs)
 reduced_space(ex::AbstractExecution) = reduced_space(ex.simulation)
 frame_xs(exec::AbstractExecution{T,<:Simulation{T,<:M}}) where {T,M<:AbstractModel{T,1}} = [x[1] for x in reduced_space(exec).arr]
+frame_xs(sim::Simulation) = [x[1] for x in reduced_space(sim).arr]
 origin_idx(sim::Simulation) = origin_idx(sim.space)
 origin_idx(ex::AbstractExecution) = origin_idx(ex.simulation)
 extrema(ex::AbstractFullExecution) = extrema(ex.solution.u)
@@ -149,10 +150,16 @@ end
 
 Return an ODEProblem of the `simulation.model` with time span specified by `simulation.solver`.
 """
-function generate_problem(simulation::Simulation{T,<:AbstractODEModel}; callback=nothing) where {T}
+
+function generate_problem(simulation::Simulation{T,<:AbstractODEModel}, p::NamedTuple, callback::DECallback) where {T}
     system_fn! = make_system_mutator(simulation)# simulation.model(simulation.space)
     ode_fn = convert(ODEFunction{true}, system_fn!)
-    return ODEProblem(ode_fn, simulation.initial_value, simulation.tspan, callback=callback)
+    return ODEProblem(ode_fn, simulation.initial_value, simulation.tspan, p;callback=callback)
+end
+function generate_problem(simulation::Simulation{T,<:AbstractODEModel}, callback::Nothing, p::NamedTuple) where {T}
+    system_fn! = make_system_mutator(simulation)# simulation.model(simulation.space)
+    ode_fn = convert(ODEFunction{true}, system_fn!)
+    return ODEProblem(ode_fn, simulation.initial_value, simulation.tspan, p)
 end
 
 # function generate_problem(simulation::Simulation{T,<:AbstractNoisyModel}; callback=nothing) where {T}
@@ -170,44 +177,37 @@ function parse_save_idxs(space::AbstractSpace, P, subsampler::Union{AbstractSubs
 	one_pop_coordinates = coordinate_indices(space, subsampler)
 	population_coordinates(one_pop_coordinates, P)
 end
+export handle_callback
+function handle_callback(sim::Simulation{T,M,S,IV,ALG,DT,SV_IDX,CB,GR}) where {T,M,S,IV,ALG,DT,SV_IDX,CB<:Nothing,GR}
+    return ((;), nothing)
+end
 
 # TODO this could probably all be better served by dispatch; but that gets difficult
-function _solve(simulation::Simulation, alg; callback=nothing, dt=nothing, solver_options...)
+function _solve(simulation::Simulation, alg; dt=nothing, solver_options...)
     if dt != nothing
         solver_options = (solver_options..., dt=dt)
     end
-    problem = generate_problem(simulation; callback=callback)
+    p, callback = handle_callback(simulation)
+    problem = generate_problem(simulation, p, callback)
     solve(problem, alg; solver_options...)
 end
-function _solve(simulation::Simulation, alg, ensemble_alg; prob_func::Function, output_func=(sol, i) -> (simulation.global_reduction(sol), false), reduction=(u,data,i) -> (append!(u,data), false), callback=nothing, dt=nothing, u_init=[], solver_options...)
+function _solve(simulation::Simulation, alg, ensemble_alg; prob_func::Function, output_func=(sol, i) -> (simulation.global_reduction(sol), false), reduction=(u,data,i) -> (append!(u,data), false), dt=nothing, u_init=[], solver_options...)
     if dt != nothing
         solver_options = (solver_options..., dt=dt)
     end
-    initial_problem = generate_problem(simulation; callback=callback)
+    p, callback = handle_callback(simulation)
+    initial_problem = generate_problem(simulation, p, callback)
     ensemble_problem = EnsembleProblem(initial_problem;
                     output_func=output_func,
                     prob_func=prob_func,
                     reduction=reduction,
                     u_init=u_init)
+                    @show solver_options
     solve(ensemble_problem, alg, ensemble_alg; solver_options...)
 end
 
-function solve(simulation::Simulation{T,M,S,IV,ALG,DT,SV_IDX,Nothing,GR}, args...; kwargs...) where {T,M,S,IV,ALG,DT,SV_IDX,GR}
+function solve(simulation::Simulation, args...; kwargs...)
     sol = _solve(simulation, simulation.algorithm, args...; dt=simulation.dt, save_idxs=simulation.save_idxs, simulation.solver_options..., kwargs...)
     return sol
-end
-
-function solve(simulation::Simulation{T,M,S,IV,ALG,DT,SV_IDX,<:Tuple,GR}, args...; kwargs...) where {T,M,S,IV,ALG,DT,SV_IDX,GR}
-    save_func, save_type = simulation.step_reduction
-    sv = SavedValues(T,save_type)
-    all_callbacks = SavingCallback(save_func, sv)
-        
-    if :callback ∈ keys(simulation.solver_options)
-        all_callbacks = CallbackSet(simulation.solver_options[:callback], all_callbacks)
-    end
-    # save_callback has all callbacks
-    
-    sol = _solve(simulation, simulation.algorithm, args...; dt=simulation.dt, save_idxs=simulation.save_idxs, simulation.solver_options..., callback=all_callbacks, kwargs...)
-    return (sol, sv)
 end
 

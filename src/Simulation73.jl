@@ -3,7 +3,7 @@ module Simulation73
 using DrWatson
 using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks#, DiffEqParamEstim
 import OrdinaryDiffEq: OrdinaryDiffEqAlgorithm, ODEProblem, Euler
-import DiffEqBase: DESolution, solve, ODEProblem
+import DiffEqBase: DESolution, solve, ODEProblem, DECallback
 using OrdinaryDiffEq
 using Lazy
 using AxisIndices
