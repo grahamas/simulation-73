@@ -32,9 +32,9 @@ julia> abs_difference_periodic( ((2,2), (5,-5)), (3,4) )
 (0, -3)
 ```
 """
-function abs_difference_periodic(edge::Tuple{T,T}, period::T) where T<:Number
+function abs_difference_periodic(edge::Tuple{T,T}, (period,)::Tuple{T}) where T<:Number
     diff = abs_difference(edge)
-    if diff > period / 2
+    if diff >= period / 2
         return period - diff
     else
         return diff

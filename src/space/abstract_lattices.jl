@@ -1,7 +1,7 @@
 
 abstract type AbstractLattice{T,N_ARR,N_CDT} <: AbstractSpace{T,N_ARR,N_CDT} end
-(t::Type{<:AbstractLattice})(start::Tuple, stop::Tuple, n_points::Tuple) = t(discrete_lattice(start, stop, n_points))
-(t::Type{<:AbstractLattice{T,1}})(start::Number, stop::Number, n_points::Int) where T = t((start,),(stop,),(n_points,))
+(t::Type{<:AbstractLattice})(start, stop, n_points) = t(discrete_lattice(start, stop, n_points))
+
 (t::Type{<:AbstractLattice})(; extent, n_points) = t(.-extent ./ 2, extent ./ 2, n_points)
 
 Base.CartesianIndices(lattice::AbstractLattice) = CartesianIndices(lattice.arr)
@@ -47,6 +47,7 @@ Return an object containing `n_points` equidistant coordinates along each dimens
 function discrete_lattice(start::Tup, stop::Tup, n_points::IntTup) where {Nminusone,T,Tup<:Tuple{T,Vararg{T,Nminusone}},IT<:Int,IntTup<:Tuple{IT,Vararg{IT,Nminusone}}}
     Iterators.product(discrete_segment.(start, stop, n_points)...) |> collect
 end
+discrete_lattice(start::T, stop::T, n_points::Int) where T = discrete_lattice((start,), (stop,), (n_points,))
 coordinates(lattice::AbstractLattice) = lattice.arr
 coordinate_axes(lattice::AbstractLattice) = (discrete_segment.(start(lattice), stop(lattice), size(lattice))...,)
 

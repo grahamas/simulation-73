@@ -6,10 +6,17 @@ A Lattice of points with `extent` describing the length along each dimension and
 """
 struct PeriodicLattice{T,N_ARR} <: AbstractPeriodicLattice{T,N_ARR,N_ARR}
     arr::Array{NTuple{N_ARR,T},N_ARR}
+    extent::NTuple{N_ARR,T}
 end
-function (t::Type{<:PeriodicLattice})(; extent, n_points)
-    t(.-extent ./ 2, extent ./ 2 .- (extent ./ n_points), n_points)
+(t::Type{<:PeriodicLattice})(; extent, n_points) =_periodiclattice(t, extent, n_points)
+function _periodiclattice(t, extent::Number, n_points::Number)
+    _periodiclattice(t, (extent,), (n_points,))
 end
+function _periodiclattice(t, extent::Tuple, n_points::Tuple)
+    t(discrete_lattice(.-extent ./ 2, extent ./ 2 .- (extent ./ n_points), n_points), extent)
+end
+extent(p::PeriodicLattice) = p.extent
+
 difference(p_lattice::PeriodicLattice, edge) = abs_difference_periodic(edge, extent(p_lattice))
 
 # @recipe function f(lattice::PeriodicLattice{T,1}, values; val_lim=(0.0, 1.0)) where T
@@ -39,18 +46,17 @@ difference(p_lattice::PeriodicLattice, edge) = abs_difference_periodic(edge, ext
 
 # TODO: Should be completely uniform in periodic case?
 export simpson_weights
-function simpson_weights(lattice::PeriodicLattice{T,1}) where T
-    @assert all(size(lattice) .% 2 .== 0)
+function simpson_weights(lattice::PeriodicLattice{T}) where T
     w = ones(T, size(lattice)...)
     return w
 end
-function simpson_weights(lattice::PeriodicLattice{T,2}) where T
-    # http://mathfaculty.fullerton.edu/mathews/n2003/SimpsonsRule2DMod.html
-    @assert all(size(lattice) .% 2 .== 0)
-    w = ones(T, size(lattice)...)
-    w[1:2:end-1,:] .*= 4.0
-    w[2:2:end,:] .*= 2.0
-    w[:,1:2:end-1] .*= 4.0
-    w[:,2:2:end] .*= 2.0
-    return w
-end
+# function simpson_weights(lattice::PeriodicLattice{T,2}) where T
+#     # http://mathfaculty.fullerton.edu/mathews/n2003/SimpsonsRule2DMod.html
+#     @assert all(size(lattice) .% 2 .== 0)
+#     w = ones(T, size(lattice)...)
+#     w[1:2:end-1,:] .*= 4.0
+#     w[2:2:end,:] .*= 2.0
+#     w[:,1:2:end-1] .*= 4.0
+#     w[:,2:2:end] .*= 2.0
+#     return w
+# end
