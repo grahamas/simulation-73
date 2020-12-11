@@ -16,3 +16,4 @@ docs/build/
 Manifest.toml
 
 *.mem
+*.cov
