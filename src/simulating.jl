@@ -8,7 +8,7 @@ abstract type AbstractSimulation{T} <: AbstractParameter{T} end
 abstract type AbstractExecution{T,SIM} end 
 # FIXME shouldn't the second type of full execution be the type of the solution?
 abstract type AbstractFullExecution{T,SIM} <: AbstractExecution{T,SIM} end
-export AbstractFullExecution
+export AbstractFullExecution, AbstractModel, AbstractSimulation
 
 
 #function (am::Type{<:AbstractModel})(fallback_args...; fallback_kwargs...)
