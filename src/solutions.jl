@@ -29,9 +29,6 @@ function Base.getproperty(bs::BareSolution, sym::Symbol)
         return Base.getfield(bs, sym)
     end
 end
-function DiffEqBase.add_labels!(labels,x,dims,sol::BareSolution)
-    return
-end
 timepoints(bs::BareSolution) = bs.t
 coordinates(bs::BareSolution) = bs.x
 function Base.show(io::IO, A::BareSolution)
