@@ -131,7 +131,9 @@ frame_xs(exec::AbstractExecution{T,<:Simulation{T,<:M}}) where {T,M<:AbstractMod
 frame_xs(sim::Simulation) = [x[1] for x in reduced_space(sim).arr]
 origin_idx(sim::Simulation) = origin_idx(sim.space)
 origin_idx(ex::AbstractExecution) = origin_idx(ex.simulation)
-extrema(ex::AbstractFullExecution) = extrema(ex.solution.u)
+Base.extrema(ex::AbstractFullExecution) = extrema.(ex.solution.u) |> extrema_arr -> reduce(((max1, min1), (max2, min2)) -> (max(max1, max2), min(min1, min2)), extrema_arr)
+Base.maximum(ex::AbstractFullExecution) = maximum(maximum.(ex.solution.u))
+Base.minimum(ex::AbstractFullExecution) = minimum(minimum.(ex.solution.u))
 stimulus_center(mod::AbstractModel) = center(mod.stimulus)
 stimulus_center(sim::Simulation) = stimulus_center(sim.model)
 export stimulus_center
