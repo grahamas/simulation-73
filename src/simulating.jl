@@ -74,7 +74,7 @@ struct Simulation{
         ALG,
         DT<:Union{T,Nothing},
         SV_IDX<:Union{AbstractArray,Nothing},
-        CB<:Union{Tuple{Function,NamedTuple},Tuple{DECallback,NamedTuple},Nothing},
+        CB<:Union{Tuple{Function,NamedTuple},Tuple{DECallback,NamedTuple},Nothing,Vector{Tuple{Function,NamedTuple}}},
         GR<:Function} <: AbstractSimulation{T}
     model::M
     space::S
@@ -180,8 +180,19 @@ function parse_save_idxs(space::AbstractSpace, P, subsampler::Union{AbstractSubs
 	population_coordinates(one_pop_coordinates, P)
 end
 export handle_callback
-function handle_callback(sim::Simulation{T,M,S,IV,ALG,DT,SV_IDX,CB,GR}) where {T,M,S,IV,ALG,DT,SV_IDX,CB<:Nothing,GR}
+function handle_callback(sim::Simulation)
+    return handle_callback(sim, sim.callback)
+end
+function handle_callback(sim::Simulation, cb::CB) where {CB<:Nothing}
     return ((;), nothing)
+end
+function handle_callback(sim::Simulation, unhandled_cbs::CB) where {CB<:Vector{<:Tuple}}
+    cb_nts = map(unhandled_cbs) do unhandled_cb
+        (nt, cb) = handle_callback(sim, unhandled_cb)
+    end
+    grand_cb = CallbackSet(cb_nt[1] for cb_nt in cb_nts)
+    grand_nt = merge(cb_nt[2] for cb_nt in cb_nts)
+    return (grand_nt, grand_cb)
 end
 
 # TODO this could probably all be better served by dispatch; but that gets difficult
