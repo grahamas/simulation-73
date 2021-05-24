@@ -188,10 +188,10 @@ function handle_callback(sim::Simulation, cb::CB) where {CB<:Nothing}
 end
 function handle_callback(sim::Simulation, unhandled_cbs::CB) where {CB<:Vector{<:Tuple}}
     cb_nts = map(unhandled_cbs) do unhandled_cb
-        (nt, cb) = handle_callback(sim, unhandled_cb)
+        nt::NamedTuple, cb::DECallback = handle_callback(sim, unhandled_cb)
     end
-    grand_cb = CallbackSet(cb_nt[1] for cb_nt in cb_nts)
-    grand_nt = merge(cb_nt[2] for cb_nt in cb_nts)
+    grand_cb = CallbackSet([cb_nt[2] for cb_nt in cb_nts]...)
+    grand_nt = merge([cb_nt[1] for cb_nt in cb_nts]...) # FIXME should reduce
     return (grand_nt, grand_cb)
 end
 
