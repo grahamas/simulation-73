@@ -13,7 +13,7 @@ py_exemplars/
 *.sublime*
 .ftpconfig
 docs/build/
-Manifest.toml
 
 *.mem
 *.cov
+*.log
