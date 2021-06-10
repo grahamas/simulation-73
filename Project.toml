@@ -1,7 +1,7 @@
 name = "Simulation73"
 uuid = "310cc8c8-1ffe-11e9-399c-c5a008d6bdcc"
 authors = ["Graham Smith <grahamas@gmail.com>"]
-version = "2.1.0"
+version = "2.2.0"
 
 [deps]
 AxisIndices = "f52c9ee2-1b1c-4fd8-8546-6350938c7f11"
